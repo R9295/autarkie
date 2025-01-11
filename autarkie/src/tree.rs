@@ -534,3 +534,7 @@ where
 {
     bincode::deserialize(data).expect("invariant; we must always be able to deserialize")
 }
+
+pub fn serialize_vec_len(len: usize) -> Vec<u8> {
+    bincode::serialize(&(len as u64)).expect("invariant; we must always be able to serialize")
+}

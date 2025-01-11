@@ -92,8 +92,7 @@ where
                             .expect("could not read splice file")
                         })
                         .collect::<Vec<_>>();
-                    // NOTE: length is encoded as u64 (same as bincode)
-                    let mut data = bincode::serialize(&(iter_size as u64)).expect("a0AAoZik____");
+                    let mut data = autarkie::serialize_vec_len(iter_size);
                     data.extend(items.iter().flatten());
                     #[cfg(debug_assertions)]
                     println!("splice | full | {:?}", field);
