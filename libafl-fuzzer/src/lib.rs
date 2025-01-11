@@ -44,8 +44,8 @@ use mutators::{
 
 use regex::Regex;
 use stages::{
-    cmp::CmpLogStage, deterministic::DeterministicStage, generate::GenerateStage,
-    minimization::MinimizationStage, recursive_minimization::RecursiveMinimizationStage,
+    cmp::CmpLogStage, generate::GenerateStage, minimization::MinimizationStage,
+    recursive_minimization::RecursiveMinimizationStage,
 };
 use std::{cell::RefCell, io::ErrorKind, path::PathBuf, process::Command, rc::Rc, time::Duration};
 use thesis::{DepthInfo, Node, Visitor};
@@ -320,6 +320,11 @@ struct Opt {
 
     #[arg(short = 'c', value_parser=Cores::from_cmdline)]
     cores: Cores,
+
+    #[arg(short = 'I', default_value_t = 5)]
+    iterate_depth: usize,
+    #[arg(short = 'G', default_value_t = 2)]
+    generate_depth: usize,
 
     #[arg(short = 'x')]
     dict_file: Option<PathBuf>,

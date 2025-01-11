@@ -1,7 +1,6 @@
 use libafl::{
     corpus::Corpus,
     executors::{Executor, HasObservers},
-    inputs::UsesInput,
     observers::{AFLppCmpValuesMetadata, CmpValues, ObserversTuple},
     stages::Stage,
     state::{HasCurrentTestcase, State, UsesState},
@@ -46,17 +45,10 @@ impl<'a, TE, E, S, I> CmpLogStage<'a, TE, E, S, I> {
     }
 }
 
-/* impl<TE, E, S, I> UsesState for CmpLogStage<'_, TE, E, S, I>
-where
-    S: State,
-{
-    type State = S;
-} */
-
 impl<TE, E, EM, Z, S, I> Stage<E, EM, S, Z> for CmpLogStage<'_, TE, E, S, I>
 where
     I: Node + Serialize + Clone,
-    S: State + HasCurrentTestcase + HasMetadata + UsesInput<Input = I>,
+    S: State + HasCurrentTestcase + HasMetadata,
     S::Corpus: Corpus<Input = I>,
     E: Executor<EM, I, S, Z>,
     EM: UsesState<State = S>,
@@ -144,10 +136,6 @@ where
                     cmp_path,
                 );
                 let res = fuzzer.evaluate_input(state, executor, manager, input)?;
-                /*                 #[cfg(debug_assertions)] */
-                if let libafl::ExecuteInputResult::Corpus = res.0 {
-                    println!("FOUND USING CMPLOG");
-                }
             }
         }
 

@@ -29,7 +29,6 @@ impl Context {
     where
         I: Node,
     {
-        /*         let start = current_time(); */
         for field in input.serialized().unwrap() {
             let (data, ty) = field;
             // todo: optimize this
@@ -55,7 +54,6 @@ impl Context {
                 }
             }
         }
-        /*         println!("ELAPSED={:?}", (current_time() - start).as_secs_f32()) */
     }
 
     pub fn get_inputs_for_type(&self, t: &Id) -> Option<&Vec<PathBuf>> {

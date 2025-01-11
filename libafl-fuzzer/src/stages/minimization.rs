@@ -2,7 +2,6 @@ use libafl::{
     corpus::Corpus,
     executors::{Executor, HasObservers},
     feedbacks::{HasObserverHandle, MapIndexesMetadata},
-    inputs::UsesInput,
     observers::{MapObserver, ObserversTuple},
     stages::Stage,
     state::{HasCorpus, HasCurrentTestcase, State, UsesState},
@@ -52,17 +51,10 @@ where
     }
 }
 
-/* impl<C, E, O, OT, S, I> UsesState for MinimizationStage<C, E, O, OT, S, I>
-where
-    S: State,
-{
-    type State = S;
-}
-*/
 impl<C, E, O, OT, S, I, EM, Z> Stage<E, EM, S, Z> for MinimizationStage<C, E, O, OT, S, I>
 where
     I: Node + Serialize + Clone,
-    S: State + HasCurrentTestcase + HasCorpus + UsesInput<Input = I> + HasMetadata,
+    S: State + HasCurrentTestcase + HasCorpus + HasMetadata,
     S::Corpus: Corpus<Input = I>,
     E: Executor<EM, I, S, Z> + HasObservers<Observers = OT>,
     EM: UsesState<State = S>,
@@ -120,9 +112,6 @@ where
                         path.clone(),
                     );
                     let run = fuzzer.evaluate_input(state, executor, manager, inner.clone())?;
-                    if let libafl::ExecuteInputResult::Corpus = run.0 {
-                        /*                         println!("WE FOUND? LOL"); */
-                    }
                     let map = &executor.observers()[&self.map_observer_handle]
                         .as_ref()
                         .to_vec();
@@ -133,7 +122,6 @@ where
                         .map(|i| i.0)
                         .collect::<Vec<_>>();
                     if map == indexes {
-                        /*                         println!("MINIMIZED"); */
                         current = inner;
                         current.fields(&mut self.visitor.borrow_mut(), 0);
                         fields = self.visitor.borrow_mut().fields();

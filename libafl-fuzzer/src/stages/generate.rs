@@ -1,7 +1,6 @@
 use libafl::{
     corpus::Corpus,
     executors::Executor,
-    inputs::UsesInput,
     stages::Stage,
     state::{HasCorpus, HasCurrentTestcase, State, UsesState},
     Evaluator,
@@ -25,17 +24,10 @@ impl<E, S, I> GenerateStage<E, S, I> {
     }
 }
 
-/* impl<E, S, I> UsesState for GenerateStage<E, S, I>
-where
-    S: State,
-{
-    type State = S;
-}
-*/
 impl<E, EM, Z, S, I> Stage<E, EM, S, Z> for GenerateStage<E, S, I>
 where
     I: Node + Serialize,
-    S: State + HasCurrentTestcase + HasCorpus + UsesInput<Input = I>,
+    S: State + HasCurrentTestcase + HasCorpus,
     S::Corpus: Corpus<Input = I>,
     E: Executor<EM, I, S, Z>,
     EM: UsesState<State = S>,
