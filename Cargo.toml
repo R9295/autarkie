@@ -1,0 +1,13 @@
+[workspace]
+edition = "2021"
+
+members = [
+	"thesis", 
+	"thesis_derive", 
+	"libafl-fuzzer", 
+]
+
+[workspace.dependencies]
+libafl = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "aa0391ef8d47c229d2306d43f898e4ea28ca4186"}
+libafl_targets = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "aa0391ef8d47c229d2306d43f898e4ea28ca4186" }
+libafl_bolts = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "aa0391ef8d47c229d2306d43f898e4ea28ca4186" }

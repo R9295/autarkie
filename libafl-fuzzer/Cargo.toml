@@ -1,0 +1,20 @@
+[package]
+name = "libafl-fuzzer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.20", features = ["derive"] }
+libafl = {workspace = true}
+libafl_targets = {workspace = true}
+libafl_bolts = {workspace = true}
+serde = { version = "1.0.214", features = ["derive"] }
+thesis = {path = "../thesis", features=["derive"]}
+blake3 = "1.5.4"
+
+bincode = {version = "1.3.3"}
+regex = "1.11.1"
+num-traits = "0.2.19"
+parity-scale-codec = { version = "3.6.12", features = ["derive"] }
+
+[features]
