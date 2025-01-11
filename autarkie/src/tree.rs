@@ -17,9 +17,11 @@ pub enum MutationType<'a> {
     SpliceAppend(&'a mut &'a [u8]),
 }
 
+macro_rules! node {
+    ($($bound:tt)*) => {
 pub trait Node
 where
-    Self: Debug + serde::Serialize + for<'a> serde::Deserialize<'a> + 'static,
+    Self: $($bound)*
 {
     /// Generate Self
     fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self;
@@ -69,12 +71,118 @@ where
         0
     }
 }
+        
+    };
+}
+
+#[cfg(feature = "bincode")]
+node!(Debug + serde::Serialize + for<'a> serde::Deserialize<'a> + 'static);
+
+#[cfg(feature = "scale")]
+node!(Debug + parity_scale_codec::Encode + parity_scale_codec::Decode + 'static);
 
 impl<T: 'static> Node for PhantomData<T> {
     fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
         Self
     }
 }
+
+// TODO: fix and make the same as Vec
+#[cfg(any(feature = "scale"))]
+impl<T, const N: usize> Node for [T; N]
+where
+    // TODO can we remove the debug clause?
+    T: Node + Debug,
+{
+    fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+        // TODO: optimize?
+        (0..N)
+            .map(|_| T::generate(visitor, &mut visitor.generate_depth(), cur_depth))
+            .collect::<Vec<T>>()
+            .try_into()
+            .expect("invariant;")
+    }
+
+    fn inner_id() -> Option<Id> {
+        Some(T::id())
+    }
+
+    fn __len(&self) -> usize {
+        N
+    }
+
+    fn serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
+        let mut vector = self
+            .iter()
+            .map(|i| (serialize(i), T::id()))
+            .collect::<Vec<_>>();
+        for item in self.iter() {
+            if let Some(inner) = item.serialized() {
+                vector.extend(inner)
+            }
+        }
+        Some(vector)
+    }
+
+    fn __mutate(
+        &mut self,
+        ty: &mut MutationType,
+        visitor: &mut Visitor,
+        mut path: VecDeque<usize>,
+    ) {
+        if let Some(popped) = path.pop_front() {
+            self.get_mut(popped)
+                .expect("mdNWnhI6____")
+                .__mutate(ty, visitor, path);
+        } else {
+            match ty {
+                MutationType::Splice(other) => {
+                    *self = deserialize(other);
+                }
+                MutationType::GenerateReplace(ref mut bias) => {
+                    *self = Self::generate(visitor, bias, &mut 0)
+                }
+                _ => {
+                    // TODO: recursive replace
+                    // TODO: FIX: cause our length is fixed, we cannot append but we cannot be unreachable
+                    // since we are recursive, we may still get called
+                }
+            }
+        }
+    }
+    fn fields(&self, visitor: &mut Visitor, index: usize) {
+        for (index, child) in self.iter().enumerate() {
+            let len = child.__len();
+            if len > 0 {
+                visitor.register_field_stack((
+                    (
+                        index,
+                        NodeType::Iterable(
+                            len.saturating_sub(1),
+                            T::inner_id().expect("droABVpT____"),
+                        ),
+                    ),
+                    T::id(),
+                ));
+            } else if child.is_recursive() {
+                visitor.register_field_stack(((index, NodeType::Recursive), T::id()));
+            } else {
+                visitor.register_field_stack(((index, NodeType::NonRecursive), T::id()));
+            }
+            child.fields(visitor, 0);
+            visitor.pop_field();
+        }
+    }
+
+    fn cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
+        for (index, child) in self.iter().enumerate() {
+            visitor.register_field_stack((((index, NodeType::NonRecursive)), T::id()));
+            child.cmps(visitor, index, val);
+            visitor.pop_field();
+        }
+    }
+}
+
 
 impl<T> Node for Vec<T>
 where
@@ -521,6 +629,7 @@ impl_generate_simple!(isize, 8);
 #[cfg(feature = "bincode")]
 impl_generate_simple!(usize, 8);
 
+#[cfg(feature = "bincode")]
 pub fn serialize<T>(data: &T) -> Vec<u8>
 where
     T: serde::Serialize,
@@ -528,6 +637,7 @@ where
     bincode::serialize(data).expect("invariant; we must always be able to serialize")
 }
 
+#[cfg(feature = "bincode")]
 pub fn deserialize<T>(data: &mut &[u8]) -> T
 where
     for<'a> T: serde::Deserialize<'a>,
@@ -535,6 +645,29 @@ where
     bincode::deserialize(data).expect("invariant; we must always be able to deserialize")
 }
 
+#[cfg(feature = "bincode")]
 pub fn serialize_vec_len(len: usize) -> Vec<u8> {
     bincode::serialize(&(len as u64)).expect("invariant; we must always be able to serialize")
+}
+
+#[cfg(feature = "scale")]
+pub fn serialize<T>(data: &T) -> Vec<u8>
+where
+    T: parity_scale_codec::Encode,
+{
+    T::encode(data)
+}
+
+#[cfg(feature = "scale")]
+pub fn deserialize<T>(data: &mut &[u8]) -> T
+where
+    T: parity_scale_codec::Decode,
+{
+    T::decode(data).expect("invariant; we must always be able to deserialize")
+}
+
+#[cfg(feature = "scale")]
+pub fn serialize_vec_len(len: usize) -> Vec<u8> {
+    use parity_scale_codec::Encode;
+    (parity_scale_codec::Compact(len as u32)).encode()
 }

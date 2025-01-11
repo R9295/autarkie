@@ -118,6 +118,7 @@ dependencies = [
  "autarkie_derive",
  "bincode",
  "libafl_bolts",
+ "parity-scale-codec",
  "serde",
 ]
 
@@ -597,6 +598,7 @@ dependencies = [
  "libafl_bolts",
  "libafl_targets",
  "num-traits",
+ "parity-scale-codec",
  "regex",
  "serde",
 ]
