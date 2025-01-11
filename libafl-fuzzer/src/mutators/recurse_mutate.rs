@@ -36,14 +36,13 @@ where
         } else {
             0
         };
-        if matches!(node_ty, autarkie::NodeType::Iterable(_, _)) {
-            let field_len = node_ty.iterable_size();
-            if field_len < 3 {
+        if let autarkie::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
+            if *field_len < 3 {
                 return Ok(MutationResult::Skipped);
             }
             let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
             let subslice_bounds = calculate_subslice_bounds(
-                field_len,
+                *field_len,
                 self.max_subslice_size,
                 &mut self.visitor.borrow_mut(),
             );

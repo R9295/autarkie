@@ -1,3 +1,5 @@
+use autarkie::Node;
+use autarkie::Visitor;
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
@@ -6,8 +8,6 @@ use libafl::{
 };
 use libafl_bolts::{AsSlice, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
-use autarkie::Node;
-use autarkie::Visitor;
 
 use crate::context::Context;
 
@@ -29,7 +29,10 @@ where
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().unwrap();
-        if let autarkie::NodeType::Iterable(field_len, inner_ty) = node_ty {
+        if let autarkie::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
+            if *is_fixed_len {
+                return Ok(MutationResult::Skipped);
+            }
             if let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) {
                 if *field_len > 200 {
                     return Ok(MutationResult::Skipped);

@@ -44,8 +44,8 @@ where
 
     fn cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {}
 
-    fn is_recursive(&self) -> bool {
-        false
+    fn node_ty(&self) -> NodeType {
+        NodeType::NonRecursive
     }
 
     fn serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
@@ -67,11 +67,8 @@ where
         }
     }
 
-    fn __len(&self) -> usize {
-        0
-    }
 }
-        
+
     };
 }
 
@@ -106,14 +103,6 @@ where
             .expect("invariant;")
     }
 
-    fn inner_id() -> Option<Id> {
-        Some(T::id())
-    }
-
-    fn __len(&self) -> usize {
-        N
-    }
-
     fn serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
         let mut vector = self
             .iter()
@@ -125,6 +114,10 @@ where
             }
         }
         Some(vector)
+    }
+
+    fn node_ty(&self) -> NodeType {
+        NodeType::Iterable(true, N.saturating_sub(1), T::id())
     }
 
     fn __mutate(
@@ -145,33 +138,13 @@ where
                 MutationType::GenerateReplace(ref mut bias) => {
                     *self = Self::generate(visitor, bias, &mut 0)
                 }
-                _ => {
-                    // TODO: recursive replace
-                    // TODO: FIX: cause our length is fixed, we cannot append but we cannot be unreachable
-                    // since we are recursive, we may still get called
-                }
+                _ => unreachable!("tAL6LPUb____"),
             }
         }
     }
     fn fields(&self, visitor: &mut Visitor, index: usize) {
         for (index, child) in self.iter().enumerate() {
-            let len = child.__len();
-            if len > 0 {
-                visitor.register_field_stack((
-                    (
-                        index,
-                        NodeType::Iterable(
-                            len.saturating_sub(1),
-                            T::inner_id().expect("droABVpT____"),
-                        ),
-                    ),
-                    T::id(),
-                ));
-            } else if child.is_recursive() {
-                visitor.register_field_stack(((index, NodeType::Recursive), T::id()));
-            } else {
-                visitor.register_field_stack(((index, NodeType::NonRecursive), T::id()));
-            }
+            visitor.register_field_stack(((index, child.node_ty()), T::id()));
             child.fields(visitor, 0);
             visitor.pop_field();
         }
@@ -179,13 +152,12 @@ where
 
     fn cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
         for (index, child) in self.iter().enumerate() {
-            visitor.register_field_stack((((index, NodeType::NonRecursive)), T::id()));
+            visitor.register_field_stack((((index, child.node_ty())), T::id()));
             child.cmps(visitor, index, val);
             visitor.pop_field();
         }
     }
 }
-
 
 impl<T> Node for Vec<T>
 where
@@ -207,12 +179,8 @@ where
         vector
     }
 
-    fn __len(&self) -> usize {
-        self.len()
-    }
-
-    fn inner_id() -> Option<Id> {
-        Some(T::id())
+    fn node_ty(&self) -> NodeType {
+        NodeType::Iterable(false, self.len().saturating_sub(1), T::id())
     }
 
     fn serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
@@ -236,10 +204,7 @@ where
     ) {
         if let Some(popped) = path.pop_front() {
             self.get_mut(popped)
-                .expect(&format!(
-                    "{:?}",
-                    std::intrinsics::type_name::<Self>().to_string()
-                ))
+                .expect("UbEi1VMg____")
                 .__mutate(ty, visitor, path);
         } else {
             match ty {
@@ -264,23 +229,7 @@ where
 
     fn fields(&self, visitor: &mut Visitor, index: usize) {
         for (index, child) in self.iter().enumerate() {
-            let len = child.__len();
-            if len > 0 {
-                visitor.register_field_stack((
-                    (
-                        index,
-                        NodeType::Iterable(
-                            len.saturating_sub(1),
-                            T::inner_id().expect("droABVpT____"),
-                        ),
-                    ),
-                    T::id(),
-                ));
-            } else if child.is_recursive() {
-                visitor.register_field_stack(((index, NodeType::Recursive), T::id()));
-            } else {
-                visitor.register_field_stack(((index, NodeType::NonRecursive), T::id()));
-            }
+            visitor.register_field_stack(((index, child.node_ty()), T::id()));
             child.fields(visitor, 0);
             visitor.pop_field();
         }
@@ -309,12 +258,12 @@ where
         Box::new(T::generate(visitor, depth, cur_depth))
     }
 
-    fn __len(&self) -> usize {
-        self.as_ref().__len()
-    }
-
     fn inner_id() -> Option<Id> {
         Some(T::id())
+    }
+
+    fn node_ty(&self) -> NodeType {
+        self.as_ref().node_ty()
     }
 
     fn cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
@@ -386,23 +335,7 @@ where
 
     fn fields(&self, visitor: &mut Visitor, index: usize) {
         if let Some(inner) = self {
-            let len = inner.__len();
-            if len > 0 {
-                visitor.register_field_stack((
-                    (
-                        index,
-                        NodeType::Iterable(
-                            len.saturating_sub(1),
-                            T::inner_id().expect("droABVpT____"),
-                        ),
-                    ),
-                    T::id(),
-                ));
-            } else if inner.is_recursive() {
-                visitor.register_field_stack(((index, NodeType::Recursive), T::id()));
-            } else {
-                visitor.register_field_stack(((index, NodeType::NonRecursive), T::id()));
-            }
+            visitor.register_field_stack(((index, inner.node_ty()), T::id()));
             inner.fields(visitor, 0);
             visitor.pop_field();
         }
@@ -410,7 +343,7 @@ where
 
     fn cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
         if let Some(inner) = self {
-            visitor.register_field(((index, NodeType::NonRecursive), T::id()));
+            visitor.register_field_stack(((index, inner.node_ty()), T::id()));
             inner.cmps(visitor, 0, val);
             visitor.pop_field();
         }
@@ -485,7 +418,7 @@ where
     }
 
     fn fields(&self, visitor: &mut Visitor, index: usize) {
-        visitor.register_field_stack(((index, NodeType::NonRecursive), Self::id()));
+        visitor.register_field_stack(((index, self.node_ty()), Self::id()));
         if let Ok(inner) = self {
             inner.fields(visitor, 0);
         } else if let Err(inner) = self {
@@ -495,7 +428,7 @@ where
     }
 
     fn cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
-        visitor.register_field_stack(((index, NodeType::NonRecursive), Self::id()));
+        visitor.register_field_stack(((index, self.node_ty()), Self::id()));
         if let Ok(inner) = self {
             inner.cmps(visitor, 0, val);
         } else if let Err(inner) = self {
@@ -508,11 +441,6 @@ where
 impl Node for std::string::String {
     fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
         visitor.get_string()
-    }
-
-    /// no recursive splicing for strings (for now)
-    fn __len(&self) -> usize {
-        0
     }
 }
 

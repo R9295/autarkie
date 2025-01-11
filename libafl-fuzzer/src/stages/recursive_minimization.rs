@@ -1,3 +1,4 @@
+use autarkie::{MutationType, Node, NodeType, Visitor};
 use libafl::{
     corpus::Corpus,
     executors::{Executor, HasObservers},
@@ -18,7 +19,6 @@ use std::{
     marker::PhantomData,
     rc::Rc,
 };
-use autarkie::{MutationType, Node, NodeType, Visitor};
 
 use crate::context::Context;
 
@@ -85,14 +85,14 @@ where
             .unwrap()
             .list
             .clone();
-        
+
         let mut current = state.current_input_cloned().unwrap();
         current.fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
-        
+
         let mut skip = 0;
         let mut cur_iter = 0;
-        
+
         loop {
             let field = fields.pop();
             if field.is_none() {
@@ -146,4 +146,3 @@ where
         Ok(())
     }
 }
-

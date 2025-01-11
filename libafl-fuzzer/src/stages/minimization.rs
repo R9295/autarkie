@@ -1,3 +1,4 @@
+use autarkie::{MutationType, Node, NodeType, Visitor};
 use libafl::{
     corpus::Corpus,
     executors::{Executor, HasObservers},
@@ -18,7 +19,6 @@ use std::{
     marker::PhantomData,
     rc::Rc,
 };
-use autarkie::{MutationType, Node, NodeType, Visitor};
 
 use crate::context::Context;
 
@@ -97,10 +97,13 @@ where
             }
             let field = field.unwrap();
             let ((id, node_ty), ty) = field.last().unwrap();
-            if let NodeType::Iterable(field_len, inner_ty) = node_ty {
+            if let NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
                 let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
                 let mut len = *field_len;
                 let mut counter = 0;
+                if *is_fixed_len {
+                    continue;
+                }
                 loop {
                     if len == 0 || counter >= len {
                         break;

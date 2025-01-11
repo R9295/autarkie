@@ -32,19 +32,17 @@ where
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().unwrap();
-        if matches!(node_ty, autarkie::NodeType::Iterable(_, _)) {
-            let inner_ty = node_ty.inner_id();
+        if let autarkie::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
             let subslice = self.visitor.borrow_mut().coinflip_with_prob(0.6);
             if subslice {
                 // no point subslicing when we have less than 5 entries
-                let field_len = node_ty.iterable_size();
-                if field_len < 3 {
+                if *field_len < 3 {
                     return Ok(MutationResult::Skipped);
                 }
                 if let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) {
                     let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
                     let subslice_bounds = calculate_subslice_bounds(
-                        field_len,
+                        *field_len,
                         self.max_subslice_size,
                         &mut self.visitor.borrow_mut(),
                     );
@@ -75,9 +73,8 @@ where
                 if let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) {
                     // unfortunately we need to replace the exact amount.
                     // cause we don't differentiate between vec and slice
-                    let iter_size = node_ty.iterable_size();
                     let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                    let items = (0..iter_size)
+                    let items = (0..*field_len)
                         .into_iter()
                         .map(|_| {
                             std::fs::read(
@@ -92,7 +89,14 @@ where
                             .expect("could not read splice file")
                         })
                         .collect::<Vec<_>>();
-                    let mut data = autarkie::serialize_vec_len(iter_size);
+                    #[cfg(not(feature = "scale"))]
+                    let mut data = if !*is_fixed_len {
+                        autarkie::serialize_vec_len(*field_len)
+                    } else {
+                        vec![]
+                    };
+                    #[cfg(feature = "scale")]
+                    let mut data = autarkie::serialize_vec_len(*field_len);
                     data.extend(items.iter().flatten());
                     #[cfg(debug_assertions)]
                     println!("splice | full | {:?}", field);

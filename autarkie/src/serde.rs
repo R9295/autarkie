@@ -31,8 +31,8 @@ macro_rules! impl_node_serde_array {
                 Some(vector)
             }
 
-            fn __len(&self) -> usize {
-                $n
+            fn node_ty(&self) -> NodeType {
+                NodeType::Iterable(true, N.saturating_sub(1), T::id())
             }
 
             fn __mutate(
@@ -53,17 +53,13 @@ macro_rules! impl_node_serde_array {
                         MutationType::GenerateReplace(ref mut bias) => {
                             *self = Self::generate(visitor, bias, &mut 0)
                         }
-                        _ => {
-                            // TODO: FIX: cause our length is fixed, we cannot append but we cannot be unreachable
-                            // since we are recursive, we may still get called
-                        }
+                        _ => unreachable!("tAL6LPUb____"),
                     }
                 }
             }
             fn fields(&self, visitor: &mut Visitor, index: usize) {
                 for (index, child) in self.iter().enumerate() {
-                    visitor
-                        .register_field_stack((((index, crate::NodeType::NonRecursive)), T::id()));
+                    visitor.register_field_stack((((index, child.node_ty())), T::id()));
                     child.fields(visitor, 0);
                     visitor.pop_field();
                 }
@@ -71,8 +67,7 @@ macro_rules! impl_node_serde_array {
 
             fn cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
                 for (index, child) in self.iter().enumerate() {
-                    visitor
-                        .register_field_stack((((index, crate::NodeType::NonRecursive)), T::id()));
+                    visitor.register_field_stack((((index, child.node_ty())), T::id()));
                     child.cmps(visitor, index, val);
                     visitor.pop_field();
                 }

@@ -9,8 +9,8 @@ use libafl::{
     Error, HasMetadata,
 };
 
-use libafl_bolts::Named;
 use autarkie::Node;
+use libafl_bolts::Named;
 
 use crate::context::Context;
 

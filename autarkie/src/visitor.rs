@@ -10,6 +10,8 @@ pub enum NodeType {
     Recursive,
     /// An iterable node. eg Vec<T>
     Iterable(
+        /// if fixed element count (array)
+        bool,
         /// Amount of Elements
         usize,
         /// type id of Elements
@@ -27,15 +29,22 @@ pub struct DepthInfo {
 
 impl NodeType {
     pub fn iterable_size(&self) -> usize {
-        if let Self::Iterable(size, _) = self {
+        if let Self::Iterable(_, size, _) = self {
             return *size;
         } else {
             unreachable!("____ADtOHgTK")
         }
     }
     pub fn inner_id(&self) -> Id {
-        if let Self::Iterable(_, inner_id) = self {
+        if let Self::Iterable(_, _, inner_id) = self {
             return inner_id.clone();
+        } else {
+            unreachable!("____ADtOHgTK")
+        }
+    }
+    pub fn is_fixed(&self) -> bool {
+        if let Self::Iterable(is_fixed, _, _) = self {
+            return is_fixed.clone();
         } else {
             unreachable!("____ADtOHgTK")
         }

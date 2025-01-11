@@ -21,8 +21,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 let name = field.get_name(is_named);
                 let ty = &field.ty;
                 quote! {
-                        let len = self.#name.__len();
-                        if len == 0 {
+                        if !matches!(self.#name.node_ty(), autarkie::visitor::NodeType::Iterable(..)) {
                             vector.push((::autarkie::serialize(&self.#name), <#ty>::id()));
                         }
                 }
@@ -42,12 +41,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 let ty = &field.ty;
                 let name = field.get_name(is_named);
                 quote! {
-                    let len = self.#name.__len();
-                    if len > 0 {
-                        v.register_field(((#id, autarkie::NodeType::Iterable(len.saturating_sub(1), <#ty>::inner_id().expect("TqeQSVOb____"))), <#ty>::id()));
-                    } else {
-                        v.register_field(((#id, autarkie::NodeType::NonRecursive), <#ty>::id()));
-                    }
+                    v.register_field(((#id, self.#name.node_ty()), <#ty>::id()));
                     self.#name.fields(v, 0);
                     v.pop_field();
                 }
@@ -57,17 +51,10 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 let ty = &field.ty;
                 let name = field.get_name(is_named);
                 quote! {
-                    let len = self.#name.__len();
-                    if len > 0 {
-                        v.register_field(((#id, autarkie::NodeType::Iterable(len.saturating_sub(1), <#ty>::inner_id().expect("My3YTxbe____"))), <#ty>::id()));
-                    } else if self.#name.is_recursive() {
-                        v.register_field(((#id, autarkie::NodeType::Recursive), <#ty>::id()));
-                    } else {
-                        v.register_field(((#id, autarkie::NodeType::NonRecursive), <#ty>::id()));
-                    }
+                    v.register_field(((#id, self.#name.node_ty()), <#ty>::id()));
                     self.#name.cmps(v, 0, val);
                     v.pop_field();
-                
+
                 }
             });
 
@@ -149,7 +136,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 let variant_name = &variant.ident;
                 let attrs = &variant.attrs;
                 let fields = parse_fields(get_fields(&variant.fields));
-                
+
                 let mut is_recursive = false;
                 for attr in attrs {
                     if let Meta::Path(ref list) = attr.meta {
@@ -166,16 +153,20 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 } else {
                     non_recursive_variants.push(quote! {#i,});
                 }
-
+                let node_ty = if is_recursive {
+                    quote! {autarkie::visitor::NodeType::NonRecursive}
+                } else {
+                    quote! {autarkie::visitor::NodeType::Recursive}
+                };
                 are_we_recursive.push(if !fields.is_empty() {
                     if is_named {
-                        quote! {#root_name::#variant_name{..} => #is_recursive}
+                        quote! {#root_name::#variant_name{..} => #node_ty}
                     } else {
-                        quote! {#root_name::#variant_name(..) => #is_recursive}
+                        quote! {#root_name::#variant_name(..) => #node_ty}
                     }
                 } else {
                     quote! {
-                        #root_name::#variant_name => #is_recursive
+                        #root_name::#variant_name => #node_ty
                     }
                 });
 
@@ -192,15 +183,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         let name = &field.name;
                         let ty = &field.ty;
                         let id = &field.id;
-                        quote!{
-                            let len = #name.__len();
-                            if len > 0 {
-                                v.register_field(((#id, autarkie::NodeType::Iterable(len.saturating_sub(1), <#ty>::inner_id().expect("droABVpT____"))), <#ty>::id()));
-                            } else if #name.is_recursive() {
-                                v.register_field(((#id, autarkie::NodeType::Recursive), <#ty>::id()));
-                            } else {
-                                v.register_field(((#id, autarkie::NodeType::NonRecursive), <#ty>::id()));
-                            }
+                        quote! {
+                            v.register_field(((#id, #name.node_ty()), <#ty>::id()));
                             #name.fields(v, #id);
                             v.pop_field();
                         }
@@ -216,7 +200,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     };
                     Some(quote! {
                             #match_arm {
-                            v.register_field_stack(((#i, autarkie::NodeType::NonRecursive), Self::id()));
+                            v.register_field_stack(((#i, self.node_ty()), Self::id()));
                             #(#variant_fields_register)*
                             v.pop_field();
                         }
@@ -234,13 +218,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         let name = &field.name;
                         let ty = &field.ty;
                         let id = &field.id;
-                        quote!{
-                            let len = #name.__len();
-                            if len > 0 {
-                                v.register_field(((#id, autarkie::NodeType::Iterable(len.saturating_sub(1), <#ty>::inner_id().expect("vBvs6bK4____"))), <#ty>::id()));
-                            } else {
-                                v.register_field(((#id, autarkie::NodeType::NonRecursive), <#ty>::id()));
-                            }
+                        quote! {
+                            v.register_field(((#id, #name.node_ty()), <#ty>::id()));
                             #name.cmps(v, #id, val);
                             v.pop_field();
                         }
@@ -258,7 +237,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     };
                     Some(quote! {
                             #match_arm {
-                            v.register_field_stack(((#i, autarkie::NodeType::NonRecursive), Self::id()));
+                            v.register_field_stack(((#i, self.node_ty()), Self::id()));
                             #(#variant_fields_cmp)*
                             v.pop_field();
                         }
@@ -329,8 +308,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         let name = &field.name;
                         let ty = &field.ty;
                         quote! {
-                            let len = #name.__len();
-                            if len == 0 {
+                        if !matches!(#name.node_ty(), autarkie::visitor::NodeType::Iterable(..)) {
                                 vector.push((::autarkie::serialize(&#name), <#ty>::id()));
                             }
                             if let Some(fields) = #name.serialized() {
@@ -431,7 +409,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         Some(vector)
                     }
 
-                    fn is_recursive(&self) -> bool {
+                    fn node_ty(&self) -> autarkie::visitor::NodeType {
                         match self {
                             #(#are_we_recursive,)*
                         }
@@ -453,7 +431,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                                     *self = Self::generate(visitor, bias, &mut 0);
                                 }
                                 autarkie::MutationType::RecursiveReplace => {
-                                    if self.is_recursive() {
+                                    if matches!(self.node_ty(), autarkie::visitor::NodeType::Recursive) {
                                         // 0 depth == always non-recursive
                                         *self = Self::generate(visitor, &mut 0, &mut 0);
                                     }

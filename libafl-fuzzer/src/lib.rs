@@ -140,8 +140,7 @@ where
             std::fs::create_dir(fuzzer_dir.join("cmps")).unwrap();
         }
 
-        let context = Context::new(fuzzer_dir.clone());
-        state.add_metadata(context);
+        let mut context = Context::new(fuzzer_dir.clone());
 
         let scheduler = StdWeightedScheduler::with_schedule(
             &mut state,
@@ -184,6 +183,14 @@ where
                 }
             }
         }
+        for chunk_dir in std::fs::read_dir(fuzzer_dir.join("chunks"))? {
+            let dir = chunk_dir?.path();
+            for chunk in std::fs::read_dir(dir)? {
+                let path = chunk?.path();
+                context.add_existing_chunk(path);
+            }
+        }
+        state.add_metadata(context);
         if state.must_load_initial_inputs() {
             state.load_initial_inputs(
                 &mut fuzzer,
@@ -328,8 +335,9 @@ struct Opt {
     /// Max iterate depth when generating iterable nodes
     #[arg(short = 'I', default_value_t = 5)]
     iterate_depth: usize,
+
     /// Max subslice length when doing partial iterable splicing
-    #[arg(short = 'S', default_value_t = 15)]
+    #[arg(short = 'z', default_value_t = 15)]
     max_subslice_size: usize,
 
     /// Max generate depth when generating recursive nodes

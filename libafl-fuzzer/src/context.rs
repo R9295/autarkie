@@ -1,14 +1,14 @@
+use autarkie::{Id, Node};
 use libafl::{corpus::CorpusId, SerdeAny};
 use libafl_bolts::current_time;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     io::ErrorKind,
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::Duration,
     u128,
 };
-use autarkie::{Id, Node};
 
 #[derive(Debug, Clone, SerdeAny, Serialize, Deserialize)]
 pub struct Context {
@@ -46,6 +46,16 @@ impl Context {
             }
         }
     }
+
+    pub fn add_existing_chunk(&mut self, path: PathBuf) {
+        let ty = path.parent().unwrap().file_name().unwrap().to_str().unwrap().parse::<Id>().expect("corrupt chunk ID!");
+        if let Some(e) = self.type_input_map.get_mut(&ty) {
+            e.push(path);
+        } else {
+            self.type_input_map.insert(ty, vec![path]);
+        }
+    }
+
     pub fn get_inputs_for_type(&self, t: &Id) -> Option<&Vec<PathBuf>> {
         self.type_input_map.get(t)
     }

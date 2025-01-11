@@ -1,3 +1,4 @@
+use autarkie::{MutationType, Node, Visitor};
 use libafl::{
     corpus::Corpus,
     executors::{Executor, HasObservers},
@@ -18,7 +19,6 @@ use std::{
     marker::PhantomData,
     rc::Rc,
 };
-use autarkie::{MutationType, Node, Visitor};
 
 use crate::context::Context;
 
@@ -82,7 +82,7 @@ where
         self.tracer_executor
             .observers_mut()
             .post_exec_all(state, &unmutated_input, &exit_kind)?;
-        
+
         let mut reduced = HashSet::new();
         if let Ok(data) = state.metadata::<AFLppCmpValuesMetadata>() {
             for item in data.orig_cmpvals().values() {
@@ -117,7 +117,7 @@ where
                 }
             }
         }
-        
+
         let metadata = state
             .metadata_mut::<Context>()
             .expect("we must have context!");
