@@ -1,7 +1,4 @@
 /target
-src/expanded.rs
-fuzzer/target/
-#rbpf
 *.pdf
 *.aux
 *.run.xml
@@ -11,6 +8,4 @@ fuzzer/target/
 *.blg
 *.aux
 *.lof
-paper/thesis.log
-old_rbpf
-evaluation/fuzzbench/venv
+kitchensink

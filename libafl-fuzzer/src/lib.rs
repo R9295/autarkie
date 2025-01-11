@@ -79,8 +79,7 @@ where
         match std::fs::create_dir(&fuzzer_dir) {
             Ok(_) => {}
             Err(e) => {
-                if matches!(e.kind(), ErrorKind::AlreadyExists) {
-                } else {
+                if !matches!(e.kind(), ErrorKind::AlreadyExists) {
                     panic!("{:?}", e)
                 }
             }

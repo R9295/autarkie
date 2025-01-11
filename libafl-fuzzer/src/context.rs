@@ -13,7 +13,6 @@ use autarkie::{Id, Node};
 #[derive(Debug, Clone, SerdeAny, Serialize, Deserialize)]
 pub struct Context {
     out_dir: PathBuf,
-    // types mapped to their inputs
     type_input_map: HashMap<Id, Vec<PathBuf>>,
 }
 
@@ -30,8 +29,7 @@ impl Context {
             match std::fs::create_dir(&path) {
                 Ok(_) => {}
                 Err(e) => {
-                    if matches!(e.kind(), ErrorKind::AlreadyExists) {
-                    } else {
+                    if !matches!(e.kind(), ErrorKind::AlreadyExists) {
                         panic!("{:?}", e)
                     }
                 }
