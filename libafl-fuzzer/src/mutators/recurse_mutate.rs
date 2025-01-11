@@ -11,12 +11,12 @@ use autarkie::{MutationType, Node};
 
 use crate::context::Context;
 
-pub struct ThesisRecurseMutator<I> {
+pub struct AutarkieRecurseMutator<I> {
     visitor: Rc<RefCell<Visitor>>,
     phantom: PhantomData<I>,
 }
 
-impl<I, S> Mutator<I, S> for ThesisRecurseMutator<I>
+impl<I, S> Mutator<I, S> for AutarkieRecurseMutator<I>
 where
     I: Node,
     S: State + HasCorpus + HasRand + HasMetadata,
@@ -80,12 +80,12 @@ where
     }
 }
 
-impl<I> Named for ThesisRecurseMutator<I> {
+impl<I> Named for AutarkieRecurseMutator<I> {
     fn name(&self) -> &std::borrow::Cow<'static, str> {
-        &Cow::Borrowed("ThesisRecurseMutator")
+        &Cow::Borrowed("AutarkieRecurseMutator")
     }
 }
-impl<I> ThesisRecurseMutator<I> {
+impl<I> AutarkieRecurseMutator<I> {
     pub fn new(visitor: Rc<RefCell<Visitor>>) -> Self {
         Self {
             visitor,

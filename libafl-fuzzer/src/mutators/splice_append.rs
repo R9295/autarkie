@@ -11,12 +11,12 @@ use autarkie::Visitor;
 
 use crate::context::Context;
 
-pub struct ThesisSpliceAppendMutator<I> {
+pub struct AutarkieSpliceAppendMutator<I> {
     visitor: Rc<RefCell<Visitor>>,
     phantom: PhantomData<I>,
 }
 
-impl<I, S> Mutator<I, S> for ThesisSpliceAppendMutator<I>
+impl<I, S> Mutator<I, S> for AutarkieSpliceAppendMutator<I>
 where
     I: Node,
     S: State + HasCorpus + HasRand + HasMetadata,
@@ -73,12 +73,12 @@ where
     }
 }
 
-impl<I> Named for ThesisSpliceAppendMutator<I> {
+impl<I> Named for AutarkieSpliceAppendMutator<I> {
     fn name(&self) -> &std::borrow::Cow<'static, str> {
-        &Cow::Borrowed("ThesisSpliceAppendMutator")
+        &Cow::Borrowed("AutarkieSpliceAppendMutator")
     }
 }
-impl<I> ThesisSpliceAppendMutator<I> {
+impl<I> AutarkieSpliceAppendMutator<I> {
     pub fn new(visitor: Rc<RefCell<Visitor>>) -> Self {
         Self {
             visitor,

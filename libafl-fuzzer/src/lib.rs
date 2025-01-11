@@ -36,8 +36,8 @@ use libafl_bolts::{
 };
 use libafl_targets::{AFLppCmpLogMap, AFLppCmpLogObserver};
 use mutators::{
-    recurse_mutate::ThesisRecurseMutator, splice::ThesisSpliceMutator,
-    splice_append::ThesisSpliceAppendMutator,
+    recurse_mutate::AutarkieRecurseMutator, splice::AutarkieSpliceMutator,
+    splice_append::AutarkieSpliceAppendMutator,
 };
 
 use regex::Regex;
@@ -203,21 +203,21 @@ where
         let mutator = StdScheduledMutator::with_max_stack_pow(
             tuple_list!(
                 // SPLICE
-                ThesisSpliceMutator::new(Rc::clone(&visitor)),
-                ThesisSpliceMutator::new(Rc::clone(&visitor)),
-                ThesisSpliceMutator::new(Rc::clone(&visitor)),
-                ThesisSpliceMutator::new(Rc::clone(&visitor)),
-                ThesisSpliceMutator::new(Rc::clone(&visitor)),
-                ThesisSpliceMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor)),
                 // RECURSIVE GENERATE
-                ThesisRecurseMutator::new(Rc::clone(&visitor)),
-                ThesisRecurseMutator::new(Rc::clone(&visitor)),
-                ThesisRecurseMutator::new(Rc::clone(&visitor)),
-                ThesisRecurseMutator::new(Rc::clone(&visitor)),
-                ThesisRecurseMutator::new(Rc::clone(&visitor)),
-                ThesisRecurseMutator::new(Rc::clone(&visitor)),
+                AutarkieRecurseMutator::new(Rc::clone(&visitor)),
+                AutarkieRecurseMutator::new(Rc::clone(&visitor)),
+                AutarkieRecurseMutator::new(Rc::clone(&visitor)),
+                AutarkieRecurseMutator::new(Rc::clone(&visitor)),
+                AutarkieRecurseMutator::new(Rc::clone(&visitor)),
+                AutarkieRecurseMutator::new(Rc::clone(&visitor)),
                 // SPLICE APPEND
-                ThesisSpliceAppendMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
             ),
             3,
         );
