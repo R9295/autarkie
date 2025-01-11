@@ -1,3 +1,5 @@
+use autarkie::Visitor;
+use autarkie::{MutationType, Node};
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
@@ -6,13 +8,12 @@ use libafl::{
 };
 use libafl_bolts::{current_time, AsSlice, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
-use autarkie::Visitor;
-use autarkie::{MutationType, Node};
 
 use crate::context::Context;
 
 pub struct AutarkieSpliceMutator<I> {
     visitor: Rc<RefCell<Visitor>>,
+    max_subslice_size: usize,
     phantom: PhantomData<I>,
 }
 
@@ -23,7 +24,7 @@ where
     S::Corpus: Corpus<Input = I>,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
-        let metadata = state.metadata::<Context>().unwrap();
+        let metadata = state.metadata::<Context>()?;
         input.fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
@@ -45,8 +46,8 @@ where
                         .visitor
                         .borrow_mut()
                         .random_range(subslice_start, field_len);
-                    if subslice_end - subslice_start > 15 {
-                        subslice_end = subslice_start + 15;
+                    if subslice_end - subslice_start > self.max_subslice_size {
+                        subslice_end = subslice_start + self.max_subslice_size;
                     }
                     // calculate subsplice size
                     let subslice_end = field_len;
@@ -77,10 +78,10 @@ where
             } else {
                 if let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) {
                     // unfortunately we need to replace the exact amount.
-                    // cause we don't differentiate between recursive vec and slice
-                    let max_iter_size = node_ty.iterable_size();
+                    // cause we don't differentiate between vec and slice
+                    let iter_size = node_ty.iterable_size();
                     let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                    let items = (0..max_iter_size)
+                    let items = (0..iter_size)
                         .into_iter()
                         .map(|_| {
                             std::fs::read(
@@ -92,15 +93,11 @@ where
                                     )
                                     .expect("NZkjgWib____"),
                             )
-                            .expect("lH4k6H40____")
+                            .expect("could not read splice file")
                         })
                         .collect::<Vec<_>>();
-                    // NOTE: we are encoding the length as as bincode wants, borsh and scale expect
-                    // it differently. TODO!!!!!
-                    /* let mut data =
-                    bincode::serialize(&(max_iter_size as u64)).expect("a0AAoZik____"); */
-                    use parity_scale_codec::Encode;
-                    let mut data = parity_scale_codec::Compact(max_iter_size as u32).encode();
+                    // NOTE: length is encoded as u64 (same as bincode)
+                    let mut data = bincode::serialize(&(iter_size as u64)).expect("a0AAoZik____");
                     data.extend(items.iter().flatten());
                     #[cfg(debug_assertions)]
                     println!("splice | full | {:?}", field);
@@ -121,7 +118,6 @@ where
                             .random_range(0, possible_splices.len() - 1),
                     )
                     .unwrap();
-                // TODO: cache this in memory
                 let data = std::fs::read(random_splice).unwrap();
                 #[cfg(debug_assertions)]
                 println!("splice | one | {:?} {:?}", field, path);
@@ -150,9 +146,10 @@ impl<I> Named for AutarkieSpliceMutator<I> {
     }
 }
 impl<I> AutarkieSpliceMutator<I> {
-    pub fn new(visitor: Rc<RefCell<Visitor>>) -> Self {
+    pub fn new(visitor: Rc<RefCell<Visitor>>, max_subslice_size: usize) -> Self {
         Self {
             visitor,
+            max_subslice_size,
             phantom: PhantomData,
         }
     }

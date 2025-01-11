@@ -1,3 +1,5 @@
+use autarkie::Visitor;
+use autarkie::{MutationType, Node};
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
@@ -6,12 +8,11 @@ use libafl::{
 };
 use libafl_bolts::{HasLen, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
-use autarkie::Visitor;
-use autarkie::{MutationType, Node};
 
 use crate::context::Context;
 
 pub struct AutarkieRecurseMutator<I> {
+    max_subslice_size: usize,
     visitor: Rc<RefCell<Visitor>>,
     phantom: PhantomData<I>,
 }
@@ -44,8 +45,8 @@ where
                 .visitor
                 .borrow_mut()
                 .random_range(subslice_start, field_len);
-            if subslice_end - subslice_start > 5 {
-                subslice_end = subslice_start + 5;
+            if subslice_end - subslice_start > self.max_subslice_size {
+                subslice_end = subslice_start + self.max_subslice_size;
             }
             for index in subslice_start..subslice_end {
                 let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
@@ -86,9 +87,10 @@ impl<I> Named for AutarkieRecurseMutator<I> {
     }
 }
 impl<I> AutarkieRecurseMutator<I> {
-    pub fn new(visitor: Rc<RefCell<Visitor>>) -> Self {
+    pub fn new(visitor: Rc<RefCell<Visitor>>, max_subslice_size: usize) -> Self {
         Self {
             visitor,
+            max_subslice_size,
             phantom: PhantomData,
         }
     }

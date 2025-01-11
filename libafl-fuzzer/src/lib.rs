@@ -203,19 +203,19 @@ where
         let mutator = StdScheduledMutator::with_max_stack_pow(
             tuple_list!(
                 // SPLICE
-                AutarkieSpliceMutator::new(Rc::clone(&visitor)),
-                AutarkieSpliceMutator::new(Rc::clone(&visitor)),
-                AutarkieSpliceMutator::new(Rc::clone(&visitor)),
-                AutarkieSpliceMutator::new(Rc::clone(&visitor)),
-                AutarkieSpliceMutator::new(Rc::clone(&visitor)),
-                AutarkieSpliceMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 // RECURSIVE GENERATE
-                AutarkieRecurseMutator::new(Rc::clone(&visitor)),
-                AutarkieRecurseMutator::new(Rc::clone(&visitor)),
-                AutarkieRecurseMutator::new(Rc::clone(&visitor)),
-                AutarkieRecurseMutator::new(Rc::clone(&visitor)),
-                AutarkieRecurseMutator::new(Rc::clone(&visitor)),
-                AutarkieRecurseMutator::new(Rc::clone(&visitor)),
+                AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
+                AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
+                AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
+                AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
+                AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
+                AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 // SPLICE APPEND
                 AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
             ),
@@ -321,6 +321,9 @@ struct Opt {
 
     #[arg(short = 'I', default_value_t = 5)]
     iterate_depth: usize,
+    #[arg(short = 'S', default_value_t = 15)]
+    max_subslice_size: usize,
+
     #[arg(short = 'G', default_value_t = 2)]
     generate_depth: usize,
 
