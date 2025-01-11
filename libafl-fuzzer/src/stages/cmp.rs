@@ -23,14 +23,14 @@ use thesis::{MutationType, Node, Visitor};
 use crate::context::Context;
 
 #[derive(Debug)]
-pub struct CmpLogStage<'a, TE, E, S, I> {
+pub struct CmpLogStage<'a, TE, I> {
     visitor: Rc<RefCell<Visitor>>,
     tracer_executor: TE,
     cmplog_observer_handle: Handle<AFLppCmpLogObserver<'a>>,
-    phantom: PhantomData<(E, S, I)>,
+    phantom: PhantomData<I>,
 }
 
-impl<'a, TE, E, S, I> CmpLogStage<'a, TE, E, S, I> {
+impl<'a, TE, I> CmpLogStage<'a, TE, I> {
     pub fn new(
         visitor: Rc<RefCell<Visitor>>,
         tracer_executor: TE,
@@ -45,7 +45,7 @@ impl<'a, TE, E, S, I> CmpLogStage<'a, TE, E, S, I> {
     }
 }
 
-impl<TE, E, EM, Z, S, I> Stage<E, EM, S, Z> for CmpLogStage<'_, TE, E, S, I>
+impl<TE, E, EM, Z, S, I> Stage<E, EM, S, Z> for CmpLogStage<'_, TE, I>
 where
     I: Node + Serialize + Clone,
     S: State + HasCurrentTestcase + HasMetadata,
@@ -66,7 +66,7 @@ where
         if state.current_testcase().unwrap().scheduled_count() > 1 {
             return Ok(());
         }
-        // First run with the un-mutated input
+
         let unmutated_input = state.current_input_cloned()?;
 
         let mut obs = self.tracer_executor.observers_mut();
@@ -82,7 +82,7 @@ where
         self.tracer_executor
             .observers_mut()
             .post_exec_all(state, &unmutated_input, &exit_kind)?;
-        // TODO: store interesting paths
+        
         let mut reduced = HashSet::new();
         if let Ok(data) = state.metadata::<AFLppCmpValuesMetadata>() {
             for item in data.orig_cmpvals().values() {
@@ -101,25 +101,27 @@ where
                             reduced.insert((*right, *left));
                         }
                         CmpValues::Bytes((left, right)) => {
-                            /* if left.as_slice()
+                            if left.as_slice()
                                 != [
                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                 ]
                                 && right.as_slice() != left.as_slice()
                             {
-                                panic!("{:?} {:?}", right, left);
-                            } */
+                                // TODO
+                            }
                         }
-                        // ignore u8
-                        _ => {}
+                        // ignore U8
+                        CmpValues::U8(_) => {}
                     }
                 }
             }
         }
+        
         let metadata = state
             .metadata_mut::<Context>()
             .expect("we must have context!");
+
         for cmp in reduced {
             unmutated_input.cmps(&mut self.visitor.borrow_mut(), 0, cmp);
             let matches = self.visitor.borrow_mut().cmps();

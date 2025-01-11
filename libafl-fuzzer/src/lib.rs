@@ -2,9 +2,7 @@
 #![feature(core_intrinsics)]
 mod context;
 mod feedback;
-mod hooks;
 mod mutators;
-mod scheduler;
 mod stages;
 use clap::Parser;
 use context::Context;

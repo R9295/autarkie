@@ -20,17 +20,14 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let serialized_ids = parsed.iter().map(|field| {
                 let name = field.get_name(is_named);
                 let ty = &field.ty;
-                if field.is_compact {
-                    quote! {}
-                } else {
-                    quote! {
+                quote! {
                         let len = self.#name.__len();
                         if len == 0 {
                             vector.push((::thesis::serialize(&self.#name), <#ty>::id()));
                         }
-                    }
                 }
             });
+
             let serialized_recursive = parsed.iter().map(|field| {
                 let name = field.get_name(is_named);
                 quote! {
@@ -44,9 +41,6 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 let id = &field.id;
                 let ty = &field.ty;
                 let name = field.get_name(is_named);
-                if field.is_compact {
-                    quote! {}
-                } else {
                 quote! {
                     let len = self.#name.__len();
                     if len > 0 {
@@ -57,15 +51,11 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     self.#name.fields(v, 0);
                     v.pop_field();
                 }
-                }
             });
             let register_cmps = parsed.iter().map(|field| {
                 let id = &field.id;
                 let ty = &field.ty;
                 let name = field.get_name(is_named);
-                if field.is_compact {
-                    quote!{}
-                } else {
                 quote! {
                     let len = self.#name.__len();
                     if len > 0 {
@@ -77,7 +67,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     }
                     self.#name.cmps(v, 0, val);
                     v.pop_field();
-                }
+                
                 }
             });
 
@@ -147,18 +137,19 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         }
         Data::Enum(ref data) => {
             let mut generate = vec![];
-            let mut min_size = vec![];
             let mut fn_fields = vec![];
             let mut inner_mutate = vec![];
             let mut serialized = vec![];
             let mut fn_cmps = vec![];
-
             let mut recursive_variants = vec![];
             let mut non_recursive_variants = vec![];
             let mut are_we_recursive = vec![];
+
             for (i, variant) in data.variants.iter().enumerate() {
                 let variant_name = &variant.ident;
                 let attrs = &variant.attrs;
+                let fields = parse_fields(get_fields(&variant.fields));
+                
                 let mut is_recursive = false;
                 for attr in attrs {
                     if let Meta::Path(ref list) = attr.meta {
@@ -168,7 +159,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         }
                     }
                 }
-                let fields = get_fields(&variant.fields);
+
                 let is_named = matches!(variant.fields, syn::Fields::Named(_));
                 if is_recursive {
                     recursive_variants.push(quote! {#i,});
@@ -176,24 +167,6 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     non_recursive_variants.push(quote! {#i,});
                 }
 
-                let variant_min_size = match fields {
-                    Some(fields) => {
-                        let field_min_size = fields.iter().map(|f| {
-                            let ty = &f.ty;
-                            let tokens = quote! {#ty}.to_string().replace(" ", "");
-                            // only accounting for Box atm
-                            quote! {
-                                <#ty>::min_size()
-                            }
-                        });
-                        let tokens = quote! {(#(#field_min_size)+*) as usize};
-                        tokens
-                    }
-                    None => quote! {1usize},
-                };
-                min_size.push(variant_min_size);
-
-                let fields = parse_fields(fields);
                 are_we_recursive.push(if !fields.is_empty() {
                     if is_named {
                         quote! {#root_name::#variant_name{..} => #is_recursive}
@@ -205,11 +178,12 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #root_name::#variant_name => #is_recursive
                     }
                 });
-                let enum_variant_constructor =
+
+                let constructor =
                     construct_generate_function_enum(&fields, is_named, root_name, variant_name);
                 generate.push(quote! {
                     #i => {
-                        #enum_variant_constructor
+                        #constructor
                     }
                 });
 
@@ -235,8 +209,6 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         let name = &field.name;
                         quote! {#name}
                     });
-                    // Note: won't work with enums with generics
-                    // cause it won't be Self
                     let match_arm = if is_named {
                         quote! {if let #root_name::#variant_name{#(#field_names),*} = self}
                     } else {
@@ -244,11 +216,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     };
                     Some(quote! {
                             #match_arm {
-
                             v.register_field_stack(((#i, thesis::NodeType::NonRecursive), Self::id()));
-
                             #(#variant_fields_register)*
-
                             v.pop_field();
                         }
                     })
@@ -382,13 +351,15 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     })
                 }
             }
-            if non_recursive_variants.is_empty() && data.variants.len() != 0 {
+
+            if non_recursive_variants.is_empty() && !data.variants.is_empty() {
                 panic!(
-                    "{:?} has no non-recursive variants. This is a huge problem!",
+                    "{:?} has no non-recursive variants. This will lead to stack overflows.",
                     root_name
                 );
             }
-            let generate_func = if data.variants.len() == 0 {
+
+            let generate_func = if data.variants.is_empty() {
                 quote! {
                     Self {}
                 }
@@ -421,7 +392,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         .checked_sub(1)
                         .expect("we must have atleast 1 non-recursive variant");
                     quote! {
-                            let variant_id = v.random_range(0usize, #variant_count);
+                        let variant_id = v.random_range(0usize, #variant_count);
                     }
                 };
                 quote! {
@@ -436,7 +407,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             trait_bounds::add(root_name, &mut base_parsed.generics, &base_parsed.data);
             let (impl_generics, ty_generics, where_clause) = base_parsed.generics.split_for_impl();
             // Generate the Node trait implementation for the Enum
-            // TODO: can optimize this if the enum has only two fields like (Result)
+            // TODO: can optimize this if the enum has only two variants like (Result)
             let node_impl = quote! {
                 impl #impl_generics ::thesis::Node for #root_name #ty_generics #where_clause {
                     fn generate(v: &mut ::thesis::Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
@@ -469,8 +440,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     fn __mutate(&mut self, ty: &mut thesis::MutationType, visitor: &mut thesis::Visitor, mut path: std::collections::VecDeque<usize>) {
                         if let Some(popped) = path.pop_front() {
                             match popped {
-                            #(#inner_mutate)*
-                            _ => unreachable!("____VpyAL0wN7m")
+                                #(#inner_mutate)*
+                                _ => unreachable!("____VpyAL0wN7m")
                             }
                         }
                         else {
@@ -511,11 +482,6 @@ fn parse_fields(
         return vec![];
     }
     let fields = fields.unwrap();
-    for field in fields.iter() {
-        for attr in field.attrs.iter() {
-            println!("{}", quote! {#attr}.to_string());
-        }
-    }
     fields
         .iter()
         .enumerate()
@@ -525,26 +491,16 @@ fn parse_fields(
                 Some(ident) => ident,
                 None => Ident::new(&format!("_{}", id), field.span()),
             };
-            let mut is_compact = false;
-            for attr in field.attrs.iter() {
-                if quote! {#attr}.to_string().contains("#[codec(compact)]") {
-                    is_compact = true;
-                    break;
-                }
-            }
             GrammarField {
                 name,
                 ty: ty.clone(),
                 id,
-                is_compact,
                 attrs: field.attrs.clone(),
             }
         })
         .collect::<Vec<_>>()
 }
 
-/// returns
-/// let _<field_id> = <generate_function>;
 fn get_field_defs(fields: &Vec<GrammarField>) -> Vec<proc_macro2::TokenStream> {
     fields
         .iter()
@@ -552,10 +508,8 @@ fn get_field_defs(fields: &Vec<GrammarField>) -> Vec<proc_macro2::TokenStream> {
             let attr_iterator = field.attrs.iter();
             let name = &field.name;
             let ty = &field.ty;
-
             let mut generator = None;
-
-            // The generator can either be a closure run immediately.
+            // The generator is a closure that is run immediately.
             // This allows us to sepcify literals for a field.
             // TODO: maybe do some sanitization of literals
             for attr in attr_iterator {
@@ -592,14 +546,13 @@ fn get_field_defs(fields: &Vec<GrammarField>) -> Vec<proc_macro2::TokenStream> {
                     }
                 }
             }
-
-            // If we did not have a literal attribute, we use the inner generate function of the type.
+            // If we do not have a literal attribute, we use the inner generate function of the type.
             if generator.is_none() {
                 generator = Some(quote! {
                     let #name = <#ty>::generate(v, depth, cur_depth);
                 });
             }
-            // this should never happen, cause we either have a literal or not.
+            // this should never happen, cause we either have a literal attribute or not.
             generator
                 .unwrap_or_else(|| panic!("invariant; field {:?} did not have a generator", name))
         })
@@ -661,7 +614,6 @@ struct GrammarField {
     name: Ident,
     id: usize,
     ty: Type,
-    is_compact: bool,
     attrs: Vec<Attribute>,
 }
 

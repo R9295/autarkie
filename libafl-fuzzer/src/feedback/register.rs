@@ -1,3 +1,4 @@
+/// Benign feedback to capture all serialized values of nodes and store them in the corpora
 use std::{borrow::Cow, marker::PhantomData};
 
 use libafl::{
@@ -24,6 +25,7 @@ impl<I> RegisterFeedback<I> {
         }
     }
 }
+
 impl<I, EM, OT, S> Feedback<EM, I, OT, S> for RegisterFeedback<I>
 where
     I: Node,
@@ -51,15 +53,10 @@ where
         _observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
-        let id = state.corpus().peek_free_id();
-        let corpus_id = id;
         let metadata = state
             .metadata_mut::<Context>()
             .expect("we must have context!");
-        metadata.register_input(
-            testcase.input().as_ref().expect("we must have input!"),
-            corpus_id,
-        );
+        metadata.register_input(testcase.input().as_ref().expect("we must have input!"));
         Ok(())
     }
 }

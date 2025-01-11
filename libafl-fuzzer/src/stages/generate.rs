@@ -10,12 +10,12 @@ use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 use thesis::{Node, Visitor};
 
 #[derive(Debug)]
-pub struct GenerateStage<E, S, I> {
+pub struct GenerateStage<I> {
     visitor: Rc<RefCell<Visitor>>,
-    phantom: PhantomData<(E, S, I)>,
+    phantom: PhantomData<I>,
 }
 
-impl<E, S, I> GenerateStage<E, S, I> {
+impl<I> GenerateStage<I> {
     pub fn new(visitor: Rc<RefCell<Visitor>>) -> Self {
         Self {
             visitor,
@@ -24,7 +24,7 @@ impl<E, S, I> GenerateStage<E, S, I> {
     }
 }
 
-impl<E, EM, Z, S, I> Stage<E, EM, S, Z> for GenerateStage<E, S, I>
+impl<E, EM, Z, S, I> Stage<E, EM, S, Z> for GenerateStage<I>
 where
     I: Node + Serialize,
     S: State + HasCurrentTestcase + HasCorpus,
