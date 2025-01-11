@@ -58,7 +58,6 @@ where
 {
     let monitor = MultiMonitor::new(|s| println!("{s}"));
     let shmem_provider = StdShMemProvider::new().expect("Failed to init shared memory");
-    /*     let monitor = MultiMonitor::new(|s| {}); */
     let opt = Opt::parse();
     let run_client = |mut state: Option<_>,
                       mut mgr: _,
@@ -100,9 +99,8 @@ where
         let mut visitor = Visitor::new(
             seed,
             DepthInfo {
-                expand: 1500,
-                generate: 2,
-                iterate: 5,
+                generate: opt.generate_depth,
+                iterate: opt.iterate_depth,
             },
         );
         let visitor = Rc::new(RefCell::new(visitor));
@@ -344,7 +342,6 @@ macro_rules! debug_grammar {
         let mut v = Visitor::new(
             libafl_bolts::current_nanos(),
             autarkie::DepthInfo {
-                expand: 1500,
                 generate: 5,
                 iterate: 3,
             },

@@ -19,8 +19,6 @@ pub enum NodeType {
 
 #[derive(Debug, Clone)]
 pub struct DepthInfo {
-    /// if we should expand the nested items when serializing
-    pub expand: usize,
     /// for recursive generation (ie. if an enum is recursive (Box<Self>))
     pub generate: usize,
     /// for iterative generation
@@ -100,12 +98,6 @@ impl Visitor {
     pub fn register_field_stack(&mut self, item: ((usize, NodeType), Id)) {
         self.fields_stack.push(item);
     }
-
-    pub fn expand(&mut self) -> bool {
-        self.fields_stack.len() < self.depth.expand
-    }
-
-    pub fn get_depth() {}
 
     pub fn get_rng(&mut self) -> &mut StdRand {
         &mut self.rng

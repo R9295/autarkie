@@ -76,7 +76,6 @@ where
         if state.current_testcase()?.scheduled_count() > 0 {
             return Ok(());
         }
-        // TODO: check if we need to run this testcase
         let metadata = state.metadata::<Context>().unwrap();
         let indexes = state
             .current_testcase()
@@ -86,10 +85,14 @@ where
             .unwrap()
             .list
             .clone();
+        
         let mut current = state.current_input_cloned().unwrap();
         current.fields(&mut self.visitor.borrow_mut(), 0);
-        let mut skip = 0;
         let mut fields = self.visitor.borrow_mut().fields();
+        
+        let mut skip = 0;
+        let mut cur_iter = 0;
+        
         loop {
             let field = fields.pop();
             if field.is_none() {
@@ -98,8 +101,13 @@ where
             let field = field.unwrap();
             let ((id, node_ty), ty) = field.last().unwrap();
             if let NodeType::Recursive = node_ty {
+                if cur_iter < skip {
+                    cur_iter += 1;
+                    continue;
+                }
                 let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
                 let mut inner = current.clone();
+                // We are only trying to replace with one non recursive variant (maybe try to replace with ALL possible non recursive varaints?)
                 inner.__mutate(
                     &mut MutationType::RecursiveReplace,
                     &mut self.visitor.borrow_mut(),
@@ -116,10 +124,14 @@ where
                     .map(|i| i.0)
                     .collect::<Vec<_>>();
                 if map == indexes {
+                    cur_iter = 0;
                     current = inner;
                     current.fields(&mut self.visitor.borrow_mut(), 0);
                     fields = self.visitor.borrow_mut().fields();
+                } else {
+                    skip += 1;
                 }
+                cur_iter += 1;
             }
         }
         state.current_testcase_mut()?.set_input(current);

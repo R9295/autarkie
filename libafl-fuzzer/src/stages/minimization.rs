@@ -75,7 +75,7 @@ where
         if state.current_testcase()?.scheduled_count() > 0 {
             return Ok(());
         }
-        // TODO: check if we need to run this testcase
+
         let metadata = state.metadata::<Context>().unwrap();
         let indexes = state
             .current_testcase()
