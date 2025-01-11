@@ -11,6 +11,8 @@ use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData
 
 use crate::context::Context;
 
+use super::commons::calculate_subslice_bounds;
+
 pub struct AutarkieSpliceMutator<I> {
     visitor: Rc<RefCell<Visitor>>,
     max_subslice_size: usize,
@@ -35,24 +37,18 @@ where
             let subslice = self.visitor.borrow_mut().coinflip_with_prob(0.6);
             if subslice {
                 // no point subslicing when we have less than 5 entries
-                let field_len = field.last().unwrap().0 .1.iterable_size();
+                let field_len = node_ty.iterable_size();
                 if field_len < 3 {
                     return Ok(MutationResult::Skipped);
                 }
                 if let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) {
                     let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                    let subslice_start = self.visitor.borrow_mut().random_range(0, field_len - 1);
-                    let mut subslice_end = self
-                        .visitor
-                        .borrow_mut()
-                        .random_range(subslice_start, field_len);
-                    if subslice_end - subslice_start > self.max_subslice_size {
-                        subslice_end = subslice_start + self.max_subslice_size;
-                    }
-                    // calculate subsplice size
-                    let subslice_end = field_len;
-                    let subslice_start = self.visitor.borrow_mut().random_range(0, field_len - 1);
-                    for index in subslice_start..subslice_end {
+                    let subslice_bounds = calculate_subslice_bounds(
+                        field_len,
+                        self.max_subslice_size,
+                        &mut self.visitor.borrow_mut(),
+                    );
+                    for index in subslice_bounds {
                         let mut child_path = path.clone();
                         child_path.push_back(index);
                         let random_splice = possible_splices

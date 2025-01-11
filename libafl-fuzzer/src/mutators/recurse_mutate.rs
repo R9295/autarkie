@@ -11,6 +11,8 @@ use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData
 
 use crate::context::Context;
 
+use super::commons::calculate_subslice_bounds;
+
 pub struct AutarkieRecurseMutator<I> {
     max_subslice_size: usize,
     visitor: Rc<RefCell<Visitor>>,
@@ -35,20 +37,17 @@ where
             0
         };
         if matches!(node_ty, autarkie::NodeType::Iterable(_, _)) {
-            let field_len = field.last().unwrap().0 .1.iterable_size();
+            let field_len = node_ty.iterable_size();
             if field_len < 3 {
                 return Ok(MutationResult::Skipped);
             }
             let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-            let subslice_start = self.visitor.borrow_mut().random_range(0, field_len - 1);
-            let mut subslice_end = self
-                .visitor
-                .borrow_mut()
-                .random_range(subslice_start, field_len);
-            if subslice_end - subslice_start > self.max_subslice_size {
-                subslice_end = subslice_start + self.max_subslice_size;
-            }
-            for index in subslice_start..subslice_end {
+            let subslice_bounds = calculate_subslice_bounds(
+                field_len,
+                self.max_subslice_size,
+                &mut self.visitor.borrow_mut(),
+            );
+            for index in subslice_bounds {
                 let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
                 path.push_back(index);
                 #[cfg(debug_assertions)]
