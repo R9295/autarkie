@@ -117,6 +117,7 @@ version = "0.1.0"
 dependencies = [
  "autarkie_derive",
  "bincode",
+ "borsh",
  "libafl_bolts",
  "parity-scale-codec",
  "serde",
@@ -226,6 +227,29 @@ dependencies = [
  "cc",
  "cfg-if",
  "constant_time_eq",
+]
+
+[[package]]
+name = "borsh"
+version = "1.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2506947f73ad44e344215ccd6403ac2ae18cd8e046e581a441bf8d199f257f03"
+dependencies = [
+ "borsh-derive",
+ "cfg_aliases",
+]
+
+[[package]]
+name = "borsh-derive"
+version = "1.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2593a3b8b938bd68373196c9832f516be11fa487ef4ae745eb282e6a56a7244"
+dependencies = [
+ "once_cell",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.90",
 ]
 
 [[package]]
@@ -593,6 +617,7 @@ dependencies = [
  "autarkie",
  "bincode",
  "blake3",
+ "borsh",
  "clap",
  "libafl",
  "libafl_bolts",

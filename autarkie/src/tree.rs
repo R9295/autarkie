@@ -81,6 +81,9 @@ node!(Debug + serde::Serialize + for<'a> serde::Deserialize<'a> + 'static);
 #[cfg(feature = "scale")]
 node!(Debug + parity_scale_codec::Encode + parity_scale_codec::Decode + 'static);
 
+#[cfg(feature = "borsh")]
+node!(Debug + borsh::BorshSerialize + borsh::BorshDeserialize + 'static);
+
 impl<T: 'static> Node for PhantomData<T> {
     fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
         Self
@@ -88,7 +91,7 @@ impl<T: 'static> Node for PhantomData<T> {
 }
 
 // TODO: fix and make the same as Vec
-#[cfg(any(feature = "scale"))]
+#[cfg(any(feature = "borsh", feature = "scale"))]
 impl<T, const N: usize> Node for [T; N]
 where
     // TODO can we remove the debug clause?
@@ -670,4 +673,25 @@ where
 pub fn serialize_vec_len(len: usize) -> Vec<u8> {
     use parity_scale_codec::Encode;
     (parity_scale_codec::Compact(len as u32)).encode()
+}
+
+#[cfg(feature = "borsh")]
+pub fn serialize<T>(data: &T) -> Vec<u8>
+where
+    T: borsh::BorshSerialize,
+{
+    borsh::to_vec(data).expect("invariant; we must always be able to deserialize")
+}
+
+#[cfg(feature = "borsh")]
+pub fn deserialize<T>(data: &mut &[u8]) -> T
+where
+    T: borsh::BorshDeserialize,
+{
+    T::deserialize(data).expect("invariant; we must always be able to deserialize")
+}
+
+#[cfg(feature = "borsh")]
+pub fn serialize_vec_len(len: usize) -> Vec<u8> {
+    borsh::to_vec(&(len as u32)).expect("invariant; we must always be able to serialize")
 }

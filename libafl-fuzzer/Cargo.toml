@@ -13,6 +13,7 @@ autarkie = {path = "../autarkie", features=["derive"]}
 blake3 = "1.5.4"
 parity-scale-codec = { version = "3.6.12", features = ["derive"], optional = true }
 
+borsh = { version = "1.5.3", features = ["derive"], optional = true }
 bincode = {version = "1.3.3", optional = true}
 regex = "1.11.1"
 num-traits = "0.2.19"
@@ -20,3 +21,4 @@ num-traits = "0.2.19"
 [features]
 bincode = ["dep:bincode", "autarkie/bincode"]
 scale = ["dep:parity-scale-codec", "autarkie/scale"]
+borsh = ["dep:borsh", "autarkie/borsh"]

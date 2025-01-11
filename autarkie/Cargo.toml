@@ -12,8 +12,10 @@ serde = { version = "1.0.0", features = ["derive"], optional = true}
 
 autarkie_derive = {path = "../autarkie_derive", optional = true}
 parity-scale-codec = { version = "3.6.12", features = ["derive"], optional = true }
+borsh = { version = "1.5.3", features = ["derive"], optional = true }
 
 [features]
 derive = ["autarkie_derive"]
 bincode = ["dep:serde", "dep:bincode"]
 scale = ["dep:parity-scale-codec"]
+borsh = ["dep:borsh"]
