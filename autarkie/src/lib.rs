@@ -1,7 +1,6 @@
 #![allow(warnings)]
 #![feature(core_intrinsics)]
 pub mod serde;
-
 pub mod tree;
 pub mod visitor;
 
