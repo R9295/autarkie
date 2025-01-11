@@ -22,7 +22,7 @@ use libafl::{
     schedulers::{powersched::PowerSchedule, StdWeightedScheduler},
     stages::{IfStage, StdPowerMutationalStage},
     state::{HasCorpus, HasCurrentTestcase, StdState},
-    Evaluator, Fuzzer, HasMetadata, StdFuzzer,
+    BloomInputFilter, Evaluator, Fuzzer, HasMetadata, StdFuzzer,
 };
 use libafl_bolts::{
     core_affinity::{CoreId, Cores},
@@ -40,13 +40,13 @@ use mutators::{
     splice_append::AutarkieSpliceAppendMutator,
 };
 
+use autarkie::{DepthInfo, Node, Visitor};
 use regex::Regex;
 use stages::{
     cmp::CmpLogStage, generate::GenerateStage, minimization::MinimizationStage,
     recursive_minimization::RecursiveMinimizationStage,
 };
 use std::{cell::RefCell, io::ErrorKind, path::PathBuf, process::Command, rc::Rc, time::Duration};
-use autarkie::{DepthInfo, Node, Visitor};
 
 use crate::stages::generate::generate;
 
@@ -75,7 +75,7 @@ where
             .replace("\n", "");
         let map_size = map_size.parse::<usize>().expect("illegal mapsize output") + opt.map_bias;
 
-        let fuzzer_dir = opt.output_dir.join(format!("{}", core.core_id().0)); 
+        let fuzzer_dir = opt.output_dir.join(format!("{}", core.core_id().0));
         match std::fs::create_dir(&fuzzer_dir) {
             Ok(_) => {}
             Err(e) => {
@@ -150,7 +150,7 @@ where
             Some(PowerSchedule::explore()),
         );
         let scheduler = scheduler.cycling_scheduler();
-        
+
         let mut executor = ForkserverExecutor::builder()
             .program(opt.executable.clone())
             .coverage_map_size(map_size)
@@ -164,6 +164,7 @@ where
             .unwrap();
 
         // Create our Fuzzer
+        // TODO: use BloomInputFilter
         let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
         if let Some(dict_file) = &opt.dict_file {
             let file = std::fs::read_to_string(dict_file).expect("cannot read dict file");
@@ -298,10 +299,10 @@ where
 struct Opt {
     /// What we wanna fuzz
     executable: PathBuf,
-    /// Fuzzer output dir; will also load inputs from there 
+    /// Fuzzer output dir; will also load inputs from there
     #[arg(short = 'o')]
     output_dir: PathBuf,
-    
+
     /// Timeout in ms
     #[arg(short = 't', default_value_t = 1000)]
     hang_timeout: u64,
@@ -309,11 +310,11 @@ struct Opt {
     /// seed for rng
     #[arg(short = 's')]
     rng_seed: Option<u64>,
-    
+
     /// debug the child
     #[arg(short = 'd')]
     debug_child: bool,
-    
+
     /// AFL_DUMP_MAP_SIZE + x where x = map bias
     #[arg(short = 'm')]
     map_bias: usize,
@@ -321,10 +322,10 @@ struct Opt {
     /// Amount of initial inputs to generate
     #[arg(short = 'g', default_value_t = 100)]
     initial_generated_inputs: usize,
-     
+
     #[arg(short = 'c', value_parser=Cores::from_cmdline)]
     cores: Cores,
-    
+
     /// Max iterate depth when generating iterable nodes
     #[arg(short = 'I', default_value_t = 5)]
     iterate_depth: usize,
@@ -339,10 +340,12 @@ struct Opt {
     /// AFL++ LLVM_DICT2FILE
     #[arg(short = 'x')]
     dict_file: Option<PathBuf>,
-    /// Use AFL++'s cmplog feature 
+
+    /// Use AFL++'s cmplog feature
     #[arg(short = 'e')]
     cmplog: bool,
-    /// run strings on the binary
+
+    /// capture strings from the binary (only useful if you have a lot of String nodes)
     #[arg(short = 'S')]
     get_strings: bool,
 }
