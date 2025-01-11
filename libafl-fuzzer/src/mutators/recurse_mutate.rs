@@ -28,32 +28,36 @@ where
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &mut fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().unwrap();
-        let mut bias = if self.visitor.borrow_mut().coinflip() { self.visitor.borrow().generate_depth() } else {0};
+        let mut bias = if self.visitor.borrow_mut().coinflip() {
+            self.visitor.borrow().generate_depth()
+        } else {
+            0
+        };
         if matches!(node_ty, thesis::NodeType::Iterable(_, _)) {
-                let field_len = field.last().unwrap().0 .1.iterable_size();
-                if field_len < 3 {
-                    return Ok(MutationResult::Skipped);
-                }
+            let field_len = field.last().unwrap().0 .1.iterable_size();
+            if field_len < 3 {
+                return Ok(MutationResult::Skipped);
+            }
+            let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
+            let subslice_start = self.visitor.borrow_mut().random_range(0, field_len - 1);
+            let mut subslice_end = self
+                .visitor
+                .borrow_mut()
+                .random_range(subslice_start, field_len);
+            if subslice_end - subslice_start > 5 {
+                subslice_end = subslice_start + 5;
+            }
+            for index in subslice_start..subslice_end {
                 let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                let subslice_start = self.visitor.borrow_mut().random_range(0, field_len - 1);
-                let mut subslice_end = self
-                    .visitor
-                    .borrow_mut()
-                    .random_range(subslice_start, field_len);
-                if subslice_end - subslice_start > 5 {
-                    subslice_end = subslice_start + 5;
-                }
-                for index in subslice_start..subslice_end {
-                    let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                    path.push_back(index);
-                    #[cfg(debug_assertions)]
-                    println!("recursive_mutate | subslice | {:?}", field);
-                    input.__mutate(
-                        &mut MutationType::GenerateReplace(bias),
-                        &mut self.visitor.borrow_mut(),
-                        path,
-                    );
-                }
+                path.push_back(index);
+                #[cfg(debug_assertions)]
+                println!("recursive_mutate | subslice | {:?}", field);
+                input.__mutate(
+                    &mut MutationType::GenerateReplace(bias),
+                    &mut self.visitor.borrow_mut(),
+                    path,
+                );
+            }
         } else {
             let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
             #[cfg(debug_assertions)]

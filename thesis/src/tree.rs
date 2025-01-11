@@ -41,8 +41,7 @@ where
     fn fields(&self, visitor: &mut Visitor, index: usize) {}
 
     fn cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {}
-    
-    
+
     fn is_recursive(&self) -> bool {
         false
     }
@@ -71,12 +70,10 @@ where
     }
 }
 
-
 impl<T: 'static> Node for PhantomData<T> {
     fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
         Self
     }
-    
 }
 
 impl<T> Node for Vec<T>
@@ -85,7 +82,7 @@ where
 {
     fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
         let element_count = if *depth > 0 {
-            visitor.random_range(if *cur_depth == 0 {1} else {0}, visitor.iterate_depth())
+            visitor.random_range(if *cur_depth == 0 { 1 } else { 0 }, visitor.iterate_depth())
         } else {
             0
         };
@@ -157,13 +154,22 @@ where
     fn fields(&self, visitor: &mut Visitor, index: usize) {
         for (index, child) in self.iter().enumerate() {
             let len = child.__len();
-             if len > 0 {
-                 visitor.register_field_stack(((index, NodeType::Iterable(len.saturating_sub(1), T::inner_id().expect("droABVpT____"))), T::id()));
-             } else if child.is_recursive() {
-                 visitor.register_field_stack(((index, NodeType::Recursive), T::id()));
-             } else {
-                 visitor.register_field_stack(((index, NodeType::NonRecursive), T::id()));
-             }
+            if len > 0 {
+                visitor.register_field_stack((
+                    (
+                        index,
+                        NodeType::Iterable(
+                            len.saturating_sub(1),
+                            T::inner_id().expect("droABVpT____"),
+                        ),
+                    ),
+                    T::id(),
+                ));
+            } else if child.is_recursive() {
+                visitor.register_field_stack(((index, NodeType::Recursive), T::id()));
+            } else {
+                visitor.register_field_stack(((index, NodeType::NonRecursive), T::id()));
+            }
             child.fields(visitor, 0);
             visitor.pop_field();
         }
@@ -270,13 +276,22 @@ where
     fn fields(&self, visitor: &mut Visitor, index: usize) {
         if let Some(inner) = self {
             let len = inner.__len();
-             if len > 0 {
-                 visitor.register_field_stack(((index, NodeType::Iterable(len.saturating_sub(1), T::inner_id().expect("droABVpT____"))), T::id()));
-             } else if inner.is_recursive() {
-                 visitor.register_field_stack(((index, NodeType::Recursive), T::id()));
-             } else {
-                 visitor.register_field_stack(((index, NodeType::NonRecursive), T::id()));
-             }
+            if len > 0 {
+                visitor.register_field_stack((
+                    (
+                        index,
+                        NodeType::Iterable(
+                            len.saturating_sub(1),
+                            T::inner_id().expect("droABVpT____"),
+                        ),
+                    ),
+                    T::id(),
+                ));
+            } else if inner.is_recursive() {
+                visitor.register_field_stack(((index, NodeType::Recursive), T::id()));
+            } else {
+                visitor.register_field_stack(((index, NodeType::NonRecursive), T::id()));
+            }
             inner.fields(visitor, 0);
             visitor.pop_field();
         }
@@ -506,14 +521,12 @@ impl_generate_simple!(isize, 8);
 #[cfg(feature = "bincode")]
 impl_generate_simple!(usize, 8);
 
-
 pub fn serialize<T>(data: &T) -> Vec<u8>
 where
     T: serde::Serialize,
 {
     bincode::serialize(data).expect("invariant; we must always be able to serialize")
 }
-
 
 pub fn deserialize<T>(data: &mut &[u8]) -> T
 where

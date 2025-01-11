@@ -46,29 +46,29 @@ impl<'a, TE, E, S, I> CmpLogStage<'a, TE, E, S, I> {
     }
 }
 
-impl<TE, E, S, I> UsesState for CmpLogStage<'_, TE, E, S, I>
+/* impl<TE, E, S, I> UsesState for CmpLogStage<'_, TE, E, S, I>
 where
     S: State,
 {
     type State = S;
-}
+} */
 
-impl<TE, E, EM, Z, S, I> Stage<E, EM, Z> for CmpLogStage<'_, TE, E, S, I>
+impl<TE, E, EM, Z, S, I> Stage<E, EM, S, Z> for CmpLogStage<'_, TE, E, S, I>
 where
     I: Node + Serialize + Clone,
     S: State + HasCurrentTestcase + HasMetadata + UsesInput<Input = I>,
     S::Corpus: Corpus<Input = I>,
-    E: UsesState<State = S> + Executor<E, EM, State = S>,
+    E: Executor<EM, I, S, Z>,
     EM: UsesState<State = S>,
-    TE: Executor<EM, Z, State = S> + HasObservers,
-    TE::Observers: MatchNameRef + ObserversTuple<I, TE::State>,
-    Z: UsesState<State = S> + Evaluator<E, EM>,
+    TE: Executor<EM, I, S, Z> + HasObservers,
+    TE::Observers: MatchNameRef + ObserversTuple<I, S>,
+    Z: Evaluator<E, EM, I, S>,
 {
     fn perform(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
-        state: &mut Self::State,
+        state: &mut S,
         manager: &mut EM,
     ) -> Result<(), libafl_bolts::Error> {
         if state.current_testcase().unwrap().scheduled_count() > 1 {
@@ -138,9 +138,13 @@ where
                 let before = thesis::serialize(&input);
                 #[cfg(debug_assertions)]
                 println!("cmplog_splice | one | {:?}", path.0);
-                input.__mutate(&mut MutationType::Splice(&mut serialized_alternative), &mut self.visitor.borrow_mut(), cmp_path);
+                input.__mutate(
+                    &mut MutationType::Splice(&mut serialized_alternative),
+                    &mut self.visitor.borrow_mut(),
+                    cmp_path,
+                );
                 let res = fuzzer.evaluate_input(state, executor, manager, input)?;
-/*                 #[cfg(debug_assertions)] */
+                /*                 #[cfg(debug_assertions)] */
                 if let libafl::ExecuteInputResult::Corpus = res.0 {
                     println!("FOUND USING CMPLOG");
                 }
@@ -152,11 +156,11 @@ where
         Ok(())
     }
 
-    fn should_restart(&mut self, state: &mut Self::State) -> Result<bool, libafl_bolts::Error> {
+    fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl_bolts::Error> {
         Ok(true)
     }
 
-    fn clear_progress(&mut self, state: &mut Self::State) -> Result<(), libafl_bolts::Error> {
+    fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl_bolts::Error> {
         Ok(())
     }
 }

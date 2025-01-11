@@ -60,10 +60,12 @@ where
 {
     let monitor = MultiMonitor::new(|s| println!("{s}"));
     let shmem_provider = StdShMemProvider::new().expect("Failed to init shared memory");
-    let mgr = SimpleEventManager::new(monitor);
     /*     let monitor = MultiMonitor::new(|s| {}); */
     let opt = Opt::parse();
-    let run_client = |mut mgr: _, core: ClientDescription| -> Result<(), libafl_bolts::Error> {
+    let run_client = |mut state: Option<_>,
+                      mut mgr: _,
+                      core: ClientDescription|
+     -> Result<(), libafl_bolts::Error> {
         if !opt.output_dir.exists() {
             std::fs::create_dir(&opt.output_dir).unwrap();
         }
@@ -122,15 +124,18 @@ where
         let mut objective = feedback_or_fast!(CrashFeedback::new());
 
         // Initialize our State if necessary
-        let mut state = StdState::new(
-            RomuDuoJrRand::with_seed(seed),
-            // TODO: configure testcache size
-            CachedOnDiskCorpus::<I>::new(fuzzer_dir.join("queue"), 2).unwrap(),
-            OnDiskCorpus::<I>::new(fuzzer_dir.join("crash")).unwrap(),
-            &mut feedback,
-            &mut objective,
-        )
-        .unwrap();
+        let mut state = state.unwrap_or(
+            StdState::new(
+                RomuDuoJrRand::with_seed(seed),
+                // TODO: configure testcache size
+                CachedOnDiskCorpus::<I>::new(fuzzer_dir.join("queue"), 2).unwrap(),
+                OnDiskCorpus::<I>::new(fuzzer_dir.join("crash")).unwrap(),
+                &mut feedback,
+                &mut objective,
+            )
+            .unwrap(),
+        );
+
         if !fuzzer_dir.join("chunks").exists() {
             std::fs::create_dir(fuzzer_dir.join("chunks")).unwrap();
         }
@@ -275,15 +280,14 @@ where
         fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)?;
         Err(Error::shutting_down())
     };
-    run_client(mgr, ClientDescription::new(0, 0, CoreId(0))).unwrap();
-    /* Launcher::builder()
-    .cores(&opt.cores)
-    .monitor(monitor)
-    .run_client(run_client)
-    .shmem_provider(shmem_provider)
-    .configuration(EventConfig::from_name("default"))
-    .build()
-    .launch(); */
+    Launcher::builder()
+        .cores(&opt.cores)
+        .monitor(monitor)
+        .run_client(run_client)
+        .shmem_provider(shmem_provider)
+        .configuration(EventConfig::from_name("default"))
+        .build()
+        .launch();
 }
 
 #[allow(clippy::struct_excessive_bools)]

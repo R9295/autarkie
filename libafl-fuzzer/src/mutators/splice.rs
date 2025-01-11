@@ -98,7 +98,7 @@ where
                     // NOTE: we are encoding the length as as bincode wants, borsh and scale expect
                     // it differently. TODO!!!!!
                     /* let mut data =
-                        bincode::serialize(&(max_iter_size as u64)).expect("a0AAoZik____"); */
+                    bincode::serialize(&(max_iter_size as u64)).expect("a0AAoZik____"); */
                     use parity_scale_codec::Encode;
                     let mut data = parity_scale_codec::Compact(max_iter_size as u32).encode();
                     data.extend(items.iter().flatten());
@@ -109,7 +109,7 @@ where
                         &mut self.visitor.borrow_mut(),
                         path,
                     );
-                } 
+                }
             }
         } else {
             if let Some(possible_splices) = metadata.get_inputs_for_type(ty) {
@@ -130,7 +130,7 @@ where
                     &mut self.visitor.borrow_mut(),
                     path,
                 );
-            } 
+            }
         }
         Ok(MutationResult::Skipped)
     }

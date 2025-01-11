@@ -52,33 +52,33 @@ where
     }
 }
 
-impl<C, E, O, OT, S, I> UsesState for RecursiveMinimizationStage<C, E, O, OT, S, I>
+/* impl<C, E, O, OT, S, I> UsesState for RecursiveMinimizationStage<C, E, O, OT, S, I>
 where
     S: State,
 {
     type State = S;
-}
+} */
 
-impl<C, E, O, OT, S, I, EM, Z> Stage<E, EM, Z> for RecursiveMinimizationStage<C, E, O, OT, S, I>
+impl<C, E, O, OT, S, I, EM, Z> Stage<E, EM, S, Z> for RecursiveMinimizationStage<C, E, O, OT, S, I>
 where
     I: Node + Serialize + Clone,
     S: State + HasCurrentTestcase + HasCorpus + UsesInput<Input = I> + HasMetadata,
     S::Corpus: Corpus<Input = I>,
-    E: UsesState<State = S> + Executor<E, EM, State = S> + HasObservers<Observers = OT>,
+    E: Executor<EM, I, S, Z> + HasObservers<Observers = OT>,
     EM: UsesState<State = S>,
-    Z: UsesState<State = S> + Evaluator<E, EM>,
+    Z: Evaluator<E, EM, I, S>,
 
     O: MapObserver,
     C: AsRef<O>,
     for<'de> <O as MapObserver>::Entry:
         Serialize + Deserialize<'de> + 'static + Default + Debug + Bounded,
-    OT: ObserversTuple<Self::Input, Self::State>,
+    OT: ObserversTuple<I, S>,
 {
     fn perform(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
-        state: &mut Self::State,
+        state: &mut S,
         manager: &mut EM,
     ) -> Result<(), libafl_bolts::Error> {
         if state.current_testcase()?.scheduled_count() > 0 {
@@ -100,47 +100,49 @@ where
         let mut fields = self.visitor.borrow_mut().fields();
         loop {
             let field = fields.pop();
-            if field.is_none() {break;}
+            if field.is_none() {
+                break;
+            }
             let field = field.unwrap();
             let ((id, node_ty), ty) = field.last().unwrap();
             if let NodeType::Recursive = node_ty {
                 let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                    let mut inner = current.clone();
-                    inner.__mutate(
-                        &mut MutationType::RecursiveReplace,
-                        &mut self.visitor.borrow_mut(),
-                        path.clone(),
-                    );
-                    let run = fuzzer.evaluate_input(state, executor, manager, inner.clone())?;
-                    if let libafl::ExecuteInputResult::Corpus = run.0 {
-                        println!("WE FOUND? LOL");
-                    }
-                    let map = &executor.observers()[&self.map_observer_handle]
-                        .as_ref()
-                        .to_vec();
-                    let map = map
-                        .into_iter()
-                        .enumerate()
-                        .filter(|i| i.1 != &O::Entry::default())
-                        .map(|i| i.0)
-                        .collect::<Vec<_>>();
-                    if map == indexes {
-                        println!("RECURSIVE_MINIMIZED");
-                        current = inner;
-                        current.fields(&mut self.visitor.borrow_mut(), 0);
-                        fields = self.visitor.borrow_mut().fields();
-                    }
+                let mut inner = current.clone();
+                inner.__mutate(
+                    &mut MutationType::RecursiveReplace,
+                    &mut self.visitor.borrow_mut(),
+                    path.clone(),
+                );
+                let run = fuzzer.evaluate_input(state, executor, manager, inner.clone())?;
+                if let libafl::ExecuteInputResult::Corpus = run.0 {
+                    println!("WE FOUND? LOL");
+                }
+                let map = &executor.observers()[&self.map_observer_handle]
+                    .as_ref()
+                    .to_vec();
+                let map = map
+                    .into_iter()
+                    .enumerate()
+                    .filter(|i| i.1 != &O::Entry::default())
+                    .map(|i| i.0)
+                    .collect::<Vec<_>>();
+                if map == indexes {
+                    println!("RECURSIVE_MINIMIZED");
+                    current = inner;
+                    current.fields(&mut self.visitor.borrow_mut(), 0);
+                    fields = self.visitor.borrow_mut().fields();
+                }
             }
         }
         state.current_testcase_mut()?.set_input(current);
         Ok(())
     }
 
-    fn should_restart(&mut self, state: &mut Self::State) -> Result<bool, libafl_bolts::Error> {
+    fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl_bolts::Error> {
         Ok(true)
     }
 
-    fn clear_progress(&mut self, state: &mut Self::State) -> Result<(), libafl_bolts::Error> {
+    fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl_bolts::Error> {
         Ok(())
     }
 }

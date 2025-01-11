@@ -25,27 +25,27 @@ impl<E, S, I> GenerateStage<E, S, I> {
     }
 }
 
-impl<E, S, I> UsesState for GenerateStage<E, S, I>
+/* impl<E, S, I> UsesState for GenerateStage<E, S, I>
 where
     S: State,
 {
     type State = S;
 }
-
-impl<E, EM, Z, S, I> Stage<E, EM, Z> for GenerateStage<E, S, I>
+*/
+impl<E, EM, Z, S, I> Stage<E, EM, S, Z> for GenerateStage<E, S, I>
 where
     I: Node + Serialize,
     S: State + HasCurrentTestcase + HasCorpus + UsesInput<Input = I>,
     S::Corpus: Corpus<Input = I>,
-    E: UsesState<State = S> + Executor<E, EM, State = S>,
+    E: Executor<EM, I, S, Z>,
     EM: UsesState<State = S>,
-    Z: UsesState<State = S> + Evaluator<E, EM>,
+    Z: Evaluator<E, EM, I, S>,
 {
     fn perform(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
-        state: &mut Self::State,
+        state: &mut S,
         manager: &mut EM,
     ) -> Result<(), libafl_bolts::Error> {
         let generated = generate(&mut self.visitor.borrow_mut());
@@ -53,11 +53,11 @@ where
         Ok(())
     }
 
-    fn should_restart(&mut self, state: &mut Self::State) -> Result<bool, libafl_bolts::Error> {
+    fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl_bolts::Error> {
         Ok(true)
     }
 
-    fn clear_progress(&mut self, state: &mut Self::State) -> Result<(), libafl_bolts::Error> {
+    fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl_bolts::Error> {
         Ok(())
     }
 }
