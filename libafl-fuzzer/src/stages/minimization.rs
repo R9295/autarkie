@@ -18,7 +18,7 @@ use std::{
     marker::PhantomData,
     rc::Rc,
 };
-use thesis::{MutationType, Node, NodeType, Visitor};
+use autarkie::{MutationType, Node, NodeType, Visitor};
 
 use crate::context::Context;
 

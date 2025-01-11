@@ -6,8 +6,8 @@ use libafl::{
 };
 use libafl_bolts::{AsSlice, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
-use thesis::Node;
-use thesis::Visitor;
+use autarkie::Node;
+use autarkie::Visitor;
 
 use crate::context::Context;
 
@@ -29,7 +29,7 @@ where
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().unwrap();
-        if let thesis::NodeType::Iterable(field_len, inner_ty) = node_ty {
+        if let autarkie::NodeType::Iterable(field_len, inner_ty) = node_ty {
             if let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) {
                 if *field_len > 200 {
                     return Ok(MutationResult::Skipped);
@@ -51,7 +51,7 @@ where
                     #[cfg(debug_assertions)]
                     println!("splice | splice_append | {:?}", (&field, &path));
                     input.__mutate(
-                        &mut thesis::MutationType::SpliceAppend(&mut data.as_slice()),
+                        &mut autarkie::MutationType::SpliceAppend(&mut data.as_slice()),
                         &mut self.visitor.borrow_mut(),
                         path.clone(),
                     );

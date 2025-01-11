@@ -24,7 +24,7 @@ cd my_target
 ``` toml
 # Note: each serialization primitive is a feature. 
 # You MUST pick one. there is no default
-thesis = {path = "path/to/thesis/thesis", features=["derive", "bincode"]}
+autarkie = {path = "path/to/autarkie/autarkie", features=["derive", "bincode"]}
 serde = "1.0.214"
 ```
 
@@ -34,7 +34,7 @@ Note: If the ``Instruction`` struct has nested types, we must also derive all of
 ``` rust
 #[derive(
     Debug,
-    thesis::Grammar, 
+    autarkie::Grammar, 
     Clone,
     Default,
     serde::Serialize,
@@ -54,7 +54,7 @@ If you have literals, eg for us, the op-codes are limited, we can use ``literals
 ``` rust
 #[derive(
     Debug,
-    thesis::Grammar, 
+    autarkie::Grammar, 
     Clone,
     Default,
     serde::Serialize,
@@ -144,8 +144,8 @@ cargo init
 
 ## Add depdenencies
 ``` toml
-thesis = {path = "/path/to/thesis/thesis", features=["derive", "bincode"]}
-libafl-fuzzer = {path = "/path/to/thesis/libafl-fuzzer", features = ["bincode"]}
+autarkie = {path = "/path/to/autarkie/autarkie", features=["derive", "bincode"]}
+libafl-fuzzer = {path = "/path/to/autarkie/libafl-fuzzer", features = ["bincode"]}
 
 
 blake3 = "1.5.4"
@@ -162,7 +162,7 @@ blake3 = "1.5.4"
 use libafl_fuzzer::{fuzz, impl_converter, impl_input};
 
 use my_target::Instruction;
-use thesis::Grammar;
+use autarkie::Grammar;
 
 #[derive(
     Clone, Debug, Grammar, serde::Serialize, serde::Deserialize,

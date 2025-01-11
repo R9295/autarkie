@@ -23,7 +23,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 quote! {
                         let len = self.#name.__len();
                         if len == 0 {
-                            vector.push((::thesis::serialize(&self.#name), <#ty>::id()));
+                            vector.push((::autarkie::serialize(&self.#name), <#ty>::id()));
                         }
                 }
             });
@@ -44,9 +44,9 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 quote! {
                     let len = self.#name.__len();
                     if len > 0 {
-                        v.register_field(((#id, thesis::NodeType::Iterable(len.saturating_sub(1), <#ty>::inner_id().expect("TqeQSVOb____"))), <#ty>::id()));
+                        v.register_field(((#id, autarkie::NodeType::Iterable(len.saturating_sub(1), <#ty>::inner_id().expect("TqeQSVOb____"))), <#ty>::id()));
                     } else {
-                        v.register_field(((#id, thesis::NodeType::NonRecursive), <#ty>::id()));
+                        v.register_field(((#id, autarkie::NodeType::NonRecursive), <#ty>::id()));
                     }
                     self.#name.fields(v, 0);
                     v.pop_field();
@@ -59,11 +59,11 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 quote! {
                     let len = self.#name.__len();
                     if len > 0 {
-                        v.register_field(((#id, thesis::NodeType::Iterable(len.saturating_sub(1), <#ty>::inner_id().expect("My3YTxbe____"))), <#ty>::id()));
+                        v.register_field(((#id, autarkie::NodeType::Iterable(len.saturating_sub(1), <#ty>::inner_id().expect("My3YTxbe____"))), <#ty>::id()));
                     } else if self.#name.is_recursive() {
-                        v.register_field(((#id, thesis::NodeType::Recursive), <#ty>::id()));
+                        v.register_field(((#id, autarkie::NodeType::Recursive), <#ty>::id()));
                     } else {
-                        v.register_field(((#id, thesis::NodeType::NonRecursive), <#ty>::id()));
+                        v.register_field(((#id, autarkie::NodeType::NonRecursive), <#ty>::id()));
                     }
                     self.#name.cmps(v, 0, val);
                     v.pop_field();
@@ -84,29 +84,29 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let (impl_generics, ty_generics, where_clause) = base_parsed.generics.split_for_impl();
             // Generate the Node trait implementation for the Struct
             let node_impl = quote! {
-                impl #impl_generics ::thesis::Node for #root_name #ty_generics #where_clause {
-                    fn generate(v: &mut thesis::Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+                impl #impl_generics ::autarkie::Node for #root_name #ty_generics #where_clause {
+                    fn generate(v: &mut autarkie::Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
                         *cur_depth += 1usize;
                         #generate
                     }
 
 
-                    fn fields(&self, v: &mut ::thesis::Visitor, index: usize) {
+                    fn fields(&self, v: &mut ::autarkie::Visitor, index: usize) {
                         #(#register_field)*;
                     }
 
-                    fn cmps(&self, v: &mut ::thesis::Visitor, index: usize, val: (u64, u64)) {
+                    fn cmps(&self, v: &mut ::autarkie::Visitor, index: usize, val: (u64, u64)) {
                         #(#register_cmps)*
                     }
 
-                    fn serialized(&self) -> Option<Vec<(Vec<u8>, thesis::tree::Id)>> {
+                    fn serialized(&self) -> Option<Vec<(Vec<u8>, autarkie::tree::Id)>> {
                         let mut vector = ::std::vec![];
                         #(#serialized_ids);*
                         #(#serialized_recursive);*
                         Some(vector)
                     }
 
-                    fn __mutate(&mut self, ty: &mut thesis::MutationType, visitor: &mut thesis::Visitor, mut path: std::collections::VecDeque<usize>) {
+                    fn __mutate(&mut self, ty: &mut autarkie::MutationType, visitor: &mut autarkie::Visitor, mut path: std::collections::VecDeque<usize>) {
                         if let Some(popped) = path.pop_front() {
                             match popped {
                                 #(#inner_mutate)*
@@ -116,10 +116,10 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                             }
                         } else {
                             match ty {
-                                thesis::MutationType::Splice(other) => {
-                                    *self = thesis::deserialize(other);
+                                autarkie::MutationType::Splice(other) => {
+                                    *self = autarkie::deserialize(other);
                                 }
-                                thesis::MutationType::GenerateReplace(ref mut bias) => {
+                                autarkie::MutationType::GenerateReplace(ref mut bias) => {
                                     *self = Self::generate(visitor, bias, &mut 0);
                                 }
                                 _  => {
@@ -195,11 +195,11 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         quote!{
                             let len = #name.__len();
                             if len > 0 {
-                                v.register_field(((#id, thesis::NodeType::Iterable(len.saturating_sub(1), <#ty>::inner_id().expect("droABVpT____"))), <#ty>::id()));
+                                v.register_field(((#id, autarkie::NodeType::Iterable(len.saturating_sub(1), <#ty>::inner_id().expect("droABVpT____"))), <#ty>::id()));
                             } else if #name.is_recursive() {
-                                v.register_field(((#id, thesis::NodeType::Recursive), <#ty>::id()));
+                                v.register_field(((#id, autarkie::NodeType::Recursive), <#ty>::id()));
                             } else {
-                                v.register_field(((#id, thesis::NodeType::NonRecursive), <#ty>::id()));
+                                v.register_field(((#id, autarkie::NodeType::NonRecursive), <#ty>::id()));
                             }
                             #name.fields(v, #id);
                             v.pop_field();
@@ -216,7 +216,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     };
                     Some(quote! {
                             #match_arm {
-                            v.register_field_stack(((#i, thesis::NodeType::NonRecursive), Self::id()));
+                            v.register_field_stack(((#i, autarkie::NodeType::NonRecursive), Self::id()));
                             #(#variant_fields_register)*
                             v.pop_field();
                         }
@@ -237,9 +237,9 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         quote!{
                             let len = #name.__len();
                             if len > 0 {
-                                v.register_field(((#id, thesis::NodeType::Iterable(len.saturating_sub(1), <#ty>::inner_id().expect("vBvs6bK4____"))), <#ty>::id()));
+                                v.register_field(((#id, autarkie::NodeType::Iterable(len.saturating_sub(1), <#ty>::inner_id().expect("vBvs6bK4____"))), <#ty>::id()));
                             } else {
-                                v.register_field(((#id, thesis::NodeType::NonRecursive), <#ty>::id()));
+                                v.register_field(((#id, autarkie::NodeType::NonRecursive), <#ty>::id()));
                             }
                             #name.cmps(v, #id, val);
                             v.pop_field();
@@ -258,7 +258,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     };
                     Some(quote! {
                             #match_arm {
-                            v.register_field_stack(((#i, thesis::NodeType::NonRecursive), Self::id()));
+                            v.register_field_stack(((#i, autarkie::NodeType::NonRecursive), Self::id()));
                             #(#variant_fields_cmp)*
                             v.pop_field();
                         }
@@ -331,7 +331,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         quote! {
                             let len = #name.__len();
                             if len == 0 {
-                                vector.push((::thesis::serialize(&#name), <#ty>::id()));
+                                vector.push((::autarkie::serialize(&#name), <#ty>::id()));
                             }
                             if let Some(fields) = #name.serialized() {
                                 vector.extend(fields);
@@ -409,21 +409,21 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             // Generate the Node trait implementation for the Enum
             // TODO: can optimize this if the enum has only two variants like (Result)
             let node_impl = quote! {
-                impl #impl_generics ::thesis::Node for #root_name #ty_generics #where_clause {
-                    fn generate(v: &mut ::thesis::Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+                impl #impl_generics ::autarkie::Node for #root_name #ty_generics #where_clause {
+                    fn generate(v: &mut ::autarkie::Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
                         #generate_func
                     }
 
 
-                    fn fields(&self, v: &mut ::thesis::Visitor, index: usize) {
+                    fn fields(&self, v: &mut ::autarkie::Visitor, index: usize) {
                         #(#fn_fields)*;
                     }
 
-                    fn cmps(&self, v: &mut ::thesis::Visitor, index: usize, val: (u64, u64)) {
+                    fn cmps(&self, v: &mut ::autarkie::Visitor, index: usize, val: (u64, u64)) {
                         #(#fn_cmps)*;
                     }
 
-                    fn serialized(&self) -> Option<Vec<(Vec<u8>, thesis::tree::Id)>> {
+                    fn serialized(&self) -> Option<Vec<(Vec<u8>, autarkie::tree::Id)>> {
                         let mut vector = ::std::vec![];
                         match self {
                              #(#serialized,)*
@@ -437,7 +437,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         }
                     }
 
-                    fn __mutate(&mut self, ty: &mut thesis::MutationType, visitor: &mut thesis::Visitor, mut path: std::collections::VecDeque<usize>) {
+                    fn __mutate(&mut self, ty: &mut autarkie::MutationType, visitor: &mut autarkie::Visitor, mut path: std::collections::VecDeque<usize>) {
                         if let Some(popped) = path.pop_front() {
                             match popped {
                                 #(#inner_mutate)*
@@ -446,13 +446,13 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         }
                         else {
                             match ty {
-                                thesis::MutationType::Splice(other) => {
-                                    *self = thesis::deserialize(other);
+                                autarkie::MutationType::Splice(other) => {
+                                    *self = autarkie::deserialize(other);
                                 }
-                                thesis::MutationType::GenerateReplace(ref mut bias) => {
+                                autarkie::MutationType::GenerateReplace(ref mut bias) => {
                                     *self = Self::generate(visitor, bias, &mut 0);
                                 }
-                                thesis::MutationType::RecursiveReplace => {
+                                autarkie::MutationType::RecursiveReplace => {
                                     if self.is_recursive() {
                                         // 0 depth == always non-recursive
                                         *self = Self::generate(visitor, &mut 0, &mut 0);

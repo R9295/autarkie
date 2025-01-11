@@ -6,8 +6,8 @@ use libafl::{
 };
 use libafl_bolts::{HasLen, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
-use thesis::Visitor;
-use thesis::{MutationType, Node};
+use autarkie::Visitor;
+use autarkie::{MutationType, Node};
 
 use crate::context::Context;
 
@@ -33,7 +33,7 @@ where
         } else {
             0
         };
-        if matches!(node_ty, thesis::NodeType::Iterable(_, _)) {
+        if matches!(node_ty, autarkie::NodeType::Iterable(_, _)) {
             let field_len = field.last().unwrap().0 .1.iterable_size();
             if field_len < 3 {
                 return Ok(MutationResult::Skipped);

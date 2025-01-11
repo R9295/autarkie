@@ -132,7 +132,7 @@ pub fn should_skip(attrs: &[Attribute]) -> bool {
 fn crate_access() -> syn::Result<proc_macro2::Ident> {
     use proc_macro2::{Ident, Span};
     use proc_macro_crate::{crate_name, FoundCrate};
-    const DEF_CRATE: &str = "thesis";
+    const DEF_CRATE: &str = "autarkie";
     match crate_name(DEF_CRATE) {
         Ok(FoundCrate::Itself) => {
             let name = DEF_CRATE.to_string().replace('-', "_");

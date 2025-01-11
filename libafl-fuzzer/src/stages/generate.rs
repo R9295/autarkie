@@ -7,7 +7,7 @@ use libafl::{
 };
 use serde::Serialize;
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
-use thesis::{Node, Visitor};
+use autarkie::{Node, Visitor};
 
 #[derive(Debug)]
 pub struct GenerateStage<I> {

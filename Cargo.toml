@@ -2,8 +2,8 @@
 edition = "2021"
 
 members = [
-	"thesis", 
-	"thesis_derive", 
+	"autarkie", 
+	"autarkie_derive", 
 	"libafl-fuzzer", 
 ]
 

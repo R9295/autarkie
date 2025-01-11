@@ -128,7 +128,7 @@ pub fn add(input_ident: &Ident, generics: &mut Generics, data: &syn::Data) {
     types_with_bounds.into_iter().for_each(|ty| {
         where_clause
             .predicates
-            .push(parse_quote!(#ty : ::thesis::Node))
+            .push(parse_quote!(#ty : ::autarkie::Node))
     });
 }
 /// Returns all types that must be added to the where clause with the respective trait bound.

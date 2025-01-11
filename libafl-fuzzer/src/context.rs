@@ -8,7 +8,7 @@ use std::{
     time::Duration,
     u128,
 };
-use thesis::{Id, Node};
+use autarkie::{Id, Node};
 
 #[derive(Debug, Clone, SerdeAny, Serialize, Deserialize)]
 pub struct Context {

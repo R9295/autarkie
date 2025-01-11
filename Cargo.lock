@@ -561,7 +561,7 @@ dependencies = [
  "parity-scale-codec",
  "regex",
  "serde",
- "thesis",
+ "autarkie",
 ]
 
 [[package]]
@@ -1101,17 +1101,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
-name = "thesis"
+name = "autarkie"
 version = "0.1.0"
 dependencies = [
  "bincode",
  "libafl_bolts",
  "serde",
- "thesis_derive",
+ "autarkie_derive",
 ]
 
 [[package]]
-name = "thesis_derive"
+name = "autarkie_derive"
 version = "0.1.0"
 dependencies = [
  "bincode",

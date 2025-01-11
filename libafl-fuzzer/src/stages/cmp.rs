@@ -18,7 +18,7 @@ use std::{
     marker::PhantomData,
     rc::Rc,
 };
-use thesis::{MutationType, Node, Visitor};
+use autarkie::{MutationType, Node, Visitor};
 
 use crate::context::Context;
 
@@ -129,7 +129,7 @@ where
                 let cmp_path = path.0.iter().map(|(i, ty)| i.0).collect::<VecDeque<_>>();
                 let mut serialized_alternative = path.1.as_slice();
                 let mut input = unmutated_input.clone();
-                let before = thesis::serialize(&input);
+                let before = autarkie::serialize(&input);
                 #[cfg(debug_assertions)]
                 println!("cmplog_splice | one | {:?}", path.0);
                 input.__mutate(

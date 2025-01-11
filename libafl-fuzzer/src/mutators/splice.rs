@@ -6,8 +6,8 @@ use libafl::{
 };
 use libafl_bolts::{current_time, AsSlice, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
-use thesis::Visitor;
-use thesis::{MutationType, Node};
+use autarkie::Visitor;
+use autarkie::{MutationType, Node};
 
 use crate::context::Context;
 
@@ -29,7 +29,7 @@ where
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().unwrap();
-        if matches!(node_ty, thesis::NodeType::Iterable(_, _)) {
+        if matches!(node_ty, autarkie::NodeType::Iterable(_, _)) {
             let inner_ty = node_ty.inner_id();
             let subslice = self.visitor.borrow_mut().coinflip_with_prob(0.6);
             if subslice {

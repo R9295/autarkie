@@ -46,7 +46,7 @@ use stages::{
     recursive_minimization::RecursiveMinimizationStage,
 };
 use std::{cell::RefCell, io::ErrorKind, path::PathBuf, process::Command, rc::Rc, time::Duration};
-use thesis::{DepthInfo, Node, Visitor};
+use autarkie::{DepthInfo, Node, Visitor};
 
 use crate::stages::generate::generate;
 
@@ -291,8 +291,8 @@ where
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Parser, Clone)]
 #[command(
-    name = "thesis",
-    about = "thesis",
+    name = "autarkie",
+    about = "autarkie",
     author = "aarnav <aarnavbos@gmail.com>"
 )]
 struct Opt {
@@ -337,10 +337,10 @@ struct Opt {
 #[macro_export]
 macro_rules! debug_grammar {
     ($t:ty) => {
-        use thesis::Visitor;
+        use autarkie::Visitor;
         let mut v = Visitor::new(
             libafl_bolts::current_nanos(),
-            thesis::DepthInfo {
+            autarkie::DepthInfo {
                 expand: 1500,
                 generate: 5,
                 iterate: 3,
@@ -380,7 +380,7 @@ macro_rules! impl_converter {
                 &mut self,
                 input: &'a Self::Input,
             ) -> libafl_bolts::ownedref::OwnedSlice<'a, u8> {
-                let bytes = thesis::serialize(&input);
+                let bytes = autarkie::serialize(&input);
                 libafl_bolts::ownedref::OwnedSlice::from(bytes)
             }
         }
@@ -416,13 +416,13 @@ macro_rules! impl_input {
             where
                 P: AsRef<std::path::Path>,
             {
-                let bytes = thesis::serialize(self);
+                let bytes = autarkie::serialize(self);
                 std::fs::write(path, bytes)?;
                 Ok(())
             }
             // TODO: don't serialize here
             fn generate_name(&self, id: Option<libafl::corpus::CorpusId>) -> String {
-                let bytes = thesis::serialize(self);
+                let bytes = autarkie::serialize(self);
                 format!("{}", blake3::hash(bytes.as_slice()))
             }
 
@@ -431,7 +431,7 @@ macro_rules! impl_input {
                 P: AsRef<std::path::Path>,
             {
                 let data = std::fs::read(path)?;
-                let res = thesis::deserialize::<$t>(&mut data.as_slice());
+                let res = autarkie::deserialize::<$t>(&mut data.as_slice());
                 Ok(res)
             }
         }
