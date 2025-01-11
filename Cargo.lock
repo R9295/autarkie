@@ -112,6 +112,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
+name = "autarkie"
+version = "0.1.0"
+dependencies = [
+ "autarkie_derive",
+ "bincode",
+ "libafl_bolts",
+ "serde",
+]
+
+[[package]]
+name = "autarkie_derive"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "blake3",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 2.0.90",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -551,6 +574,7 @@ dependencies = [
 name = "libafl-fuzzer"
 version = "0.1.0"
 dependencies = [
+ "autarkie",
  "bincode",
  "blake3",
  "clap",
@@ -561,7 +585,6 @@ dependencies = [
  "parity-scale-codec",
  "regex",
  "serde",
- "autarkie",
 ]
 
 [[package]]
@@ -1099,29 +1122,6 @@ name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
-
-[[package]]
-name = "autarkie"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "libafl_bolts",
- "serde",
- "autarkie_derive",
-]
-
-[[package]]
-name = "autarkie_derive"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "blake3",
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "serde",
- "syn 2.0.90",
-]
 
 [[package]]
 name = "toml_datetime"
