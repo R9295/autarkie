@@ -74,7 +74,8 @@ where
             .expect("target returned illegal mapsize")
             .replace("\n", "");
         let map_size = map_size.parse::<usize>().expect("illegal mapsize output") + opt.map_bias;
-        let fuzzer_dir = opt.output_dir.join(format!("{}", core.core_id().0));
+
+        let fuzzer_dir = opt.output_dir.join(format!("{}", core.core_id().0)); 
         match std::fs::create_dir(&fuzzer_dir) {
             Ok(_) => {}
             Err(e) => {
@@ -84,6 +85,7 @@ where
                 }
             }
         };
+
         // Create the shared memory map for comms with the forkserver
         let mut shmem_provider = UnixShMemProvider::new().unwrap();
         let mut shmem = shmem_provider.new_shmem(map_size).unwrap();
@@ -138,6 +140,7 @@ where
         if !fuzzer_dir.join("cmps").exists() {
             std::fs::create_dir(fuzzer_dir.join("cmps")).unwrap();
         }
+
         let context = Context::new(fuzzer_dir.clone());
         state.add_metadata(context);
 
@@ -147,6 +150,7 @@ where
             Some(PowerSchedule::explore()),
         );
         let scheduler = scheduler.cycling_scheduler();
+        
         let mut executor = ForkserverExecutor::builder()
             .program(opt.executable.clone())
             .coverage_map_size(map_size)
@@ -181,13 +185,11 @@ where
             }
         }
         if state.must_load_initial_inputs() {
-            state.load_initial_inputs_multicore(
+            state.load_initial_inputs(
                 &mut fuzzer,
                 &mut executor,
                 &mut mgr,
                 &[fuzzer_dir.join("queue").clone()],
-                &core.core_id(),
-                &opt.cores,
             )?;
             for _ in 0..opt.initial_generated_inputs {
                 let generated: I = generate(&mut visitor.borrow_mut());
@@ -294,9 +296,12 @@ where
     author = "aarnav <aarnavbos@gmail.com>"
 )]
 struct Opt {
+    /// What we wanna fuzz
     executable: PathBuf,
+    /// Fuzzer output dir; will also load inputs from there 
     #[arg(short = 'o')]
     output_dir: PathBuf,
+    
     /// Timeout in ms
     #[arg(short = 't', default_value_t = 1000)]
     hang_timeout: u64,
@@ -304,33 +309,40 @@ struct Opt {
     /// seed for rng
     #[arg(short = 's')]
     rng_seed: Option<u64>,
-
+    
+    /// debug the child
     #[arg(short = 'd')]
     debug_child: bool,
-
+    
+    /// AFL_DUMP_MAP_SIZE + x where x = map bias
     #[arg(short = 'm')]
     map_bias: usize,
 
+    /// Amount of initial inputs to generate
     #[arg(short = 'g', default_value_t = 100)]
     initial_generated_inputs: usize,
-
+     
     #[arg(short = 'c', value_parser=Cores::from_cmdline)]
     cores: Cores,
-
+    
+    /// Max iterate depth when generating iterable nodes
     #[arg(short = 'I', default_value_t = 5)]
     iterate_depth: usize,
+    /// Max subslice length when doing partial iterable splicing
     #[arg(short = 'S', default_value_t = 15)]
     max_subslice_size: usize,
 
+    /// Max generate depth when generating recursive nodes
     #[arg(short = 'G', default_value_t = 2)]
     generate_depth: usize,
 
+    /// AFL++ LLVM_DICT2FILE
     #[arg(short = 'x')]
     dict_file: Option<PathBuf>,
-
+    /// Use AFL++'s cmplog feature 
     #[arg(short = 'e')]
     cmplog: bool,
-
+    /// run strings on the binary
     #[arg(short = 'S')]
     get_strings: bool,
 }
