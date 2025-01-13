@@ -225,6 +225,14 @@ where
                 AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 // SPLICE APPEND
                 AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
+                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
             ),
             3,
         );

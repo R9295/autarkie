@@ -594,7 +594,13 @@ pub fn deserialize<T>(data: &mut &[u8]) -> T
 where
     T: parity_scale_codec::Decode,
 {
-    T::decode(data).expect("invariant; we must always be able to deserialize")
+    let decoded = T::decode(data);
+    if decoded.is_err() {
+        println!("{:?}", 
+            std::intrinsics::type_name::<T>().to_string()
+        )
+    }
+    decoded.expect("invariant; we must always be able to deserialize")
 }
 
 #[cfg(feature = "scale")]
