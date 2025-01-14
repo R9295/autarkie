@@ -86,7 +86,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #(#register_cmps)*
                     }
 
-                    fn serialized(&self) -> Option<Vec<(Vec<u8>, autarkie::tree::Id)>> {
+                    fn serialized(&self) -> Option<std::vec::Vec<(std::vec::Vec<u8>, autarkie::tree::Id)>> {
                         let mut vector = ::std::vec![];
                         #(#serialized_ids);*
                         #(#serialized_recursive);*
@@ -401,7 +401,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #(#fn_cmps)*;
                     }
 
-                    fn serialized(&self) -> Option<Vec<(Vec<u8>, autarkie::tree::Id)>> {
+                    fn serialized(&self) -> Option<std::vec::Vec<(std::vec::Vec<u8>, autarkie::tree::Id)>> {
                         let mut vector = ::std::vec![];
                         match self {
                              #(#serialized,)*
