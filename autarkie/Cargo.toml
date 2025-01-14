@@ -7,8 +7,8 @@ edition = "2021"
 libafl_bolts = { workspace = true }
 
 # different encodings
-bincode = {version = "1.3.3", optional = true}
-serde = { version = "1.0.0", features = ["derive"], optional = true}
+bincode = { version = "1.3.3", optional = true}
+serde = { version = "1.0.0", features = ["derive"] }
 
 autarkie_derive = {path = "../autarkie_derive", optional = true}
 parity-scale-codec = { version = "3.6.12", features = ["derive"], optional = true }
@@ -16,6 +16,6 @@ borsh = { version = "1.5.3", features = ["derive"], optional = true }
 
 [features]
 derive = ["autarkie_derive"]
-bincode = ["dep:serde", "dep:bincode"]
+bincode = ["dep:bincode"]
 scale = ["dep:parity-scale-codec"]
 borsh = ["dep:borsh"]

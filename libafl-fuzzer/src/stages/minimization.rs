@@ -99,7 +99,8 @@ where
             let ((id, node_ty), ty) = field.last().unwrap();
             if let NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
                 let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                let mut len = *field_len;
+                // NOTE: -1 because we zero index
+                let mut len = field_len.saturating_sub(1);
                 let mut counter = 0;
                 if *is_fixed_len {
                     continue;

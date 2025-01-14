@@ -117,7 +117,7 @@ where
     }
 
     fn node_ty(&self) -> NodeType {
-        NodeType::Iterable(true, N.saturating_sub(1), T::id())
+        NodeType::Iterable(true, N, T::id())
     }
 
     fn __mutate(
@@ -180,7 +180,7 @@ where
     }
 
     fn node_ty(&self) -> NodeType {
-        NodeType::Iterable(false, self.len().saturating_sub(1), T::id())
+        NodeType::Iterable(false, self.len(), T::id())
     }
 
     fn serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
@@ -237,7 +237,7 @@ where
 
     fn cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
         for (index, child) in self.iter().enumerate() {
-            visitor.register_field_stack((((index, NodeType::NonRecursive)), T::id()));
+            visitor.register_field_stack((((index, child.node_ty())), T::id()));
             child.cmps(visitor, index, val);
             visitor.pop_field();
         }
@@ -598,7 +598,10 @@ where
     if decoded.is_err() {
         println!("{:?}", 
             std::intrinsics::type_name::<T>().to_string()
-        )
+        );
+        println!("{:?}", 
+            data
+        );
     }
     decoded.expect("invariant; we must always be able to deserialize")
 }
@@ -629,3 +632,4 @@ where
 pub fn serialize_vec_len(len: usize) -> Vec<u8> {
     borsh::to_vec(&(len as u32)).expect("invariant; we must always be able to serialize")
 }
+

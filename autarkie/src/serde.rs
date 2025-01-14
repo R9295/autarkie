@@ -32,7 +32,7 @@ macro_rules! impl_node_serde_array {
             }
 
             fn node_ty(&self) -> crate::NodeType {
-                crate::NodeType::Iterable(true, $n.saturating_sub(1), T::id())
+                crate::NodeType::Iterable(true, T::id())
             }
 
             fn __mutate(
