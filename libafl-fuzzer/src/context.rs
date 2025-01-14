@@ -48,7 +48,15 @@ impl Context {
     }
 
     pub fn add_existing_chunk(&mut self, path: PathBuf) {
-        let ty = path.parent().unwrap().file_name().unwrap().to_str().unwrap().parse::<Id>().expect("corrupt chunk ID!");
+        let ty = path
+            .parent()
+            .unwrap()
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .parse::<Id>()
+            .expect("corrupt chunk ID!");
         if let Some(e) = self.type_input_map.get_mut(&ty) {
             e.push(path);
         } else {

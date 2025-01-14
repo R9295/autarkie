@@ -19,4 +19,3 @@ pub use visitor::*;
 pub mod scale;
 #[cfg(feature = "scale")]
 pub use scale::*;
-

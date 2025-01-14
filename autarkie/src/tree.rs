@@ -596,12 +596,8 @@ where
 {
     let decoded = T::decode(data);
     if decoded.is_err() {
-        println!("{:?}", 
-            std::intrinsics::type_name::<T>().to_string()
-        );
-        println!("{:?}", 
-            data
-        );
+        println!("{:?}", std::intrinsics::type_name::<T>().to_string());
+        println!("{:?}", data);
     }
     decoded.expect("invariant; we must always be able to deserialize")
 }
@@ -632,4 +628,3 @@ where
 pub fn serialize_vec_len(len: usize) -> Vec<u8> {
     borsh::to_vec(&(len as u32)).expect("invariant; we must always be able to serialize")
 }
-

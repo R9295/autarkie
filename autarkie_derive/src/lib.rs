@@ -6,7 +6,7 @@ mod trait_bounds;
 mod utils;
 use syn::{spanned::Spanned, token::Comma, *};
 
-#[proc_macro_derive(Grammar, attributes(literal, recursive))]
+#[proc_macro_derive(Grammar, attributes(literal, autarkie_recursive))]
 pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut base_parsed = syn::parse_macro_input!(input as syn::DeriveInput);
     let root_name = &base_parsed.ident;
@@ -14,7 +14,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         Data::Struct(ref data) => {
             let fields = get_fields(&data.fields);
             let is_named = matches!(data.fields, syn::Fields::Named(_));
-            let parsed = parse_fields(fields);
+            let (parsed, _) = parse_fields(fields, None);
             let generate = construct_generate_function_struct(&parsed, is_named);
 
             let serialized_ids = parsed.iter().map(|field| {
@@ -135,14 +135,16 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             for (i, variant) in data.variants.iter().enumerate() {
                 let variant_name = &variant.ident;
                 let attrs = &variant.attrs;
-                let fields = parse_fields(get_fields(&variant.fields));
-
-                let mut is_recursive = false;
-                for attr in attrs {
-                    if let Meta::Path(ref list) = attr.meta {
-                        // make sure the attribute we are considering is ours.
-                        if list.segments.first().unwrap().ident == "recursive" {
-                            is_recursive = true;
+                let (fields, mut is_recursive) =
+                    parse_fields(get_fields(&variant.fields), Some(root_name.to_string()));
+                // a user may also manually annotate recursive
+                if !is_recursive {
+                    for attr in attrs {
+                        if let Meta::Path(ref list) = attr.meta {
+                            // make sure the attribute we are considering is ours.
+                            if list.segments.first().unwrap().ident == "autarkie_recursive" {
+                                is_recursive = true;
+                            }
                         }
                     }
                 }
@@ -228,8 +230,6 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         let name = &field.name;
                         quote! {#name}
                     });
-                    // Note: won't work with enums with generics
-                    // cause it won't be Self
                     let match_arm = if is_named {
                         quote! {if let #root_name::#variant_name{#(#field_names),*} = self}
                     } else {
@@ -455,12 +455,13 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 fn parse_fields(
     fields: Option<&syn::punctuated::Punctuated<syn::Field, Comma>>,
-) -> Vec<GrammarField> {
+    root_type: Option<String>,
+) -> (Vec<GrammarField>, bool) {
     if fields.is_none() {
-        return vec![];
+        return (vec![], false);
     }
     let fields = fields.unwrap();
-    fields
+    let fields = fields
         .iter()
         .enumerate()
         .map(|(id, field)| {
@@ -476,7 +477,28 @@ fn parse_fields(
                 attrs: field.attrs.clone(),
             }
         })
-        .collect::<Vec<_>>()
+        .collect::<Vec<_>>();
+    // we automatically check if any of the fields is a recursive type.
+    // this is inexhaustive as we do not check for other types, only ours
+    let has_recursive = if root_type.is_some() {
+        let recursive_regex = regex::Regex::new(&format!(
+            "[^a-zA-Z0-9]({})[^a-zA-Z0-9]",
+            root_type.unwrap_or_default()
+        ))
+        .unwrap();
+        let mut is_recursive = false;
+        for field in &fields {
+            let ty = &field.ty;
+            if recursive_regex.is_match(&quote! {#ty}.to_string()) {
+                is_recursive = true;
+                break;
+            }
+        }
+        is_recursive
+    } else {
+        false
+    };
+    return (fields, has_recursive);
 }
 
 fn get_field_defs(fields: &Vec<GrammarField>) -> Vec<proc_macro2::TokenStream> {

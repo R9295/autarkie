@@ -22,7 +22,8 @@ macro_rules! impl_generate_compact {
     ($type: ty, $inner: ty, $num_bytes: literal) => {
         impl Node for $type {
             fn generate(v: &mut crate::Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
-                let inner = crate::deserialize::<$inner>(&mut v.generate_bytes($num_bytes).as_slice());
+                let inner =
+                    crate::deserialize::<$inner>(&mut v.generate_bytes($num_bytes).as_slice());
                 Self(inner)
             }
             fn cmps(&self, v: &mut crate::Visitor, index: usize, val: (u64, u64)) {
@@ -36,7 +37,8 @@ macro_rules! impl_generate_compact {
     (u8, $num_bytes: literal) => {
         impl Node for $type {
             fn generate(v: &mut Visitor) -> Self {
-                let inner = crate::deserialize::<$inner>(&mut v.generate_bytes($num_bytes).as_slice());
+                let inner =
+                    crate::deserialize::<$inner>(&mut v.generate_bytes($num_bytes).as_slice());
                 Self(inner)
             }
         }

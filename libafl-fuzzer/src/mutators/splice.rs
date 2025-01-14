@@ -90,7 +90,7 @@ where
                         })
                         .collect::<Vec<_>>();
                     let mut data = if !*is_fixed_len {
-                        autarkie::serialize_vec_len(if *field_len > 0 {*field_len} else {0})
+                        autarkie::serialize_vec_len(if *field_len > 0 { *field_len } else { 0 })
                     } else {
                         vec![]
                     };

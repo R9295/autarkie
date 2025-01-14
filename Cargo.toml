@@ -5,7 +5,7 @@ members = [
 	"autarkie", 
 	"autarkie_derive", 
 	"libafl-fuzzer", 
-	"kitchensink",
+	"kitchensink", 
 ]
 
 [workspace.dependencies]
