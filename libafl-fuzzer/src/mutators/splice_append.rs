@@ -29,6 +29,9 @@ where
             let last = inner.last().unwrap();
             matches!(autarkie::NodeType::Iterable, last)
         }).collect::<Vec<_>>();
+        if fields.len() == 0 {
+            return Ok(MutationResult::Skipped)
+        }
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().unwrap();
