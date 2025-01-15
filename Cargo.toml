@@ -6,6 +6,7 @@ members = [
 	"autarkie_derive", 
 	"libafl-fuzzer", 
 	"kitchensink", 
+	"recursive_test",
 ]
 
 [workspace.dependencies]
