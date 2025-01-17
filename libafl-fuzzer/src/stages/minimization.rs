@@ -147,20 +147,3 @@ where
         Ok(())
     }
 }
-
-fn contains(a: &Vec<usize>, b: &Vec<usize>) -> bool {
-    if b.len() > a.len() {
-        return false;
-    }
-    for (i, item) in a.iter().enumerate() {
-        let b_item = b.get(i);
-        if let Some(b_item) = b_item {
-            if b_item != item {
-                return false;
-            }
-        } else {
-            break;
-        }
-    }
-    return true;
-}

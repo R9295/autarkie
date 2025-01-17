@@ -288,6 +288,7 @@ where
             minimization_stage,
             cmplog,
             StdPowerMutationalStage::new(mutator),
+            GenerateStage::new(Rc::clone(&visitor)),
         );
 
         fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)?;
