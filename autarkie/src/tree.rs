@@ -73,7 +73,7 @@ where
 }
 
 #[cfg(feature = "bincode")]
-node!(Debug + serde::Serialize + for<'a> serde::Deserialize<'a> + 'static);
+node!(Debug + serde::ser::Serialize + for<'a> serde::de::Deserialize<'a> + 'static);
 
 #[cfg(feature = "scale")]
 node!(Debug + parity_scale_codec::Encode + parity_scale_codec::Decode + 'static);
