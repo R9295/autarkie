@@ -6,7 +6,7 @@ mod trait_bounds;
 mod utils;
 use syn::{spanned::Spanned, token::Comma, *};
 
-#[proc_macro_derive(Grammar, attributes(literal, autarkie_recursive))]
+#[proc_macro_derive(Grammar, attributes(literal, recursive))]
 pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut base_parsed = syn::parse_macro_input!(input as syn::DeriveInput);
     let root_name = &base_parsed.ident;

@@ -1,4 +1,8 @@
-use std::{collections::VecDeque, fmt::Debug, marker::PhantomData};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    fmt::Debug,
+    marker::PhantomData,
+};
 
 use crate::{NodeType, Visitor};
 
@@ -36,9 +40,6 @@ where
         std::intrinsics::type_id::<Self>()
     }
 
-    fn inner_id() -> Option<Id> {
-        None
-    }
 
     fn fields(&self, visitor: &mut Visitor, index: usize) {}
 
@@ -258,10 +259,6 @@ where
         Box::new(T::generate(visitor, depth, cur_depth))
     }
 
-    fn inner_id() -> Option<Id> {
-        Some(T::id())
-    }
-
     fn node_ty(&self) -> NodeType {
         self.as_ref().node_ty()
     }
@@ -441,6 +438,118 @@ where
 impl Node for std::string::String {
     fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
         visitor.get_string()
+    }
+}
+
+impl<K, V> Node for BTreeMap<K, V>
+where
+    K: Node + Clone + Ord,
+    V: Node + Clone,
+{
+    fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+        BTreeMap::new()
+    }
+
+    fn fields(&self, visitor: &mut Visitor, index: usize) {
+        // TODO: does deferencing clone?
+        for (index, (k, v)) in self.into_iter().enumerate() {
+            visitor.register_field_stack(((index, NodeType::NonRecursive), <(K, V)>::id()));
+            k.fields(visitor, 0);
+            v.fields(visitor, 1);
+            visitor.pop_field();
+        }
+    }
+
+    fn cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
+        for (index, (k, v)) in self.into_iter().enumerate() {
+            visitor.register_field_stack(((index, NodeType::NonRecursive), <(K, V)>::id()));
+            k.cmps(visitor, 0, val);
+            v.cmps(visitor, 1, val);
+            visitor.pop_field();
+        }
+    }
+
+    fn node_ty(&self) -> NodeType {
+        NodeType::Iterable(false, self.len(), Self::id())
+    }
+
+    fn __mutate(
+        &mut self,
+        ty: &mut MutationType,
+        visitor: &mut Visitor,
+        mut path: VecDeque<usize>,
+    ) {
+        if let Some(popped) = path.pop_front() {
+            let mut entry_to_modify = None;
+            for (i, (k, v)) in self.iter().enumerate() {
+                if i == popped {
+                    entry_to_modify = Some(k.clone());
+                    break;
+                }
+            }
+            let mut entry_to_modify = entry_to_modify.expect("XaLl1F31____");
+            // we are mutating the (k, v) tuple
+            if path.is_empty() {
+                // let's remove the entry.
+                self.remove(&entry_to_modify).expect("WDZstzcR____");
+                match ty {
+                    MutationType::Splice(other) => {
+                        let (k, v) = deserialize(other);
+                        self.insert(k, v);
+                    }
+                    MutationType::GenerateReplace(bias) => {
+                        self.insert(
+                            K::generate(visitor, bias, &mut 0),
+                            V::generate(visitor, bias, &mut 0),
+                        );
+                    }
+                    _ => unreachable!(),
+                }
+            } else {
+                // We are mutating either the key or the value.
+                let inner_popped = path.pop_front().expect("YQ8z8tF8____");
+                // key == 0; value == 1
+                debug_assert!(inner_popped == 0 || inner_popped == 1);
+                if inner_popped == 0 {
+                    let val = self.remove(&entry_to_modify).expect("WDZstzcR____");
+                    entry_to_modify.__mutate(ty, visitor, path);
+                    self.insert(entry_to_modify, val);
+                } else {
+                    self.get_mut(&entry_to_modify).expect("yMhZ8dor____").__mutate(ty, visitor, path);
+                }
+            }
+        } else {
+            match ty {
+                MutationType::Splice(other) => {
+                    *self = deserialize(other);
+                }
+                MutationType::GenerateReplace(ref mut bias) => {
+                    *self = Self::generate(visitor, bias, &mut 0)
+                }
+                MutationType::SpliceAppend(other) => {
+                    let (k, v) = deserialize(other);
+                    self.insert(k, v);
+                }
+                MutationType::IterablePop(ref mut bias) => {
+                    let mut remove_key = None;
+                    for (i, (k, v)) in self.iter().enumerate() {
+                        if i == *bias {
+                            remove_key = Some(k.clone());
+                            break;
+                        }
+                    }
+                    self.remove(&remove_key.expect("2kejvSX9____"))
+                        .expect("WDZstzcR____");
+                }
+                MutationType::RecursiveReplace => {
+                    // TODO
+                }
+            }
+        }
+    }
+
+    fn serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
+        None
     }
 }
 

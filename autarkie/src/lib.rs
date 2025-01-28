@@ -90,7 +90,7 @@ macro_rules! impl_input {
             // TODO: don't serialize here
             fn generate_name(&self, id: Option<autarkie::CorpusId>) -> String {
                 let bytes = autarkie::serialize(self);
-                alloc::format!("{}", autarkie::hash(bytes.as_slice()))
+                std::format!("{}", autarkie::hash(bytes.as_slice()))
             }
 
             fn from_file<P>(path: P) -> Result<Self, autarkie::LibAflError>
