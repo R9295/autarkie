@@ -3,10 +3,8 @@ edition = "2021"
 
 members = [
 	"autarkie", 
-	"autarkie_derive", 
+	"autarkie_derive", "autarkie_test",
 	"libafl-fuzzer", 
-	"kitchensink", 
-	"recursive_test",
 ]
 
 [workspace.dependencies]

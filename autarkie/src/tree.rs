@@ -29,7 +29,8 @@ where
 {
     /// Generate Self
     fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self;
-
+    
+    fn __autarkie_register(visitor: &mut Visitor) {}
     #[cfg(debug_assertions)]
     fn id() -> Id {
         std::intrinsics::type_name::<Self>().to_string()
@@ -40,6 +41,9 @@ where
         std::intrinsics::type_id::<Self>()
     }
 
+    fn inner_id() -> Id {
+        Self::id()
+    }
 
     fn fields(&self, visitor: &mut Visitor, index: usize) {}
 
@@ -181,8 +185,17 @@ where
     }
 
     fn node_ty(&self) -> NodeType {
-        NodeType::Iterable(false, self.len(), T::id())
+        NodeType::Iterable(false, self.len(), Self::inner_id())
     }
+    
+    fn inner_id() -> Id {
+        T::id()
+    }
+    
+    fn __autarkie_register(visitor: &mut Visitor) {
+        T::__autarkie_register(visitor)
+    }
+
 
     fn serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
         let mut vector = self
@@ -257,6 +270,14 @@ where
 {
     fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
         Box::new(T::generate(visitor, depth, cur_depth))
+    }
+
+    fn inner_id() -> Id {
+        T::id()
+    }
+
+    fn __autarkie_register(visitor: &mut Visitor) {
+        T::__autarkie_register(visitor)
     }
 
     fn node_ty(&self) -> NodeType {

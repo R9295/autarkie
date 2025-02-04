@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use libafl_bolts::rands::{Rand, StdRand};
 
 use crate::Id;
@@ -50,6 +52,13 @@ impl NodeType {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct TyMapInfo {
+    pub is_recursive: bool,
+    pub child_tys: Vec<Id>,
+}
+
 #[derive(Debug, Clone)]
 pub struct Visitor {
     depth: DepthInfo,
@@ -57,6 +66,8 @@ pub struct Visitor {
     fields: Vec<Vec<((usize, NodeType), Id)>>,
     fields_stack: Vec<((usize, NodeType), Id)>,
     matching_cmps: Vec<(Vec<((usize, NodeType), Id)>, Vec<u8>)>,
+    ty_map: BTreeMap<Id, BTreeMap<usize, TyMapInfo>>,
+    ty_map_stack: Vec<TyMapInfo>,
     rng: StdRand,
 }
 
@@ -139,6 +150,47 @@ impl Visitor {
         fields
     }
 
+    pub fn register_ty(&mut self, parent_id: Id, id: Id, variant: usize) {
+        let parent = self.ty_map.entry(parent_id).or_insert(BTreeMap::default());
+        parent
+            .entry(variant)
+            .and_modify(|inner| inner.child_tys.push(id.clone()))
+            .or_insert(TyMapInfo {
+                is_recursive: false,
+                child_tys: vec![id],
+            });
+
+    }
+
+    pub fn pop_ty(&mut self) {
+        self.ty_map_stack.pop();
+    }
+
+    pub fn is_recursive(&self, parent_id: Id, id: Id) -> bool {
+        let mut is_recursive = false;
+        for item in self.ty_map_stack.iter() {
+            if item.
+        }
+        is_recursive
+        /* if let Some(parent) = self.ty_map.get(&parent_id) {
+            println!("{:?} {:?}", self.ty_map, (variant, &id, parent_id));
+            if let Some(variant) = parent.get(&variant) {
+                variant.child_tys.contains(&id)
+            } else {
+            false
+            }
+        } else {
+            false
+        } */
+    }
+
+    pub fn set_recursive(&mut self, parent_id: Id, variant: usize) {
+        self.ty_map.get_mut(&parent_id).expect("____nELy46KLSU").get_mut(&variant).expect("____D03E0FtdS1").is_recursive = true;
+    }
+
+    pub fn print_ty(&self) {
+        println!("{:#?}", self.ty_map);
+    }
     pub fn new(seed: u64, depth: DepthInfo) -> Self {
         let mut visitor = Self {
             depth,
@@ -146,6 +198,7 @@ impl Visitor {
             fields_stack: vec![],
             matching_cmps: vec![],
             strings: vec![],
+            ty_map: BTreeMap::new(),
             rng: StdRand::with_seed(seed),
         };
         while visitor.strings.len() < 100 {

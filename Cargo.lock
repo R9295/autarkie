@@ -141,6 +141,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "autarkie_test"
+version = "0.1.0"
+dependencies = [
+ "autarkie",
+ "serde",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -565,21 +573,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kitchensink-fuzzer"
-version = "0.1.0"
-dependencies = [
- "autarkie",
- "bincode",
- "blake3",
- "libafl",
- "libafl-fuzzer",
- "libafl_bolts",
- "parity-scale-codec",
- "serde",
- "serde_arrays",
-]
-
-[[package]]
 name = "libafl"
 version = "0.14.1"
 source = "git+https://github.com/AFLplusplus/LibAFL?rev=aa0391ef8d47c229d2306d43f898e4ea28ca4186#aa0391ef8d47c229d2306d43f898e4ea28ca4186"
@@ -963,14 +956,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f60fcc7d6849342eff22c4350c8b9a989ee8ceabc4b481253e8946b9fe83d684"
 
 [[package]]
-name = "recursive_test"
-version = "0.1.0"
-dependencies = [
- "autarkie",
- "serde",
-]
-
-[[package]]
 name = "redox_syscall"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1069,15 +1054,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02fc4265df13d6fa1d00ecff087228cc0a2b5f3c0e87e258d8b94a156e984c70"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde_arrays"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38636132857f68ec3d5f3eb121166d2af33cb55174c4d5ff645db6165cbef0fd"
-dependencies = [
- "serde",
 ]
 
 [[package]]
