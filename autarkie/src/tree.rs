@@ -29,8 +29,12 @@ where
 {
     /// Generate Self
     fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self;
-    
-    fn __autarkie_register(visitor: &mut Visitor) {}
+
+    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>) {
+        v.register_ty(parent, Self::inner_id());
+        v.pop_ty();
+    }
+
     #[cfg(debug_assertions)]
     fn id() -> Id {
         std::intrinsics::type_name::<Self>().to_string()
@@ -187,15 +191,10 @@ where
     fn node_ty(&self) -> NodeType {
         NodeType::Iterable(false, self.len(), Self::inner_id())
     }
-    
+
     fn inner_id() -> Id {
         T::id()
     }
-    
-    fn __autarkie_register(visitor: &mut Visitor) {
-        T::__autarkie_register(visitor)
-    }
-
 
     fn serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
         let mut vector = self
@@ -271,13 +270,17 @@ where
     fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
         Box::new(T::generate(visitor, depth, cur_depth))
     }
-
+    
     fn inner_id() -> Id {
         T::id()
     }
 
-    fn __autarkie_register(visitor: &mut Visitor) {
-        T::__autarkie_register(visitor)
+    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>) {
+        if !v.is_recursive(Self::inner_id()) {
+            T::__autarkie_register(v, parent);
+        } else {
+            v.set_recursive(Self::inner_id());
+        }
     }
 
     fn node_ty(&self) -> NodeType {
@@ -536,7 +539,9 @@ where
                     entry_to_modify.__mutate(ty, visitor, path);
                     self.insert(entry_to_modify, val);
                 } else {
-                    self.get_mut(&entry_to_modify).expect("yMhZ8dor____").__mutate(ty, visitor, path);
+                    self.get_mut(&entry_to_modify)
+                        .expect("yMhZ8dor____")
+                        .__mutate(ty, visitor, path);
                 }
             }
         } else {

@@ -61,12 +61,6 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let register_ty = parsed.iter().map(|field| {
                 let ty = &field.ty;
                 quote! {
-                    if !v.is_recursive(Self::inner_id(), <#ty>::inner_id(), 0) {
-                        v.register_ty(Self::inner_id(), <#ty>::inner_id(), 0);
-                        <#ty>::__autarkie_register(v);
-                    } else {
-
-                    }
                 }
             });
 
@@ -94,9 +88,6 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #(#register_field)*;
                     }
 
-                    fn __autarkie_register(v: &mut ::autarkie::Visitor) {
-                        #(#register_ty)*;
-                    }
 
                     fn cmps(&self, v: &mut ::autarkie::Visitor, index: usize, val: (u64, u64)) {
                         #(#register_cmps)*
@@ -148,7 +139,6 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let mut non_recursive_variants = vec![];
             let mut are_we_recursive = vec![];
             let mut register_ty = vec![];
-
 
             for (i, variant) in data.variants.iter().enumerate() {
                 let variant_name = &variant.ident;
@@ -235,17 +225,11 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 if !fields.is_empty() {
                     let field_names = fields.iter().map(|field| {
                         let ty = &field.ty;
-                        quote!{
-                            if !v.is_recursive(Self::inner_id(), <#ty>::inner_id(), #i) {
-                                v.register_ty(Self::inner_id(), <#ty>::inner_id(), #i);
-                                <#ty>::__autarkie_register(v);
-                                v.pop_ty();
-                            } else {
-                                v.set_recursive(Self::inner_id(), #i)
-                            }
+                        quote! {
+                            <#ty>::__autarkie_register(v, Some(Self::inner_id()));
                         }
                     });
-                    register_ty.push(quote!{#(#field_names)*});
+                    register_ty.push(quote! {#(#field_names)*});
                 }
 
                 let fn_cmp = if !fields.is_empty() {
@@ -363,7 +347,6 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 }
             }
 
-
             let generate_func = if data.variants.is_empty() {
                 quote! {
                     Self {}
@@ -422,9 +405,11 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     fn fields(&self, v: &mut ::autarkie::Visitor, index: usize) {
                         #(#fn_fields)*;
                     }
-                    
-                    fn __autarkie_register(v: &mut ::autarkie::Visitor) {
+
+                    fn __autarkie_register(v: &mut ::autarkie::Visitor, parent: Option<::autarkie::tree::Id>) {
+                        v.register_ty(parent, Self::inner_id());
                         #(#register_ty)*;
+                        v.pop_ty();
                     }
 
                     fn cmps(&self, v: &mut ::autarkie::Visitor, index: usize, val: (u64, u64)) {
