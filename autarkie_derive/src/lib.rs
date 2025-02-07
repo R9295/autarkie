@@ -89,8 +89,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #generate
                     }
 
-                    fn __autarkie_register(v: &mut ::autarkie::Visitor, parent: Option<::autarkie::tree::Id>, _variant: usize) {
-                        v.register_ty(parent, Self::inner_id(), 0);
+                    fn __autarkie_register(v: &mut ::autarkie::Visitor, parent: Option<::autarkie::tree::Id>, variant: usize) {
+                        v.register_ty(parent, Self::inner_id(), variant);
                         #(#register_ty)*;
                         v.pop_ty();
                     }
