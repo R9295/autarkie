@@ -1,0 +1,8 @@
+[package]
+name = "autarkie_test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+autarkie = {path = "../autarkie", features = ["derive", "bincode"]}
+serde = { version = "1.0.217", features = ["derive"] }

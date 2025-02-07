@@ -168,15 +168,7 @@ impl Visitor {
         self.ty_map_stack.contains(&id)
     }
 
-    pub fn set_recursive(&mut self, id: Id, variant: usize) {
-        /*         println!("{:?} of {:?} is recursive", variant, id); */
-        let parent = self
-            .recursive_nodes
-            .entry(id)
-            .and_modify(|i| {
-                i.insert(variant);
-            })
-            .or_insert(BTreeSet::from_iter([variant]));
+    pub fn calculate_recursion(&mut self) {
     }
 
     pub fn print_ty(&self) {

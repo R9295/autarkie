@@ -425,18 +425,21 @@ where
     }
     
     fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
-        if !v.is_recursive(T::inner_id()) {
-            T::__autarkie_register(v, parent.clone(), variant);
+        v.register_ty(parent, Self::id(), variant);
+        if !v.is_recursive(T::id()) {
+            T::__autarkie_register(v, Some(Self::id()), 0);
         } else {
-/*             v.set_recursive(Self::inner_id(), variant); */
+            v.register_ty(Some(Self::id()), T::id(), 0);
+            v.pop_ty();
         }
-        if !v.is_recursive(T::inner_id()) {
-            T::__autarkie_register(v, parent, variant);
+        if !v.is_recursive(E::id()) {
+            E::__autarkie_register(v, Some(Self::id()), 1);
         } else {
-            v.set_recursive(Self::inner_id(), variant);
+            v.register_ty(Some(Self::id()), E::id(), 1);
+            v.pop_ty();
         }
+        v.pop_ty();
     }
-
     fn __mutate(
         &mut self,
         ty: &mut MutationType,
@@ -668,6 +671,7 @@ macro_rules! tuple_impls {
                 visitor.pop_field();
                 })*
             }
+
             fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
                 v.register_ty(parent, Self::id(), variant);
                 $({
@@ -680,6 +684,7 @@ macro_rules! tuple_impls {
                 })*
                 v.pop_ty();
             }
+
             fn serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
                 let mut vector = Vec::new();
                 $(vector.push((serialize(&self.$id), $T::id()));)*
