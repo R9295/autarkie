@@ -61,6 +61,12 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let register_ty = parsed.iter().map(|field| {
                 let ty = &field.ty;
                 quote! {
+                if !v.is_recursive(<#ty>::inner_id()) {
+                    <#ty>::__autarkie_register(v, Some(Self::inner_id()), 0);
+                } else {
+                    v.register_ty(Some(Self::inner_id()), <#ty>::inner_id(), 0);
+                    v.pop_ty();
+                }
                 }
             });
 
@@ -83,6 +89,11 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #generate
                     }
 
+                    fn __autarkie_register(v: &mut ::autarkie::Visitor, parent: Option<::autarkie::tree::Id>, _variant: usize) {
+                        v.register_ty(parent, Self::inner_id(), 0);
+                        #(#register_ty)*;
+                        v.pop_ty();
+                    }
 
                     fn fields(&self, v: &mut ::autarkie::Visitor, index: usize) {
                         #(#register_field)*;
@@ -226,7 +237,12 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     let field_names = fields.iter().map(|field| {
                         let ty = &field.ty;
                         quote! {
-                            <#ty>::__autarkie_register(v, Some(Self::inner_id()));
+                            if !v.is_recursive(<#ty>::inner_id()) {
+                            <#ty>::__autarkie_register(v, Some(Self::inner_id()), #i);
+                            } else {
+                                v.register_ty(Some(Self::inner_id()), <#ty>::inner_id(), #i);
+                                v.pop_ty();
+                            }
                         }
                     });
                     register_ty.push(quote! {#(#field_names)*});
@@ -406,8 +422,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #(#fn_fields)*;
                     }
 
-                    fn __autarkie_register(v: &mut ::autarkie::Visitor, parent: Option<::autarkie::tree::Id>) {
-                        v.register_ty(parent, Self::inner_id());
+                    fn __autarkie_register(v: &mut ::autarkie::Visitor, parent: Option<::autarkie::tree::Id>, _variant: usize) {
+                        v.register_ty(parent, Self::inner_id(), 0);
                         #(#register_ty)*;
                         v.pop_ty();
                     }

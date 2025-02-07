@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use libafl_bolts::rands::{Rand, StdRand};
 
@@ -60,7 +60,8 @@ pub struct Visitor {
     fields: Vec<Vec<((usize, NodeType), Id)>>,
     fields_stack: Vec<((usize, NodeType), Id)>,
     matching_cmps: Vec<(Vec<((usize, NodeType), Id)>, Vec<u8>)>,
-    ty_map: BTreeMap<Id, Vec<Id>>,
+    ty_map: BTreeMap<Id, BTreeMap<usize, Vec<Id>>>,
+    recursive_nodes: BTreeMap<Id, BTreeSet<usize>>,
     pub ty_map_stack: Vec<Id>,
     rng: StdRand,
 }
@@ -144,12 +145,17 @@ impl Visitor {
         fields
     }
 
-    pub fn register_ty(&mut self, parent: Option<Id>, id: Id) {
+    pub fn register_ty(&mut self, parent: Option<Id>, id: Id, variant: usize) {
         self.ty_map_stack.push(id.clone());
         let parent = parent.unwrap_or("FuzzData".to_string());
-        let parent = self
-            .ty_map
-            .entry(parent)
+        if !self.ty_map.get(&parent).is_some() {
+            self.ty_map
+                .insert(parent.clone(), BTreeMap::from_iter([(variant, Vec::new())]));
+        }
+        self.ty_map
+            .get_mut(&parent)
+            .expect("____rwBG5LkVKH")
+            .entry(variant)
             .and_modify(|i| i.push(id.clone()))
             .or_insert(vec![id.clone()]);
     }
@@ -162,15 +168,25 @@ impl Visitor {
         self.ty_map_stack.contains(&id)
     }
 
-    pub fn set_recursive(&mut self, id: Id) {
-        println!("{:?} is recursive", id);
+    pub fn set_recursive(&mut self, id: Id, variant: usize) {
+        /*         println!("{:?} of {:?} is recursive", variant, id); */
+        let parent = self
+            .recursive_nodes
+            .entry(id)
+            .and_modify(|i| {
+                i.insert(variant);
+            })
+            .or_insert(BTreeSet::from_iter([variant]));
     }
 
     pub fn print_ty(&self) {
         println!("{:#?}", self.ty_map);
+        /* println!("recursive");
+        println!("{:#?}", self.recursive_nodes); */
     }
     pub fn new(seed: u64, depth: DepthInfo) -> Self {
         let mut visitor = Self {
+            recursive_nodes: BTreeMap::new(),
             ty_map_stack: vec![],
             depth,
             fields: vec![],

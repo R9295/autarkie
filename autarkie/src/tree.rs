@@ -30,8 +30,8 @@ where
     /// Generate Self
     fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self;
 
-    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>) {
-        v.register_ty(parent, Self::inner_id());
+    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
+        v.register_ty(parent, Self::inner_id(), variant);
         v.pop_ty();
     }
 
@@ -272,14 +272,15 @@ where
     }
     
     fn inner_id() -> Id {
-        T::id()
+        T::inner_id()
     }
 
-    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>) {
+    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
         if !v.is_recursive(Self::inner_id()) {
-            T::__autarkie_register(v, parent);
+            T::__autarkie_register(v, parent, variant);
         } else {
-            v.set_recursive(Self::inner_id());
+            v.register_ty(parent, T::inner_id(), variant);
+            v.pop_ty();
         }
     }
 
@@ -316,6 +317,19 @@ where
             None
         }
     }
+    
+    fn inner_id() -> Id {
+        T::inner_id()
+    }
+
+    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
+        if !v.is_recursive(Self::inner_id()) {
+            T::__autarkie_register(v, parent, variant);
+        } else {
+/*             v.set_recursive(Self::inner_id(), variant); */
+        }
+    }
+    
     fn __mutate(
         &mut self,
         ty: &mut MutationType,
@@ -384,6 +398,19 @@ where
             Ok(T::generate(visitor, depth, cur_depth))
         } else {
             Err(E::generate(visitor, depth, cur_depth))
+        }
+    }
+    
+    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
+        if !v.is_recursive(T::inner_id()) {
+            T::__autarkie_register(v, parent.clone(), variant);
+        } else {
+/*             v.set_recursive(Self::inner_id(), variant); */
+        }
+        if !v.is_recursive(T::inner_id()) {
+            T::__autarkie_register(v, parent, variant);
+        } else {
+            v.set_recursive(Self::inner_id(), variant);
         }
     }
 
