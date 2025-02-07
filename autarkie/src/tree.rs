@@ -31,7 +31,7 @@ where
     fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self;
 
     fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
-        v.register_ty(parent, Self::inner_id(), variant);
+        v.register_ty(parent, Self::id(), variant);
         v.pop_ty();
     }
 
@@ -187,6 +187,17 @@ where
         }
         vector
     }
+    
+    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
+        v.register_ty(parent, Self::id(), variant);
+        if !v.is_recursive(T::id()) {
+            T::__autarkie_register(v, Some(Self::id()), 0);
+        } else {
+            v.register_ty(Some(Self::id()), T::id(), 0);
+            v.pop_ty();
+        }
+        v.pop_ty();
+    }
 
     fn node_ty(&self) -> NodeType {
         NodeType::Iterable(false, self.len(), Self::inner_id())
@@ -195,6 +206,7 @@ where
     fn inner_id() -> Id {
         T::id()
     }
+    
 
     fn serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
         let mut vector = self
@@ -272,16 +284,18 @@ where
     }
     
     fn inner_id() -> Id {
-        T::inner_id()
+        T::id()
     }
 
     fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
-        if !v.is_recursive(Self::inner_id()) {
-            T::__autarkie_register(v, parent, variant);
+        v.register_ty(parent, Self::id(), variant);
+        if !v.is_recursive(T::id()) {
+            T::__autarkie_register(v, Some(Self::id()), 0);
         } else {
-            v.register_ty(parent, T::inner_id(), variant);
+            v.register_ty(Some(Self::id()), T::id(), 0);
             v.pop_ty();
         }
+        v.pop_ty();
     }
 
     fn node_ty(&self) -> NodeType {
@@ -319,17 +333,26 @@ where
     }
     
     fn inner_id() -> Id {
-        T::inner_id()
-    }
-
-    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
-        if !v.is_recursive(Self::inner_id()) {
-            T::__autarkie_register(v, parent, variant);
-        } else {
-/*             v.set_recursive(Self::inner_id(), variant); */
-        }
+        T::id()
     }
     
+    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
+        v.register_ty(parent, Self::id(), variant);
+        if !v.is_recursive(T::id()) {
+            T::__autarkie_register(v, Some(Self::id()), 0);
+            // TODO: none?
+            v.register_ty(Some(Self::id()), Self::id(), 1);
+            v.pop_ty();
+        } else {
+            v.register_ty(Some(Self::id()), T::id(), 0);
+            v.pop_ty();
+            // TODO: none?
+            v.register_ty(Some(Self::id()), Self::id(), 1);
+            v.pop_ty();
+        }
+        v.pop_ty();
+    }
+
     fn __mutate(
         &mut self,
         ty: &mut MutationType,
@@ -645,6 +668,18 @@ macro_rules! tuple_impls {
                 visitor.pop_field();
                 })*
             }
+            fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
+                v.register_ty(parent, Self::id(), variant);
+                $({
+                if !v.is_recursive($T::id()) {
+                    $T::__autarkie_register(v, Some(Self::id()), 0);
+                } else {
+                    v.register_ty(Some(Self::id()), $T::id(), 0);
+                    v.pop_ty();
+                }
+                })*
+                v.pop_ty();
+            }
             fn serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
                 let mut vector = Vec::new();
                 $(vector.push((serialize(&self.$id), $T::id()));)*
@@ -690,7 +725,8 @@ macro_rules! impl_generate_simple {
             fn cmps(&self, v: &mut Visitor, index: usize, val: (u64, u64)) {
                 if val.0 == *self as u64 {
                     v.register_cmp(serialize(&(val.1 as Self)));
-                };
+                }
+                // TODO: val.1???
             }
         }
     };

@@ -60,7 +60,7 @@ pub struct Visitor {
     fields: Vec<Vec<((usize, NodeType), Id)>>,
     fields_stack: Vec<((usize, NodeType), Id)>,
     matching_cmps: Vec<(Vec<((usize, NodeType), Id)>, Vec<u8>)>,
-    ty_map: BTreeMap<Id, BTreeMap<usize, Vec<Id>>>,
+    ty_map: BTreeMap<Id, BTreeMap<usize, BTreeSet<Id>>>,
     recursive_nodes: BTreeMap<Id, BTreeSet<usize>>,
     pub ty_map_stack: Vec<Id>,
     rng: StdRand,
@@ -150,14 +150,14 @@ impl Visitor {
         let parent = parent.unwrap_or("FuzzData".to_string());
         if !self.ty_map.get(&parent).is_some() {
             self.ty_map
-                .insert(parent.clone(), BTreeMap::from_iter([(variant, Vec::new())]));
+                .insert(parent.clone(), BTreeMap::from_iter([(variant, BTreeSet::new())]));
         }
         self.ty_map
             .get_mut(&parent)
             .expect("____rwBG5LkVKH")
             .entry(variant)
-            .and_modify(|i| i.push(id.clone()))
-            .or_insert(vec![id.clone()]);
+            .and_modify(|i| {i.insert(id.clone());})
+            .or_insert(BTreeSet::from_iter([id.clone()]));
     }
 
     pub fn pop_ty(&mut self) {
