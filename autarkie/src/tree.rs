@@ -128,6 +128,15 @@ where
     fn node_ty(&self) -> NodeType {
         NodeType::Iterable(true, N, T::id())
     }
+    
+    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
+        if !v.is_recursive(T::id()) {
+            T::__autarkie_register(v, parent, variant);
+        } else {
+            v.register_ty(parent, T::id(), variant);
+            v.pop_ty();
+        }
+    }
 
     fn __mutate(
         &mut self,
@@ -729,7 +738,6 @@ macro_rules! impl_generate_simple {
                 if val.0 == *self as u64 {
                     v.register_cmp(serialize(&(val.1 as Self)));
                 }
-                // TODO: val.1???
             }
         }
     };

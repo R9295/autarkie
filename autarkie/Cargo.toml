@@ -17,6 +17,7 @@ libafl_bolts = {workspace = true}
 blake3 = "1.5.5"
 colored = "3.0.0"
 petgraph = "0.7.1"
+ahash = "0.8.11"
 
 [features]
 derive = ["autarkie_derive"]

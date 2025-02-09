@@ -1,6 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use libafl_bolts::rands::{Rand, StdRand};
+use libafl_bolts::{rands::{Rand, StdRand}, HasLen};
+use petgraph::{
+    data::Build,
+    dot::{Config, Dot},
+    graph::DiGraph,
+    graphmap::DiGraphMap,
+    Directed,
+};
 
 use crate::Id;
 
@@ -66,7 +73,6 @@ pub struct Visitor {
     fields_stack: Vec<((usize, NodeType), Id)>,
     matching_cmps: Vec<(Vec<((usize, NodeType), Id)>, Vec<u8>)>,
     ty_map: BTreeMap<Id, BTreeMap<usize, BTreeSet<Id>>>,
-    recursive_nodes: BTreeMap<Id, BTreeMap<InnerNodeType, Vec<usize>>>,
     ty_map_stack: Vec<Id>,
     rng: StdRand,
 }
@@ -178,68 +184,57 @@ impl Visitor {
     }
 
     pub fn calculate_recursion(&mut self) -> BTreeMap<Id, BTreeSet<usize>> {
-        use colored::Colorize;
         let mut recursive_nodes = BTreeMap::new();
-        let mut reverse_map = BTreeMap::new();
-        // take a type, and find everywhere where it's referenced.
+        let mut g = DiGraphMap::<_, usize>::new();
         for (ty, variants) in self.ty_map.iter() {
-            println!("{:?} has {:?} variants", ty, variants.len());
-            let mut who_references_us = vec![];
-            // do we reference them
-            for (inner_ty, inner_variants) in self.ty_map.iter() {
-                for inner_variant in inner_variants {
-                    if inner_variant.1.contains(ty) {
-                        print!("{}", "----> ".green().bold());
-                        println!("variant {:?} of {:?} references us", inner_variant.0, inner_ty);
-                        who_references_us.push((inner_variant.0, inner_ty));
-                        reverse_map.entry(ty).and_modify(|i: &mut Vec<_>| {i.push((inner_ty.clone(), inner_variant.clone()))}).or_insert(vec![(inner_ty.clone(), inner_variant.clone())]);
-                    }
-                }
-            }
-            // do we directly reference anyone who references us?
-            for (variant, values) in variants.iter() {
-                for (reference_variant, reference_ty) in &who_references_us {
-                    if values.contains(reference_ty.clone()) {
-                        // find out who has more variants.
-                        // whoever has more is the recursive one.
-                        let our_varaints = variants.keys().len();
-                        let reference_variants =
-                            self.ty_map.get(reference_ty.clone()).unwrap().len();
-                        if our_varaints < reference_variants
-                            || (our_varaints == reference_variants && *reference_ty == ty)
-                        {
-                            recursive_nodes
-                                .entry(reference_ty.clone().clone())
-                                .and_modify(|inner: &mut BTreeSet<usize>| {
-                                    inner.insert(reference_variant.clone().clone());
-                                })
-                                .or_insert(BTreeSet::from_iter([reference_variant
-                                    .clone()
-                                    .clone()]));
-                        }
-                    }
-                }
-                // do we indirectly reference anyone who references us?
-                for item in &who_references_us {
-                   let mut path = vec![];
-                   let current = vec![];
+            for (variant_id, variant_tys) in variants {
+                g.add_edge((ty, -1), (ty, *variant_id as isize), 1);
+                for variant_ty in variant_tys {
+                    g.add_edge((ty, *variant_id as isize), (variant_ty, -1), 1);
                 }
             }
         }
-        println!("{:#?}", reverse_map);
+        let cycles = crate::graph::find_cycles(&g);
+        for cycle in cycles {
+            let (root_ty, root_variant) = cycle.first().unwrap();
+            let root = self.ty_map.get(cycle.first().unwrap().0).unwrap();
+            let (last_ty, last_variant) = cycle.last().unwrap();
+            let last = self.ty_map.get(cycle.last().unwrap().0).unwrap();
+            if *root_ty == *last_ty  {
+                if last_variant.gt(&-1) {
+                recursive_nodes
+                    .entry(root_ty.clone().clone())
+                    .and_modify(|inner: &mut BTreeSet<usize>| {inner.insert(last_variant.clone().try_into().unwrap_or(0));})
+                    .or_insert(BTreeSet::from_iter([last_variant.clone().try_into().unwrap_or(0)]));
+                }
+            } else {
+                let root_index = 1;
+                let last_index = cycle.len().checked_sub(1).unwrap();
+                let (root_ty, root_variant) = cycle.get(root_index).unwrap();
+                let (last_ty, last_variant) = cycle.get(last_index).unwrap();
+                let root_variant_count = self.ty_map.get(root_ty.clone()).unwrap().len();
+                let last_variant_count = self.ty_map.get(last_ty.clone()).unwrap().len();
+                if root_variant_count > last_variant_count {
+                    recursive_nodes
+                        .entry(root_ty.clone().clone())
+                        .and_modify(|inner: &mut BTreeSet<usize>| {inner.insert(root_variant.clone().try_into().unwrap_or(0));})
+                        .or_insert(BTreeSet::from_iter([root_variant.clone().try_into().unwrap_or(0)]));                    
+                } else if last_variant_count > root_variant_count {
+                    recursive_nodes
+                        .entry(last_ty.clone().clone())
+                        .and_modify(|inner: &mut BTreeSet<usize>| {inner.insert(last_variant.clone().try_into().unwrap_or(0));})
+                        .or_insert(BTreeSet::from_iter([last_variant.clone().try_into().unwrap_or(0)]));
+                }
+            }
+        }
         return recursive_nodes;
-        // if it has alternatives set the variant as recursive, else if we have alternatives, set
-        // us as recursive, else, panic
     }
 
     pub fn print_ty(&self) {
         println!("{:#?}", self.ty_map);
-        /* println!("recursive");
-        println!("{:#?}", self.recursive_nodes); */
     }
     pub fn new(seed: u64, depth: DepthInfo) -> Self {
         let mut visitor = Self {
-            recursive_nodes: BTreeMap::new(),
             ty_map_stack: vec![],
             depth,
             fields: vec![],

@@ -16,7 +16,7 @@ pub mod tree;
 pub mod visitor;
 pub use tree::*;
 pub use visitor::*;
-
+mod graph;
 #[cfg(feature = "bincode")]
 pub mod serde;
 #[cfg(feature = "bincode")]

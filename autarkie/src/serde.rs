@@ -34,6 +34,14 @@ macro_rules! impl_node_serde_array {
             fn node_ty(&self) -> crate::NodeType {
                 crate::NodeType::Iterable(true, $n, T::id())
             }
+            fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
+                if !v.is_recursive(T::id()) {
+                    T::__autarkie_register(v, parent, variant);
+                } else {
+                    v.register_ty(parent, T::id(), variant);
+                    v.pop_ty();
+                }
+            }
 
             fn __mutate(
                 &mut self,
