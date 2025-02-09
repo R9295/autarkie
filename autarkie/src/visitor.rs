@@ -54,6 +54,11 @@ impl NodeType {
 }
 
 #[derive(Debug, Clone)]
+pub enum InnerNodeType {
+    Recursive,
+    NonRecursive,
+}
+#[derive(Debug, Clone)]
 pub struct Visitor {
     depth: DepthInfo,
     strings: Vec<String>,
@@ -61,8 +66,8 @@ pub struct Visitor {
     fields_stack: Vec<((usize, NodeType), Id)>,
     matching_cmps: Vec<(Vec<((usize, NodeType), Id)>, Vec<u8>)>,
     ty_map: BTreeMap<Id, BTreeMap<usize, BTreeSet<Id>>>,
-    recursive_nodes: BTreeMap<Id, BTreeSet<usize>>,
-    pub ty_map_stack: Vec<Id>,
+    recursive_nodes: BTreeMap<Id, BTreeMap<InnerNodeType, Vec<usize>>>,
+    ty_map_stack: Vec<Id>,
     rng: StdRand,
 }
 
@@ -147,16 +152,20 @@ impl Visitor {
 
     pub fn register_ty(&mut self, parent: Option<Id>, id: Id, variant: usize) {
         self.ty_map_stack.push(id.clone());
-        let parent = parent.unwrap_or("FuzzData".to_string());
+        let parent = parent.unwrap_or("AutarkieInternalFuzzData".to_string());
         if !self.ty_map.get(&parent).is_some() {
-            self.ty_map
-                .insert(parent.clone(), BTreeMap::from_iter([(variant, BTreeSet::new())]));
+            self.ty_map.insert(
+                parent.clone(),
+                BTreeMap::from_iter([(variant, BTreeSet::new())]),
+            );
         }
         self.ty_map
             .get_mut(&parent)
             .expect("____rwBG5LkVKH")
             .entry(variant)
-            .and_modify(|i| {i.insert(id.clone());})
+            .and_modify(|i| {
+                i.insert(id.clone());
+            })
             .or_insert(BTreeSet::from_iter([id.clone()]));
     }
 
@@ -168,7 +177,59 @@ impl Visitor {
         self.ty_map_stack.contains(&id)
     }
 
-    pub fn calculate_recursion(&mut self) {
+    pub fn calculate_recursion(&mut self) -> BTreeMap<Id, BTreeSet<usize>> {
+        use colored::Colorize;
+        let mut recursive_nodes = BTreeMap::new();
+        let mut reverse_map = BTreeMap::new();
+        // take a type, and find everywhere where it's referenced.
+        for (ty, variants) in self.ty_map.iter() {
+            println!("{:?} has {:?} variants", ty, variants.len());
+            let mut who_references_us = vec![];
+            // do we reference them
+            for (inner_ty, inner_variants) in self.ty_map.iter() {
+                for inner_variant in inner_variants {
+                    if inner_variant.1.contains(ty) {
+                        print!("{}", "----> ".green().bold());
+                        println!("variant {:?} of {:?} references us", inner_variant.0, inner_ty);
+                        who_references_us.push((inner_variant.0, inner_ty));
+                        reverse_map.entry(ty).and_modify(|i: &mut Vec<_>| {i.push((inner_ty.clone(), inner_variant.clone()))}).or_insert(vec![(inner_ty.clone(), inner_variant.clone())]);
+                    }
+                }
+            }
+            // do we directly reference anyone who references us?
+            for (variant, values) in variants.iter() {
+                for (reference_variant, reference_ty) in &who_references_us {
+                    if values.contains(reference_ty.clone()) {
+                        // find out who has more variants.
+                        // whoever has more is the recursive one.
+                        let our_varaints = variants.keys().len();
+                        let reference_variants =
+                            self.ty_map.get(reference_ty.clone()).unwrap().len();
+                        if our_varaints < reference_variants
+                            || (our_varaints == reference_variants && *reference_ty == ty)
+                        {
+                            recursive_nodes
+                                .entry(reference_ty.clone().clone())
+                                .and_modify(|inner: &mut BTreeSet<usize>| {
+                                    inner.insert(reference_variant.clone().clone());
+                                })
+                                .or_insert(BTreeSet::from_iter([reference_variant
+                                    .clone()
+                                    .clone()]));
+                        }
+                    }
+                }
+                // do we indirectly reference anyone who references us?
+                for item in &who_references_us {
+                   let mut path = vec![];
+                   let current = vec![];
+                }
+            }
+        }
+        println!("{:#?}", reverse_map);
+        return recursive_nodes;
+        // if it has alternatives set the variant as recursive, else if we have alternatives, set
+        // us as recursive, else, panic
     }
 
     pub fn print_ty(&self) {

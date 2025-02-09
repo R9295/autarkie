@@ -5,13 +5,27 @@ use serde::{Deserialize, Serialize};
 pub enum Expr {
     Literal(String),
     Number(u128),
+    // recursive
     Add(Box<Expr>, Box<Expr>),
+    // potentially recursive
     Vec(Vec<Expr>),
-    What(Box<Option<Expr>>),
+    // potentially recursive
+    What(
+        Box<
+            Option<Expr>
+        >
+    ),
+    // TODO 5 recursive
     WhatTwo(InnerBoxed),
+    // recursive
     WhatTwoInner(InnerBoxedEnum),
+    // recursive
     SayWhat((usize, Box<Expr>)),
-    Res(Result<InnerBoxed, usize>),
+    // TODO: 8 potentially recursive
+    // Res(Result<InnerBoxed, usize>),
+    Res(u8),
+    // recursive
+    Stmt(Box<Statement>),
 }
 
 #[derive(Clone, Debug, Grammar, Serialize, Deserialize)]
@@ -22,6 +36,11 @@ pub struct  Inner {
 
 #[derive(Clone, Debug, Grammar, Serialize, Deserialize)]
 pub struct InnerBoxed {
+    what: InnerInnerBoxed,
+}
+
+#[derive(Clone, Debug, Grammar, Serialize, Deserialize)]
+pub struct InnerInnerBoxed {
     what: Box<Expr>,
 }
 
@@ -36,6 +55,8 @@ pub enum Statement {
 }
 #[cfg(test)]
 mod tests {
+    use std::collections::{BTreeMap, BTreeSet};
+
     use autarkie::Visitor;
 
     use super::*;
@@ -49,7 +70,13 @@ mod tests {
             },
         );
         Statement::__autarkie_register(&mut visitor, None, 0);
-        visitor.print_ty();
+        println!("{:#?}", visitor.calculate_recursion());
+        assert_eq!(visitor.calculate_recursion() , BTreeMap::from_iter(
+            // 1, 8
+            [("autarkie_test::Expr".to_string(), BTreeSet::from_iter([2,3,4,6,7,9])),
+            ("core::option::Option<autarkie_test::Expr>".to_string(), BTreeSet::from_iter([1]))]
+        ))
+        //visitor.print_ty();
     }
 }
 
