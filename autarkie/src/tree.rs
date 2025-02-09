@@ -288,14 +288,14 @@ where
     }
 
     fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
-        v.register_ty(parent, Self::id(), variant);
+/*         v.register_ty(parent, Self::id(), variant); */
         if !v.is_recursive(T::id()) {
-            T::__autarkie_register(v, Some(Self::id()), 0);
+            T::__autarkie_register(v, parent, variant);
         } else {
-            v.register_ty(Some(Self::id()), T::id(), 0);
+            v.register_ty(parent, T::id(), variant);
             v.pop_ty();
         }
-        v.pop_ty();
+/*         v.pop_ty(); */
     }
 
     fn node_ty(&self) -> NodeType {
