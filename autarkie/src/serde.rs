@@ -9,41 +9,42 @@ macro_rules! impl_node_serde_array {
             // TODO can we remove the debug clause?
             T: Node + Debug,
         {
-            fn generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+            fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
                 // TODO: optimize?
                 (0..$n)
-                    .map(|_| T::generate(visitor, depth, cur_depth))
+                    .map(|_| T::__autarkie_generate(visitor, depth, cur_depth))
                     .collect::<Vec<T>>()
                     .try_into()
                     .expect("invariant;")
             }
 
-            fn serialized(&self) -> Option<Vec<(Vec<u8>, crate::Id)>> {
+            fn __autarkie_serialized(&self) -> Option<Vec<(Vec<u8>, crate::Id)>> {
                 let mut vector = self
                     .iter()
-                    .map(|i| (serialize(i), T::id()))
+                    .map(|i| (serialize(i), T::__autarkie_id()))
                     .collect::<Vec<_>>();
                 for item in self.iter() {
-                    if let Some(inner) = item.serialized() {
+                    if let Some(inner) = item.__autarkie_serialized() {
                         vector.extend(inner)
                     }
                 }
                 Some(vector)
             }
 
-            fn node_ty(&self) -> crate::NodeType {
-                crate::NodeType::Iterable(true, $n, T::id())
+            fn __autarkie_node_ty(&self) -> crate::NodeType {
+                crate::NodeType::Iterable(true, $n, T::__autarkie_id())
             }
-            fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
-                if !v.is_recursive(T::id()) {
+
+            fn __autarkie_register(v: &mut Visitor, parent:Option<crate::Id>, variant: usize) {
+                if !v.is_recursive(T::__autarkie_id()) {
                     T::__autarkie_register(v, parent, variant);
                 } else {
-                    v.register_ty(parent, T::id(), variant);
+                    v.register_ty(parent, T::__autarkie_id(), variant);
                     v.pop_ty();
                 }
             }
 
-            fn __mutate(
+            fn __autarkie_mutate(
                 &mut self,
                 ty: &mut MutationType,
                 visitor: &mut Visitor,
@@ -52,31 +53,31 @@ macro_rules! impl_node_serde_array {
                 if let Some(popped) = path.pop_front() {
                     self.get_mut(popped)
                         .expect("mdNWnhI6____")
-                        .__mutate(ty, visitor, path);
+                        .__autarkie_mutate(ty, visitor, path);
                 } else {
                     match ty {
                         MutationType::Splice(other) => {
                             *self = deserialize(other);
                         }
                         MutationType::GenerateReplace(ref mut bias) => {
-                            *self = Self::generate(visitor, bias, &mut 0)
+                            *self = Self::__autarkie_generate(visitor, bias, &mut 0)
                         }
                         _ => unreachable!("tAL6LPUb____"),
                     }
                 }
             }
-            fn fields(&self, visitor: &mut Visitor, index: usize) {
+            fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
                 for (index, child) in self.iter().enumerate() {
-                    visitor.register_field_stack((((index, child.node_ty())), T::id()));
-                    child.fields(visitor, 0);
+                    visitor.register_field_stack((((index, child.__autarkie_node_ty())), T::__autarkie_id()));
+                    child.__autarkie_fields(visitor, 0);
                     visitor.pop_field();
                 }
             }
 
-            fn cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
+            fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
                 for (index, child) in self.iter().enumerate() {
-                    visitor.register_field_stack((((index, child.node_ty())), T::id()));
-                    child.cmps(visitor, index, val);
+                    visitor.register_field_stack((((index, child.__autarkie_node_ty())), T::__autarkie_id()));
+                    child.__autarkie_cmps(visitor, index, val);
                     visitor.pop_field();
                 }
             }

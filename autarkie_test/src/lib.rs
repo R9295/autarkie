@@ -69,14 +69,11 @@ mod tests {
             },
         );
         Statement::__autarkie_register(&mut visitor, None, 0);
-        println!("{:#?}", visitor.calculate_recursion());
-        /* println!("{:#?}", visitor.calculate_recursion());
         assert_eq!(visitor.calculate_recursion() , BTreeMap::from_iter(
-            // 1, 8
-            [("autarkie_test::Expr".to_string(), BTreeSet::from_iter([2,3,4,6,7,9])),
-            ("core::option::Option<autarkie_test::Expr>".to_string(), BTreeSet::from_iter([1]))]
-        )) */
-        //visitor.print_ty();
+            [("autarkie_test::Expr".to_string(), BTreeSet::from_iter([2,3,4,5,6,7,8,9])),
+            ("core::option::Option<autarkie_test::Expr>".to_string(), BTreeSet::from_iter([1])),
+            ("core::result::Result<autarkie_test::InnerBoxed, usize>".to_string(), BTreeSet::from_iter([0]))]
+        ));
     }
 }
 

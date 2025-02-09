@@ -21,12 +21,12 @@ pub struct CompactU128(#[codec(compact)] pub u128);
 macro_rules! impl_generate_compact {
     ($type: ty, $inner: ty, $num_bytes: literal) => {
         impl Node for $type {
-            fn generate(v: &mut crate::Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+            fn __autarkie_generate(v: &mut crate::Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
                 let inner =
                     crate::deserialize::<$inner>(&mut v.generate_bytes($num_bytes).as_slice());
                 Self(inner)
             }
-            fn cmps(&self, v: &mut crate::Visitor, index: usize, val: (u64, u64)) {
+            fn __autarkie_cmps(&self, v: &mut crate::Visitor, index: usize, val: (u64, u64)) {
                 if val.0 == self.0 as u64 {
                     v.register_cmp(crate::serialize(&(val.1 as $inner)));
                 };
@@ -36,7 +36,7 @@ macro_rules! impl_generate_compact {
     // we don't do cmps for u8
     (u8, $num_bytes: literal) => {
         impl Node for $type {
-            fn generate(v: &mut Visitor) -> Self {
+            fn __autarkie_generate(v: &mut Visitor) -> Self {
                 let inner =
                     crate::deserialize::<$inner>(&mut v.generate_bytes($num_bytes).as_slice());
                 Self(inner)
