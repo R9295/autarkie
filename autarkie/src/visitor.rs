@@ -188,6 +188,7 @@ impl Visitor {
         self.ty_map_stack.contains(&id) || self.ty_done.contains(&id)
     }
 
+    // TODO: optimize
     pub fn calculate_recursion(&mut self) -> BTreeMap<Id, BTreeSet<usize>> {
         let mut recursive_nodes = BTreeMap::new();
         let mut g = DiGraphMap::<_, usize>::new();

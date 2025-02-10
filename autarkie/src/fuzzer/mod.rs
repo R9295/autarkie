@@ -379,9 +379,7 @@ macro_rules! debug_grammar {
             },
         );
         <$t>::__autarkie_register(&mut visitor, None, 0);
-        /* println!("1");
         visitor.calculate_recursion();
-        println!("2"); */
         let gen_depth = visitor.generate_depth();
         for _ in 0..100 {
             println!(
