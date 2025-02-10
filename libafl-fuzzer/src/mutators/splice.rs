@@ -27,7 +27,7 @@ where
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
         let metadata = state.metadata::<Context>()?;
-        input.fields(&mut self.visitor.borrow_mut(), 0);
+        input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
@@ -60,7 +60,7 @@ where
                         let data = std::fs::read(random_splice).unwrap();
                         #[cfg(debug_assertions)]
                         println!("splice | subslice | {:?}", (&field, &path));
-                        input.__mutate(
+                        input.__autarkie_mutate(
                             &mut MutationType::Splice(&mut data.as_slice()),
                             &mut self.visitor.borrow_mut(),
                             child_path,
@@ -97,7 +97,7 @@ where
                     data.extend(items.iter().flatten());
                     #[cfg(debug_assertions)]
                     println!("splice | full | {:?}", field);
-                    input.__mutate(
+                    input.__autarkie_mutate(
                         &mut MutationType::Splice(&mut data.as_slice()),
                         &mut self.visitor.borrow_mut(),
                         path,
@@ -117,7 +117,7 @@ where
                 let data = std::fs::read(random_splice).unwrap();
                 #[cfg(debug_assertions)]
                 println!("splice | one | {:?} {:?}", field, path);
-                input.__mutate(
+                input.__autarkie_mutate(
                     &mut MutationType::Splice(&mut data.as_slice()),
                     &mut self.visitor.borrow_mut(),
                     path,

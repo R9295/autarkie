@@ -87,7 +87,7 @@ where
             .clone();
 
         let mut current = state.current_input_cloned().unwrap();
-        current.fields(&mut self.visitor.borrow_mut(), 0);
+        current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
 
         let mut skip = 0;
@@ -108,7 +108,7 @@ where
                 let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
                 let mut inner = current.clone();
                 // We are only trying to replace with one non recursive variant (maybe try to replace with ALL possible non recursive varaints?)
-                inner.__mutate(
+                inner.__autarkie_mutate(
                     &mut MutationType::RecursiveReplace,
                     &mut self.visitor.borrow_mut(),
                     path.clone(),
@@ -126,7 +126,7 @@ where
                 if map == indexes {
                     cur_iter = 0;
                     current = inner;
-                    current.fields(&mut self.visitor.borrow_mut(), 0);
+                    current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
                     fields = self.visitor.borrow_mut().fields();
                 } else {
                     skip += 1;

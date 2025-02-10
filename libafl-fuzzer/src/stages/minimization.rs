@@ -86,7 +86,7 @@ where
             .list
             .clone();
         let mut current = state.current_input_cloned().unwrap();
-        current.fields(&mut self.visitor.borrow_mut(), 0);
+        current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut skip = 0;
         let mut fields = self.visitor.borrow_mut().fields();
 
@@ -110,7 +110,7 @@ where
                         break;
                     }
                     let mut inner = current.clone();
-                    inner.__mutate(
+                    inner.__autarkie_mutate(
                         &mut MutationType::IterablePop(counter),
                         &mut self.visitor.borrow_mut(),
                         path.clone(),
@@ -127,7 +127,7 @@ where
                         .collect::<Vec<_>>();
                     if map == indexes {
                         current = inner;
-                        current.fields(&mut self.visitor.borrow_mut(), 0);
+                        current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
                         fields = self.visitor.borrow_mut().fields();
                         len = len.saturating_sub(1);
                     }

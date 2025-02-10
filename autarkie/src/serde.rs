@@ -9,7 +9,11 @@ macro_rules! impl_node_serde_array {
             // TODO can we remove the debug clause?
             T: Node + Debug,
         {
-            fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+            fn __autarkie_generate(
+                visitor: &mut Visitor,
+                depth: &mut usize,
+                cur_depth: &mut usize,
+            ) -> Self {
                 // TODO: optimize?
                 (0..$n)
                     .map(|_| T::__autarkie_generate(visitor, depth, cur_depth))
@@ -35,7 +39,7 @@ macro_rules! impl_node_serde_array {
                 crate::NodeType::Iterable(true, $n, T::__autarkie_id())
             }
 
-            fn __autarkie_register(v: &mut Visitor, parent:Option<crate::Id>, variant: usize) {
+            fn __autarkie_register(v: &mut Visitor, parent: Option<crate::Id>, variant: usize) {
                 if !v.is_recursive(T::__autarkie_id()) {
                     T::__autarkie_register(v, parent, variant);
                 } else {
@@ -68,7 +72,10 @@ macro_rules! impl_node_serde_array {
             }
             fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
                 for (index, child) in self.iter().enumerate() {
-                    visitor.register_field_stack((((index, child.__autarkie_node_ty())), T::__autarkie_id()));
+                    visitor.register_field_stack((
+                        ((index, child.__autarkie_node_ty())),
+                        T::__autarkie_id(),
+                    ));
                     child.__autarkie_fields(visitor, 0);
                     visitor.pop_field();
                 }
@@ -76,7 +83,10 @@ macro_rules! impl_node_serde_array {
 
             fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
                 for (index, child) in self.iter().enumerate() {
-                    visitor.register_field_stack((((index, child.__autarkie_node_ty())), T::__autarkie_id()));
+                    visitor.register_field_stack((
+                        ((index, child.__autarkie_node_ty())),
+                        T::__autarkie_id(),
+                    ));
                     child.__autarkie_cmps(visitor, index, val);
                     visitor.pop_field();
                 }

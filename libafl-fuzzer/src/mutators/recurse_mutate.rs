@@ -26,7 +26,7 @@ where
     S::Corpus: Corpus<Input = I>,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
-        input.fields(&mut self.visitor.borrow_mut(), 0);
+        input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &mut fields[field_splice_index];
@@ -51,7 +51,7 @@ where
                 path.push_back(index);
                 #[cfg(debug_assertions)]
                 println!("recursive_mutate | subslice | {:?}", field);
-                input.__mutate(
+                input.__autarkie_mutate(
                     &mut MutationType::GenerateReplace(bias),
                     &mut self.visitor.borrow_mut(),
                     path,
@@ -61,7 +61,7 @@ where
             let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
             #[cfg(debug_assertions)]
             println!("recursive_mutate | single | {:?}", field);
-            input.__mutate(
+            input.__autarkie_mutate(
                 &mut MutationType::GenerateReplace(bias),
                 &mut self.visitor.borrow_mut(),
                 path,

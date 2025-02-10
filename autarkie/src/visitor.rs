@@ -1,6 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use libafl_bolts::{rands::{Rand, StdRand}, HasLen};
+use libafl_bolts::{
+    rands::{Rand, StdRand},
+    HasLen,
+};
 use petgraph::{
     data::Build,
     dot::{Config, Dot},
@@ -73,6 +76,7 @@ pub struct Visitor {
     fields_stack: Vec<((usize, NodeType), Id)>,
     matching_cmps: Vec<(Vec<((usize, NodeType), Id)>, Vec<u8>)>,
     ty_map: BTreeMap<Id, BTreeMap<usize, BTreeSet<Id>>>,
+    ty_done: BTreeSet<Id>,
     ty_map_stack: Vec<Id>,
     rng: StdRand,
 }
@@ -158,6 +162,7 @@ impl Visitor {
 
     pub fn register_ty(&mut self, parent: Option<Id>, id: Id, variant: usize) {
         self.ty_map_stack.push(id.clone());
+        /*         assert_eq!(BTreeSet::from_iter(self.ty_map_stack.iter()).len(), self.ty_map_stack.len()); */
         let parent = parent.unwrap_or("AutarkieInternalFuzzData".to_string());
         if !self.ty_map.get(&parent).is_some() {
             self.ty_map.insert(
@@ -176,11 +181,12 @@ impl Visitor {
     }
 
     pub fn pop_ty(&mut self) {
-        self.ty_map_stack.pop().expect("____mZiIy3hlu8");
+        let popped = self.ty_map_stack.pop().expect("____mZiIy3hlu8");
+        self.ty_done.insert(popped);
     }
 
     pub fn is_recursive(&mut self, id: Id) -> bool {
-        self.ty_map_stack.contains(&id)
+        self.ty_map_stack.contains(&id) || self.ty_done.contains(&id)
     }
 
     pub fn calculate_recursion(&mut self) -> BTreeMap<Id, BTreeSet<usize>> {
@@ -200,12 +206,18 @@ impl Visitor {
             let root = self.ty_map.get(cycle.first().unwrap().0).unwrap();
             let (last_ty, last_variant) = cycle.last().unwrap();
             let last = self.ty_map.get(cycle.last().unwrap().0).unwrap();
-            if *root_ty == *last_ty  {
+            if *root_ty == *last_ty {
+                // a type may be recursive to it's own so we ignore
                 if last_variant.gt(&-1) {
-                recursive_nodes
-                    .entry(root_ty.clone().clone())
-                    .and_modify(|inner: &mut BTreeSet<usize>| {inner.insert(last_variant.clone().try_into().unwrap_or(0));})
-                    .or_insert(BTreeSet::from_iter([last_variant.clone().try_into().unwrap_or(0)]));
+                    recursive_nodes
+                        .entry(root_ty.clone().clone())
+                        .and_modify(|inner: &mut BTreeSet<usize>| {
+                            inner.insert(last_variant.clone().try_into().unwrap_or(0));
+                        })
+                        .or_insert(BTreeSet::from_iter([last_variant
+                            .clone()
+                            .try_into()
+                            .unwrap_or(0)]));
                 }
             } else {
                 let root_index = 1;
@@ -217,13 +229,23 @@ impl Visitor {
                 if root_variant_count > last_variant_count {
                     recursive_nodes
                         .entry(root_ty.clone().clone())
-                        .and_modify(|inner: &mut BTreeSet<usize>| {inner.insert(root_variant.clone().try_into().unwrap_or(0));})
-                        .or_insert(BTreeSet::from_iter([root_variant.clone().try_into().unwrap_or(0)]));                    
+                        .and_modify(|inner: &mut BTreeSet<usize>| {
+                            inner.insert(root_variant.clone().try_into().unwrap_or(0));
+                        })
+                        .or_insert(BTreeSet::from_iter([root_variant
+                            .clone()
+                            .try_into()
+                            .unwrap_or(0)]));
                 } else if last_variant_count > root_variant_count {
                     recursive_nodes
                         .entry(last_ty.clone().clone())
-                        .and_modify(|inner: &mut BTreeSet<usize>| {inner.insert(last_variant.clone().try_into().unwrap_or(0));})
-                        .or_insert(BTreeSet::from_iter([last_variant.clone().try_into().unwrap_or(0)]));
+                        .and_modify(|inner: &mut BTreeSet<usize>| {
+                            inner.insert(last_variant.clone().try_into().unwrap_or(0));
+                        })
+                        .or_insert(BTreeSet::from_iter([last_variant
+                            .clone()
+                            .try_into()
+                            .unwrap_or(0)]));
                 }
             }
         }
@@ -235,6 +257,7 @@ impl Visitor {
     }
     pub fn new(seed: u64, depth: DepthInfo) -> Self {
         let mut visitor = Self {
+            ty_done: BTreeSet::default(),
             ty_map_stack: vec![],
             depth,
             fields: vec![],

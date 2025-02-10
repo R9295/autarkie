@@ -21,7 +21,11 @@ pub struct CompactU128(#[codec(compact)] pub u128);
 macro_rules! impl_generate_compact {
     ($type: ty, $inner: ty, $num_bytes: literal) => {
         impl Node for $type {
-            fn __autarkie_generate(v: &mut crate::Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+            fn __autarkie_generate(
+                v: &mut crate::Visitor,
+                depth: &mut usize,
+                cur_depth: &mut usize,
+            ) -> Self {
                 let inner =
                     crate::deserialize::<$inner>(&mut v.generate_bytes($num_bytes).as_slice());
                 Self(inner)

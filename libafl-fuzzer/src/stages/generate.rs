@@ -58,5 +58,5 @@ pub fn generate<I>(visitor: &mut Visitor) -> I
 where
     I: Node,
 {
-    I::generate(visitor, &mut visitor.generate_depth(), &mut 0)
+    I::__autarkie_generate(visitor, &mut visitor.generate_depth(), &mut 0)
 }

@@ -22,7 +22,7 @@ impl Context {
     where
         I: Node,
     {
-        for field in input.serialized().unwrap() {
+        for field in input.__autarkie_serialized().unwrap() {
             let (data, ty) = field;
             // todo: optimize this
             let path = self.out_dir.join("chunks").join(ty.to_string());

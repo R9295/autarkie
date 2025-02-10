@@ -123,7 +123,7 @@ where
             .expect("we must have context!");
 
         for cmp in reduced {
-            unmutated_input.cmps(&mut self.visitor.borrow_mut(), 0, cmp);
+            unmutated_input.__autarkie_cmps(&mut self.visitor.borrow_mut(), 0, cmp);
             let matches = self.visitor.borrow_mut().cmps();
             for path in matches {
                 let cmp_path = path.0.iter().map(|(i, ty)| i.0).collect::<VecDeque<_>>();
@@ -132,7 +132,7 @@ where
                 let before = autarkie::serialize(&input);
                 #[cfg(debug_assertions)]
                 println!("cmplog_splice | one | {:?}", path.0);
-                input.__mutate(
+                input.__autarkie_mutate(
                     &mut MutationType::Splice(&mut serialized_alternative),
                     &mut self.visitor.borrow_mut(),
                     cmp_path,

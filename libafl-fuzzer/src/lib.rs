@@ -51,7 +51,7 @@ use std::{cell::RefCell, io::ErrorKind, path::PathBuf, process::Command, rc::Rc,
 use crate::stages::generate::generate;
 
 const SHMEM_ENV_VAR: &str = "__AFL_SHM_ID";
-pub fn fuzz<I, TC>(bytes_converter: TC)
+pub fn run_fuzzer<I, TC>(bytes_converter: TC)
 where
     I: Node + Input,
     TC: TargetBytesConverter<Input = I> + Clone,
@@ -104,6 +104,8 @@ where
                 iterate: opt.iterate_depth,
             },
         );
+        I::__autarkie_register(&mut visitor, None, 0);
+        visitor.calculate_recursion();
         let visitor = Rc::new(RefCell::new(visitor));
         // Create a MapFeedback for coverage guided fuzzin'
         // We only care if an edge was hit, not how many times
@@ -369,23 +371,23 @@ struct Opt {
 #[macro_export]
 macro_rules! debug_grammar {
     ($t:ty) => {
-        use autarkie::Visitor;
-        let mut v = Visitor::new(
-            libafl_bolts::current_nanos(),
+        use autarkie::{Node, Visitor};
+        let mut visitor = Visitor::new(
+            50,
             autarkie::DepthInfo {
                 generate: 5,
                 iterate: 3,
             },
         );
-        let gen_depth = v.generate_depth();
+        <$t>::__autarkie_register(&mut visitor, None, 0);
+        /* println!("1");
+        visitor.calculate_recursion();
+        println!("2"); */
+        let gen_depth = visitor.generate_depth();
         for _ in 0..100 {
             println!(
-                "{}",
-                <$t>::generate(&mut v, &mut gen_depth.clone(), &mut 0)
-                    .data
-                    .iter()
-                    .map(|i| format!("{}\n", i))
-                    .collect::<String>()
+                "{:?}",
+                <$t>::__autarkie_generate(&mut visitor, &mut gen_depth.clone(), &mut 0)
             );
             println!("--------------------------------");
         }

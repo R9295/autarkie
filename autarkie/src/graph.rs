@@ -14,9 +14,7 @@ pub fn find_cycles<N: Copy + Eq + std::hash::Hash + Ord + Debug, E>(
     for node in graph.nodes() {
         visited.drain();
         if !done.contains(&node) {
-            dfs_cycle(
-                graph, node, &mut visited, &mut stack, & mut cycles, 
-            );
+            dfs_cycle(graph, node, &mut visited, &mut stack, &mut cycles);
         }
         done.insert(node);
     }

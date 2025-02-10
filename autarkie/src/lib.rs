@@ -1,16 +1,15 @@
 #![allow(warnings)]
 #![feature(core_intrinsics)]
 
-
 #[cfg(feature = "autarkie_derive")]
 pub use autarkie_derive::Grammar;
 
 pub use blake3::hash;
-pub use libafl::inputs::Input;
-pub use libafl_bolts::ownedref::OwnedSlice;
-pub use libafl::inputs::TargetBytesConverter;
-pub use libafl_bolts::{Error as LibAflError};
 pub use libafl::corpus::CorpusId;
+pub use libafl::inputs::Input;
+pub use libafl::inputs::TargetBytesConverter;
+pub use libafl_bolts::ownedref::OwnedSlice;
+pub use libafl_bolts::Error as LibAflError;
 
 pub mod tree;
 pub mod visitor;
@@ -27,12 +26,11 @@ pub mod scale;
 #[cfg(feature = "scale")]
 pub use scale::*;
 
-
 #[macro_export]
 macro_rules! impl_converter {
     ($t:ty) => {
         #[derive(Clone)]
-        struct FuzzDataTargetBytesConverter;
+        pub struct FuzzDataTargetBytesConverter;
 
         impl FuzzDataTargetBytesConverter {
             fn new() -> Self {
@@ -108,11 +106,11 @@ macro_rules! impl_input {
 #[macro_export]
 macro_rules! fuzz {
     ($t:ty) => {
-        $crate::impl_input!($t)
-        $crate::impl_converter!($t)
+        $crate::impl_input!($t);
+        $crate::impl_converter!($t);
     };
     ($t:ty, $closure:expr) => {
-        $crate::impl_input!($t)
-        $crate::impl_converter!($t, $closure)
+        $crate::impl_input!($t);
+        $crate::impl_converter!($t, $closure);
     };
 }

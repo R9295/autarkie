@@ -24,13 +24,19 @@ where
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
         let metadata = state.metadata::<Context>().unwrap();
-        input.fields(&mut self.visitor.borrow_mut(), 0);
-        let mut fields = self.visitor.borrow_mut().fields().into_iter().filter(|inner| {
-            let last = inner.last().unwrap();
-            matches!(autarkie::NodeType::Iterable, last)
-        }).collect::<Vec<_>>();
+        input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
+        let mut fields = self
+            .visitor
+            .borrow_mut()
+            .fields()
+            .into_iter()
+            .filter(|inner| {
+                let last = inner.last().unwrap();
+                matches!(autarkie::NodeType::Iterable, last)
+            })
+            .collect::<Vec<_>>();
         if fields.len() == 0 {
-            return Ok(MutationResult::Skipped)
+            return Ok(MutationResult::Skipped);
         }
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
@@ -59,7 +65,7 @@ where
                     let data = std::fs::read(random_splice).unwrap();
                     #[cfg(debug_assertions)]
                     println!("splice | splice_append | {:?}", (&field, &path));
-                    input.__mutate(
+                    input.__autarkie_mutate(
                         &mut autarkie::MutationType::SpliceAppend(&mut data.as_slice()),
                         &mut self.visitor.borrow_mut(),
                         path.clone(),

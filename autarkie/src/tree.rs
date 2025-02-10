@@ -91,7 +91,11 @@ node!(Debug + parity_scale_codec::Encode + parity_scale_codec::Decode + 'static)
 node!(Debug + borsh::BorshSerialize + borsh::BorshDeserialize + 'static);
 
 impl<T: 'static> Node for PhantomData<T> {
-    fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: &mut usize,
+    ) -> Self {
         Self
     }
 }
@@ -103,7 +107,11 @@ where
     // TODO can we remove the debug clause?
     T: Node + Debug,
 {
-    fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: &mut usize,
+    ) -> Self {
         // TODO: optimize?
         (0..N)
             .map(|_| T::__autarkie_generate(visitor, &mut visitor.generate_depth(), cur_depth))
@@ -128,8 +136,8 @@ where
     fn __autarkie_node_ty(&self) -> NodeType {
         NodeType::Iterable(true, N, T::__autarkie_id())
     }
-    
-    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
+
+    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
         if !v.is_recursive(T::__autarkie_id()) {
             T::__autarkie_register(v, parent, variant);
         } else {
@@ -170,7 +178,8 @@ where
 
     fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
         for (index, child) in self.iter().enumerate() {
-            visitor.register_field_stack((((index, child.__autarkie_node_ty())), T::__autarkie_id()));
+            visitor
+                .register_field_stack((((index, child.__autarkie_node_ty())), T::__autarkie_id()));
             child.__autarkie_cmps(visitor, index, val);
             visitor.pop_field();
         }
@@ -181,7 +190,11 @@ impl<T> Node for Vec<T>
 where
     T: Node + Debug,
 {
-    fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: &mut usize,
+    ) -> Self {
         let element_count = if *depth > 0 {
             visitor.random_range(if *cur_depth == 0 { 1 } else { 0 }, visitor.iterate_depth())
         } else {
@@ -196,8 +209,8 @@ where
         }
         vector
     }
-    
-    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
+
+    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
         if !v.is_recursive(T::__autarkie_id()) {
             T::__autarkie_register(v, parent, variant);
         } else {
@@ -213,7 +226,6 @@ where
     fn inner_id() -> Id {
         T::__autarkie_id()
     }
-    
 
     fn __autarkie_serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
         let mut vector = self
@@ -269,7 +281,8 @@ where
 
     fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
         for (index, child) in self.iter().enumerate() {
-            visitor.register_field_stack((((index, child.__autarkie_node_ty())), T::__autarkie_id()));
+            visitor
+                .register_field_stack((((index, child.__autarkie_node_ty())), T::__autarkie_id()));
             child.__autarkie_cmps(visitor, index, val);
             visitor.pop_field();
         }
@@ -277,7 +290,11 @@ where
 }
 
 impl Node for bool {
-    fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: &mut usize,
+    ) -> Self {
         visitor.coinflip()
     }
 }
@@ -286,23 +303,25 @@ impl<T> Node for Box<T>
 where
     T: Node + Debug + Clone,
 {
-    fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: &mut usize,
+    ) -> Self {
         Box::new(T::__autarkie_generate(visitor, depth, cur_depth))
     }
-    
+
     fn inner_id() -> Id {
         T::__autarkie_id()
     }
 
-    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
-/*         v.register_ty(parent, Self::__autarkie_id(), variant); */
+    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
         if !v.is_recursive(T::__autarkie_id()) {
             T::__autarkie_register(v, parent, variant);
         } else {
             v.register_ty(parent, T::__autarkie_id(), variant);
             v.pop_ty();
         }
-/*         v.pop_ty(); */
     }
 
     fn __autarkie_node_ty(&self) -> NodeType {
@@ -317,7 +336,12 @@ where
         self.as_ref().__autarkie_fields(visitor, index);
     }
 
-    fn __autarkie_mutate(&mut self, ty: &mut MutationType, visitor: &mut Visitor, path: VecDeque<usize>) {
+    fn __autarkie_mutate(
+        &mut self,
+        ty: &mut MutationType,
+        visitor: &mut Visitor,
+        path: VecDeque<usize>,
+    ) {
         self.as_mut().__autarkie_mutate(ty, visitor, path);
     }
 
@@ -330,7 +354,11 @@ impl<T> Node for Option<T>
 where
     T: Node + Debug,
 {
-    fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: &mut usize,
+    ) -> Self {
         let choose_some = visitor.coinflip();
         if choose_some {
             Some(T::__autarkie_generate(visitor, depth, cur_depth))
@@ -338,12 +366,12 @@ where
             None
         }
     }
-    
+
     fn inner_id() -> Id {
         T::__autarkie_id()
     }
-    
-    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
+
+    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
         v.register_ty(parent, Self::__autarkie_id(), variant);
         if !v.is_recursive(T::__autarkie_id()) {
             T::__autarkie_register(v, Some(Self::__autarkie_id()), 0);
@@ -422,7 +450,11 @@ where
     T: Node + Debug,
     E: Node + Debug,
 {
-    fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: &mut usize,
+    ) -> Self {
         let choose_ok = visitor.coinflip();
         if choose_ok {
             Ok(T::__autarkie_generate(visitor, depth, cur_depth))
@@ -430,8 +462,8 @@ where
             Err(E::__autarkie_generate(visitor, depth, cur_depth))
         }
     }
-    
-    fn __autarkie_register(v: &mut Visitor, parent:Option<Id>, variant: usize) {
+
+    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
         v.register_ty(parent, Self::__autarkie_id(), variant);
         if !v.is_recursive(T::__autarkie_id()) {
             T::__autarkie_register(v, Some(Self::__autarkie_id()), 0);
@@ -520,13 +552,21 @@ where
 }
 
 impl Node for std::string::String {
-    fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: &mut usize,
+    ) -> Self {
         visitor.get_string()
     }
 }
 
 impl Node for char {
-    fn __autarkie_generate(visitor: &mut Visitor,depth: &mut usize,cur_depth: &mut usize) -> Self {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: &mut usize,
+    ) -> Self {
         char::from_u32(u32::__autarkie_generate(visitor, depth, cur_depth)).unwrap_or_default()
     }
 }
@@ -536,14 +576,19 @@ where
     K: Node + Clone + Ord,
     V: Node + Clone,
 {
-    fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: &mut usize,
+    ) -> Self {
         BTreeMap::new()
     }
 
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
         // TODO: does deferencing clone?
         for (index, (k, v)) in self.into_iter().enumerate() {
-            visitor.register_field_stack(((index, NodeType::NonRecursive), <(K, V)>::__autarkie_id()));
+            visitor
+                .register_field_stack(((index, NodeType::NonRecursive), <(K, V)>::__autarkie_id()));
             k.__autarkie_fields(visitor, 0);
             v.__autarkie_fields(visitor, 1);
             visitor.pop_field();
@@ -552,7 +597,8 @@ where
 
     fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
         for (index, (k, v)) in self.into_iter().enumerate() {
-            visitor.register_field_stack(((index, NodeType::NonRecursive), <(K, V)>::__autarkie_id()));
+            visitor
+                .register_field_stack(((index, NodeType::NonRecursive), <(K, V)>::__autarkie_id()));
             k.__autarkie_cmps(visitor, 0, val);
             v.__autarkie_cmps(visitor, 1, val);
             visitor.pop_field();
@@ -737,7 +783,11 @@ tuple_impls! { (A , 0) ,(B, 1), (C, 2) ,(D, 3) ,(E, 4) ,(F, 5) ,(G, 6) ,(H, 7) ,
 macro_rules! impl_generate_simple {
     ($type: ty, $num_bytes: literal) => {
         impl Node for $type {
-            fn __autarkie_generate(v: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Self {
+            fn __autarkie_generate(
+                v: &mut Visitor,
+                depth: &mut usize,
+                cur_depth: &mut usize,
+            ) -> Self {
                 deserialize::<Self>(&mut v.generate_bytes($num_bytes).as_slice())
             }
             fn __autarkie_cmps(&self, v: &mut Visitor, index: usize, val: (u64, u64)) {

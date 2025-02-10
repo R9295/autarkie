@@ -75,7 +75,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 let name = field.get_name(is_named);
                 quote! {
                     #id => {
-                        self.#name.__autarkie_mutate(ty, visitor, path);
+                        self.#name.__autarkie_mutate(autarkie_ty, autarkie_visitor, autarkie_path);
                     },
                 }
             });
@@ -111,8 +111,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         Some(vector)
                     }
 
-                    fn __autarkie_mutate(&mut self, ty: &mut autarkie::MutationType, visitor: &mut autarkie::Visitor, mut path: std::collections::VecDeque<usize>) {
-                        if let Some(popped) = path.pop_front() {
+                    fn __autarkie_mutate(&mut self, autarkie_ty: &mut autarkie::MutationType, autarkie_visitor: &mut autarkie::Visitor, mut autarkie_path: std::collections::VecDeque<usize>) {
+                        if let Some(popped) = autarkie_path.pop_front() {
                             match popped {
                                 #(#inner_mutate)*
                                 _ => {
@@ -120,12 +120,12 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                                 }
                             }
                         } else {
-                            match ty {
+                            match autarkie_ty {
                                 autarkie::MutationType::Splice(other) => {
                                     *self = autarkie::deserialize(other);
                                 }
                                 autarkie::MutationType::GenerateReplace(ref mut bias) => {
-                                    *self = Self::__autarkie_generate(visitor, bias, &mut 0);
+                                    *self = Self::__autarkie_generate(autarkie_visitor, bias, &mut 0);
                                 }
                                 _  => {
                                     unreachable!()
@@ -160,7 +160,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 if !is_recursive {
                     for attr in attrs {
                         if let Meta::Path(ref list) = attr.meta {
-                            // make sure the attribute we are considering is ours.
+                            // make sure the attribute we are considereng is ours.
                             if list.segments.first().unwrap().ident == "autarkie_recursive" {
                                 is_recursive = true;
                             }
@@ -292,7 +292,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         let id = &field.id;
                         quote! {
                             #id => {
-                                #name.__autarkie_mutate(ty, visitor, path);
+                                #name.__autarkie_mutate(autarkie_ty, autarkie_visitor, autarkie_path);
                             },
                         }
                     });
@@ -306,7 +306,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     Some(quote! {
                         #i => {
                          #match_arm {
-                            if let Some(popped) = path.pop_front() {
+                            if let Some(popped) = autarkie_path.pop_front() {
                              match popped {
                                  #(#variant_fields_mutate)*
                                  _ => {
@@ -446,25 +446,25 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         }
                     }
 
-                    fn __autarkie_mutate(&mut self, ty: &mut autarkie::MutationType, visitor: &mut autarkie::Visitor, mut path: std::collections::VecDeque<usize>) {
-                        if let Some(popped) = path.pop_front() {
+                    fn __autarkie_mutate(&mut self, autarkie_ty: &mut autarkie::MutationType, autarkie_visitor: &mut autarkie::Visitor, mut autarkie_path: std::collections::VecDeque<usize>) {
+                        if let Some(popped) = autarkie_path.pop_front() {
                             match popped {
                                 #(#inner_mutate)*
                                 _ => unreachable!("____VpyAL0wN7m")
                             }
                         }
                         else {
-                            match ty {
+                            match autarkie_ty {
                                 autarkie::MutationType::Splice(other) => {
                                     *self = autarkie::deserialize(other);
                                 }
                                 autarkie::MutationType::GenerateReplace(ref mut bias) => {
-                                    *self = Self::__autarkie_generate(visitor, bias, &mut 0);
+                                    *self = Self::__autarkie_generate(autarkie_visitor, bias, &mut 0);
                                 }
                                 autarkie::MutationType::RecursiveReplace => {
                                     if matches!(self.__autarkie_node_ty(), autarkie::visitor::NodeType::Recursive) {
                                         // 0 depth == always non-recursive
-                                        *self = Self::__autarkie_generate(visitor, &mut 0, &mut 0);
+                                        *self = Self::__autarkie_generate(autarkie_visitor, &mut 0, &mut 0);
                                     }
                                 }
                                 _  => {
