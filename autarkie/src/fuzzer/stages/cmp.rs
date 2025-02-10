@@ -1,4 +1,4 @@
-use autarkie::{MutationType, Node, Visitor};
+use crate::{MutationType, Node, Visitor};
 use libafl::{
     corpus::Corpus,
     executors::{Executor, HasObservers},
@@ -20,7 +20,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::context::Context;
+use crate::fuzzer::Context;
 
 #[derive(Debug)]
 pub struct CmpLogStage<'a, TE, I> {
@@ -129,7 +129,7 @@ where
                 let cmp_path = path.0.iter().map(|(i, ty)| i.0).collect::<VecDeque<_>>();
                 let mut serialized_alternative = path.1.as_slice();
                 let mut input = unmutated_input.clone();
-                let before = autarkie::serialize(&input);
+                let before = crate::serialize(&input);
                 #[cfg(debug_assertions)]
                 println!("cmplog_splice | one | {:?}", path.0);
                 input.__autarkie_mutate(

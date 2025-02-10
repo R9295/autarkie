@@ -1,4 +1,4 @@
-use autarkie::{Id, Node};
+use crate::{Id, Node};
 use libafl::{corpus::CorpusId, SerdeAny};
 use libafl_bolts::current_time;
 use serde::{Deserialize, Serialize};

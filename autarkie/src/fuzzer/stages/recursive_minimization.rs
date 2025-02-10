@@ -1,4 +1,4 @@
-use autarkie::{MutationType, Node, NodeType, Visitor};
+use crate::{MutationType, Node, NodeType, Visitor};
 use libafl::{
     corpus::Corpus,
     executors::{Executor, HasObservers},
@@ -20,17 +20,17 @@ use std::{
     rc::Rc,
 };
 
-use crate::context::Context;
+use crate::fuzzer::Context;
 
 #[derive(Debug)]
-pub struct MinimizationStage<C, E, O, OT, S, I> {
+pub struct RecursiveMinimizationStage<C, E, O, OT, S, I> {
     map_observer_handle: Handle<C>,
     map_name: Cow<'static, str>,
     visitor: Rc<RefCell<Visitor>>,
     phantom: PhantomData<(E, O, OT, S, I)>,
 }
 
-impl<C, E, O, OT, S, I> MinimizationStage<C, E, O, OT, S, I>
+impl<C, E, O, OT, S, I> RecursiveMinimizationStage<C, E, O, OT, S, I>
 where
     O: MapObserver,
     for<'it> O: AsIter<'it, Item = O::Entry>,
@@ -51,7 +51,7 @@ where
     }
 }
 
-impl<C, E, O, OT, S, I, EM, Z> Stage<E, EM, S, Z> for MinimizationStage<C, E, O, OT, S, I>
+impl<C, E, O, OT, S, I, EM, Z> Stage<E, EM, S, Z> for RecursiveMinimizationStage<C, E, O, OT, S, I>
 where
     I: Node + Serialize + Clone,
     S: State + HasCurrentTestcase + HasCorpus + HasMetadata,
@@ -59,6 +59,7 @@ where
     E: Executor<EM, I, S, Z> + HasObservers<Observers = OT>,
     EM: UsesState<State = S>,
     Z: Evaluator<E, EM, I, S>,
+
     O: MapObserver,
     C: AsRef<O>,
     for<'de> <O as MapObserver>::Entry:
@@ -75,7 +76,6 @@ where
         if state.current_testcase()?.scheduled_count() > 0 {
             return Ok(());
         }
-
         let metadata = state.metadata::<Context>().unwrap();
         let indexes = state
             .current_testcase()
@@ -85,10 +85,13 @@ where
             .unwrap()
             .list
             .clone();
+
         let mut current = state.current_input_cloned().unwrap();
         current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
-        let mut skip = 0;
         let mut fields = self.visitor.borrow_mut().fields();
+
+        let mut skip = 0;
+        let mut cur_iter = 0;
 
         loop {
             let field = fields.pop();
@@ -97,42 +100,38 @@ where
             }
             let field = field.unwrap();
             let ((id, node_ty), ty) = field.last().unwrap();
-            if let NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
-                let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                // NOTE: -1 because we zero index
-                let mut len = field_len.saturating_sub(1);
-                let mut counter = 0;
-                if *is_fixed_len {
+            if let NodeType::Recursive = node_ty {
+                if cur_iter < skip {
+                    cur_iter += 1;
                     continue;
                 }
-                loop {
-                    if len == 0 || counter >= len {
-                        break;
-                    }
-                    let mut inner = current.clone();
-                    inner.__autarkie_mutate(
-                        &mut MutationType::IterablePop(counter),
-                        &mut self.visitor.borrow_mut(),
-                        path.clone(),
-                    );
-                    let run = fuzzer.evaluate_input(state, executor, manager, inner.clone())?;
-                    let map = &executor.observers()[&self.map_observer_handle]
-                        .as_ref()
-                        .to_vec();
-                    let map = map
-                        .into_iter()
-                        .enumerate()
-                        .filter(|i| i.1 != &O::Entry::default())
-                        .map(|i| i.0)
-                        .collect::<Vec<_>>();
-                    if map == indexes {
-                        current = inner;
-                        current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
-                        fields = self.visitor.borrow_mut().fields();
-                        len = len.saturating_sub(1);
-                    }
-                    counter += 1;
+                let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
+                let mut inner = current.clone();
+                // We are only trying to replace with one non recursive variant (maybe try to replace with ALL possible non recursive varaints?)
+                inner.__autarkie_mutate(
+                    &mut MutationType::RecursiveReplace,
+                    &mut self.visitor.borrow_mut(),
+                    path.clone(),
+                );
+                let run = fuzzer.evaluate_input(state, executor, manager, inner.clone())?;
+                let map = &executor.observers()[&self.map_observer_handle]
+                    .as_ref()
+                    .to_vec();
+                let map = map
+                    .into_iter()
+                    .enumerate()
+                    .filter(|i| i.1 != &O::Entry::default())
+                    .map(|i| i.0)
+                    .collect::<Vec<_>>();
+                if map == indexes {
+                    cur_iter = 0;
+                    current = inner;
+                    current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
+                    fields = self.visitor.borrow_mut().fields();
+                } else {
+                    skip += 1;
                 }
+                cur_iter += 1;
             }
         }
         state.current_testcase_mut()?.set_input(current);

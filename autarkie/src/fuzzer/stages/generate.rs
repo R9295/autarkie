@@ -1,4 +1,4 @@
-use autarkie::{Node, Visitor};
+use crate::{Node, Visitor};
 use libafl::{
     corpus::Corpus,
     executors::Executor,

@@ -1,5 +1,5 @@
-use autarkie::Visitor;
-use autarkie::{MutationType, Node};
+use crate::Visitor;
+use crate::{MutationType, Node};
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
@@ -9,7 +9,7 @@ use libafl::{
 use libafl_bolts::{current_time, AsSlice, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
 
-use crate::context::Context;
+use crate::fuzzer::Context;
 
 use super::commons::calculate_subslice_bounds;
 
@@ -32,7 +32,7 @@ where
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().unwrap();
-        if let autarkie::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
+        if let crate::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
             let subslice = self.visitor.borrow_mut().coinflip_with_prob(0.6);
             if subslice {
                 // no point subslicing when we have less than 5 entries
@@ -90,7 +90,7 @@ where
                         })
                         .collect::<Vec<_>>();
                     let mut data = if !*is_fixed_len {
-                        autarkie::serialize_vec_len(if *field_len > 0 { *field_len } else { 0 })
+                        crate::serialize_vec_len(if *field_len > 0 { *field_len } else { 0 })
                     } else {
                         vec![]
                     };

@@ -40,7 +40,7 @@ use mutators::{
     splice_append::AutarkieSpliceAppendMutator,
 };
 
-use autarkie::{DepthInfo, Node, Visitor};
+use crate::{DepthInfo, Node, Visitor};
 use regex::Regex;
 use stages::{
     cmp::CmpLogStage, generate::GenerateStage, minimization::MinimizationStage,
@@ -48,7 +48,7 @@ use stages::{
 };
 use std::{cell::RefCell, io::ErrorKind, path::PathBuf, process::Command, rc::Rc, time::Duration};
 
-use crate::stages::generate::generate;
+use stages::generate;
 
 const SHMEM_ENV_VAR: &str = "__AFL_SHM_ID";
 pub fn run_fuzzer<I, TC>(bytes_converter: TC)
@@ -201,7 +201,7 @@ where
                 &[fuzzer_dir.join("queue").clone()],
             )?;
             for _ in 0..opt.initial_generated_inputs {
-                let generated: I = generate(&mut visitor.borrow_mut());
+                let generated: I = crate::fuzzer::generate::generate(&mut visitor.borrow_mut());
                 fuzzer
                     .evaluate_input(&mut state, &mut executor, &mut mgr, generated)
                     .unwrap();
@@ -371,10 +371,10 @@ struct Opt {
 #[macro_export]
 macro_rules! debug_grammar {
     ($t:ty) => {
-        use autarkie::{Node, Visitor};
+        use crate::{Node, Visitor};
         let mut visitor = Visitor::new(
             50,
-            autarkie::DepthInfo {
+            crate::DepthInfo {
                 generate: 5,
                 iterate: 3,
             },

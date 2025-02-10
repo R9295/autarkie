@@ -1,5 +1,5 @@
-use autarkie::Node;
-use autarkie::Visitor;
+use crate::Node;
+use crate::Visitor;
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
@@ -9,7 +9,7 @@ use libafl::{
 use libafl_bolts::{AsSlice, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
 
-use crate::context::Context;
+use crate::fuzzer::Context;
 
 pub struct AutarkieSpliceAppendMutator<I> {
     visitor: Rc<RefCell<Visitor>>,
@@ -32,7 +32,7 @@ where
             .into_iter()
             .filter(|inner| {
                 let last = inner.last().unwrap();
-                matches!(autarkie::NodeType::Iterable, last)
+                matches!(crate::NodeType::Iterable, last)
             })
             .collect::<Vec<_>>();
         if fields.len() == 0 {
@@ -41,7 +41,7 @@ where
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().unwrap();
-        if let autarkie::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
+        if let crate::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
             if *is_fixed_len {
                 return Ok(MutationResult::Skipped);
             }
@@ -66,7 +66,7 @@ where
                     #[cfg(debug_assertions)]
                     println!("splice | splice_append | {:?}", (&field, &path));
                     input.__autarkie_mutate(
-                        &mut autarkie::MutationType::SpliceAppend(&mut data.as_slice()),
+                        &mut crate::MutationType::SpliceAppend(&mut data.as_slice()),
                         &mut self.visitor.borrow_mut(),
                         path.clone(),
                     );

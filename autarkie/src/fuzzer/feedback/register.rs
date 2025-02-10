@@ -9,10 +9,10 @@ use libafl::{
     Error, HasMetadata,
 };
 
-use autarkie::Node;
+use crate::Node;
 use libafl_bolts::Named;
 
-use crate::context::Context;
+use crate::fuzzer::Context;
 
 pub struct RegisterFeedback<I> {
     phantom: PhantomData<I>,

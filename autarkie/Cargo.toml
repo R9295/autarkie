@@ -14,9 +14,14 @@ borsh = { version = "1.5.3", features = ["derive"], optional = true }
 
 libafl = {workspace = true}
 libafl_bolts = {workspace = true}
+libafl_targets = {workspace = true}
 blake3 = "1.5.5"
 colored = "3.0.0"
 petgraph = "0.7.1"
+clap = { version = "4.5.20", features = ["derive"] }
+
+regex = "1.11.1"
+num-traits = "0.2.19"
 
 [features]
 derive = ["autarkie_derive"]

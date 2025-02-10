@@ -120,11 +120,15 @@ dependencies = [
  "bincode",
  "blake3",
  "borsh",
+ "clap",
  "colored 3.0.0",
  "libafl",
  "libafl_bolts",
+ "libafl_targets",
+ "num-traits",
  "parity-scale-codec",
  "petgraph",
+ "regex",
  "serde",
 ]
 
@@ -147,7 +151,6 @@ name = "autarkie_fuzzer"
 version = "0.1.0"
 dependencies = [
  "autarkie",
- "libafl-fuzzer",
  "sqlparser",
 ]
 
@@ -676,24 +679,6 @@ dependencies = [
  "uuid",
  "wait-timeout",
  "windows 0.59.0",
-]
-
-[[package]]
-name = "libafl-fuzzer"
-version = "0.1.0"
-dependencies = [
- "autarkie",
- "bincode",
- "blake3",
- "borsh",
- "clap",
- "libafl",
- "libafl_bolts",
- "libafl_targets",
- "num-traits",
- "parity-scale-codec",
- "regex",
- "serde",
 ]
 
 [[package]]

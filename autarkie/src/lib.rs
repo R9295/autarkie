@@ -15,7 +15,9 @@ pub mod tree;
 pub mod visitor;
 pub use tree::*;
 pub use visitor::*;
+
 mod graph;
+
 #[cfg(feature = "bincode")]
 pub mod serde;
 #[cfg(feature = "bincode")]
@@ -25,6 +27,8 @@ pub use serde::*;
 pub mod scale;
 #[cfg(feature = "scale")]
 pub use scale::*;
+
+pub mod fuzzer;
 
 #[macro_export]
 macro_rules! impl_converter {

@@ -1,5 +1,5 @@
-use autarkie::Visitor;
-use autarkie::{MutationType, Node};
+use crate::Visitor;
+use crate::{MutationType, Node};
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
@@ -9,7 +9,7 @@ use libafl::{
 use libafl_bolts::{HasLen, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
 
-use crate::context::Context;
+use crate::fuzzer::Context;
 
 use super::commons::calculate_subslice_bounds;
 
@@ -36,7 +36,7 @@ where
         } else {
             0
         };
-        if let autarkie::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
+        if let crate::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
             if *field_len < 3 {
                 return Ok(MutationResult::Skipped);
             }

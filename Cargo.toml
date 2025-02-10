@@ -7,7 +7,6 @@ members = [
 	"autarkie_test",
 	"datafusion-sqlparser-rs",
 	"datafusion-sqlparser-rs/autarkie_fuzzer",
-	"libafl-fuzzer", 
 ]
 
 [workspace.dependencies]

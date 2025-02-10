@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use autarkie::Visitor;
+use crate::Visitor;
 
 pub fn calculate_subslice_bounds(len: usize, max: usize, visitor: &mut Visitor) -> Range<usize> {
     // minus 1 because we zero index and len is always +1
