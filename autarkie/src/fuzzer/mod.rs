@@ -4,6 +4,7 @@ mod context;
 mod feedback;
 mod mutators;
 mod stages;
+use crate::{DepthInfo, Node, Visitor};
 use clap::Parser;
 use context::Context;
 use feedback::register::RegisterFeedback;
@@ -24,9 +25,9 @@ use libafl::{
     state::{HasCorpus, HasCurrentTestcase, StdState},
     BloomInputFilter, Evaluator, Fuzzer, HasMetadata, StdFuzzer,
 };
+pub use libafl_bolts::current_nanos;
 use libafl_bolts::{
     core_affinity::{CoreId, Cores},
-    current_nanos,
     fs::get_unique_std_input_file,
     ownedref::OwnedRefMut,
     rands::{RomuDuoJrRand, StdRand},
@@ -39,8 +40,6 @@ use mutators::{
     recurse_mutate::AutarkieRecurseMutator, splice::AutarkieSpliceMutator,
     splice_append::AutarkieSpliceAppendMutator,
 };
-
-use crate::{DepthInfo, Node, Visitor};
 use regex::Regex;
 use stages::{
     cmp::CmpLogStage, generate::GenerateStage, minimization::MinimizationStage,
@@ -371,10 +370,10 @@ struct Opt {
 #[macro_export]
 macro_rules! debug_grammar {
     ($t:ty) => {
-        use crate::{Node, Visitor};
+        use $crate::{Node, Visitor};
         let mut visitor = Visitor::new(
-            50,
-            crate::DepthInfo {
+            $crate::fuzzer::current_nanos(),
+            $crate::DepthInfo {
                 generate: 5,
                 iterate: 3,
             },
