@@ -162,7 +162,6 @@ impl Visitor {
 
     pub fn register_ty(&mut self, parent: Option<Id>, id: Id, variant: usize) {
         self.ty_map_stack.push(id.clone());
-        /*         assert_eq!(BTreeSet::from_iter(self.ty_map_stack.iter()).len(), self.ty_map_stack.len()); */
         let parent = parent.unwrap_or("AutarkieInternalFuzzData".to_string());
         if !self.ty_map.get(&parent).is_some() {
             self.ty_map.insert(

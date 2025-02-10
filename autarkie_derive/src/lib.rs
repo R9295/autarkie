@@ -529,7 +529,7 @@ fn parse_fields(
     } else {
         false
     };
-    return (fields, has_recursive);
+    (fields, has_recursive)
 }
 
 fn get_field_defs(fields: &Vec<GrammarField>) -> Vec<proc_macro2::TokenStream> {

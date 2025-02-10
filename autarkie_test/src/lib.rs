@@ -81,6 +81,3 @@ mod tests {
         );
     }
 }
-
-// tuple time.
-// TODO: Option must be a special type.
