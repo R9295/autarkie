@@ -375,12 +375,20 @@ where
         v.register_ty(parent, Self::__autarkie_id(), variant);
         if !v.is_recursive(T::__autarkie_id()) {
             T::__autarkie_register(v, Some(Self::__autarkie_id()), 0);
-            v.register_ty(Some(Self::__autarkie_id()), PhantomData::<bool>::__autarkie_id(), 1);
+            v.register_ty(
+                Some(Self::__autarkie_id()),
+                PhantomData::<bool>::__autarkie_id(),
+                1,
+            );
             v.pop_ty();
         } else {
             v.register_ty(Some(Self::__autarkie_id()), T::__autarkie_id(), 0);
             v.pop_ty();
-            v.register_ty(Some(Self::__autarkie_id()), PhantomData::<bool>::__autarkie_id(), 1);
+            v.register_ty(
+                Some(Self::__autarkie_id()),
+                PhantomData::<bool>::__autarkie_id(),
+                1,
+            );
             v.pop_ty();
         }
         v.pop_ty();

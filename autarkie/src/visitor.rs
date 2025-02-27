@@ -86,9 +86,6 @@ pub struct Visitor {
     rng: StdRand,
 }
 
-pub const ERR_REMAIN_DEPTH: &str = "invariant; we should never be able to go over remaining_depth";
-pub const ERR_OVERFLOW: &str = "invariant; you tree is too large? lol";
-
 impl Visitor {
     pub fn get_string(&mut self) -> String {
         let string_count = self.strings.len() - 1;
@@ -272,23 +269,43 @@ impl Visitor {
                     .filter(|item| !recursive_variants.contains(item))
                     .collect::<BTreeSet<_>>();
             }
-            self.ty_generate_map.entry(ty.clone()).and_modify(|inner| {inner.insert(InnerNodeType::NonRecursive, nr_variants.clone());}).or_insert(BTreeMap::from_iter([(InnerNodeType::NonRecursive, nr_variants)]));
+            self.ty_generate_map
+                .entry(ty.clone())
+                .and_modify(|inner| {
+                    inner.insert(InnerNodeType::NonRecursive, nr_variants.clone());
+                })
+                .or_insert(BTreeMap::from_iter([(
+                    InnerNodeType::NonRecursive,
+                    nr_variants,
+                )]));
         }
         return recursive_nodes;
     }
 
     #[inline]
     pub fn generate(&mut self, id: &Id, depth: &usize) -> usize {
-       let consider_recursive = *depth < self.depth.generate;
-       let variant = if consider_recursive {
+        let consider_recursive = *depth < self.depth.generate;
+        let variant = if consider_recursive {
             let variants = self.ty_generate_map.get(id).expect("____VbO3rGYTSf");
-            let nr_variants = variants.get(&InnerNodeType::NonRecursive).expect("____lCAftArdHS");
-            let r_variants = variants.get(&InnerNodeType::Recursive).expect("____q154Wl5zf2");
+            let nr_variants = variants
+                .get(&InnerNodeType::NonRecursive)
+                .expect("____lCAftArdHS");
+            let r_variants = variants
+                .get(&InnerNodeType::Recursive)
+                .expect("____q154Wl5zf2");
             let id = self.rng.between(0, nr_variants.len() + r_variants.len());
-            let all = nr_variants.iter().chain(r_variants).collect::<Vec<&usize>>();
+            let all = nr_variants
+                .iter()
+                .chain(r_variants)
+                .collect::<Vec<&usize>>();
             all.get(id).expect("____VPPeXUSTFO").clone().clone()
         } else {
-            let variants = self.ty_generate_map.get(id).expect("____clESlzqUbX").get(&InnerNodeType::NonRecursive).expect("____ffxyyA6Nub");
+            let variants = self
+                .ty_generate_map
+                .get(id)
+                .expect("____clESlzqUbX")
+                .get(&InnerNodeType::NonRecursive)
+                .expect("____ffxyyA6Nub");
             let id = self.rng.between(0, variants.len());
             variants.get(&id).expect("____pvPK973BLH").clone()
         };
@@ -298,6 +315,7 @@ impl Visitor {
     pub fn print_ty(&self) {
         println!("{:#?}", self.ty_map);
     }
+
     pub fn new(seed: u64, depth: DepthInfo) -> Self {
         let mut visitor = Self {
             ty_generate_map: BTreeMap::default(),
