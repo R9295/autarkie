@@ -111,7 +111,11 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         Some(vector)
                     }
 
-                    fn __autarkie_mutate(&mut self, autarkie_ty: &mut autarkie::MutationType, autarkie_visitor: &mut autarkie::Visitor, mut autarkie_path: std::collections::VecDeque<usize>) {
+                    fn __autarkie_mutate(&mut self, 
+                        autarkie_ty: &mut autarkie::MutationType, 
+                        autarkie_visitor: &mut autarkie::Visitor, 
+                        mut autarkie_path: std::collections::VecDeque<usize>
+                    ) {
                         if let Some(popped) = autarkie_path.pop_front() {
                             match popped {
                                 #(#inner_mutate)*
@@ -233,7 +237,13 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 };
 
                 fn_fields.push(field_fn);
-                if !fields.is_empty() {
+                if fields.is_empty() {
+                register_ty.push(quote! {
+                    // use something besides bool; bool is just a place holder.
+                    v.register_ty(Some(Self::__autarkie_id()), <std::marker::PhantomData<bool>>::__autarkie_id(), #i);
+                    v.pop_ty();
+                });
+                } else {
                     let field_names = fields.iter().map(|field| {
                         let ty = &field.ty;
                         quote! {
@@ -368,35 +378,9 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     Self {}
                 }
             } else {
-                let variant_id_calculation = if !recursive_variants.is_empty() {
-                    let recursive_variant_count = recursive_variants
-                        .len()
-                        .checked_sub(1)
-                        .expect("nFeGkMPw____");
-                    let non_recursive_variant_count = non_recursive_variants
-                        .len()
-                        .checked_sub(1)
-                        .expect("we must have atleast 1 non-recursive variant");
-                    quote! {
-                        let r_variants = [#(#recursive_variants)*];
-                        let nr_variants = [#(#non_recursive_variants)*];
-                        let choose_recursive = *depth > 0usize && v.coinflip() && *cur_depth < 100;
-                        let variant_id = if choose_recursive {
-                                let index = v.random_range(0usize, #recursive_variant_count);
-                                *depth = depth.checked_sub(1).expect("XVldNrja____");
-                                r_variants[index]
-                        } else {
-                            let index = v.random_range(0usize, #non_recursive_variant_count);
-                            nr_variants[index]
-                        };
-                    }
-                } else {
-                    let variant_count = non_recursive_variants
-                        .len()
-                        .checked_sub(1)
-                        .expect("we must have atleast 1 non-recursive variant");
-                    quote! {
-                        let variant_id = v.random_range(0usize, #variant_count);
+                let variant_id_calculation = {
+                    quote!{
+                        let variant_id = v.generate(&Self::__autarkie_id(), cur_depth);
                     }
                 };
                 quote! {

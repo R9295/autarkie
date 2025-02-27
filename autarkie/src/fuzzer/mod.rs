@@ -374,19 +374,19 @@ macro_rules! debug_grammar {
         let mut visitor = Visitor::new(
             $crate::fuzzer::current_nanos(),
             $crate::DepthInfo {
-                generate: 5,
-                iterate: 3,
+                generate: 105,
+                iterate: 500,
             },
         );
         <$t>::__autarkie_register(&mut visitor, None, 0);
         visitor.calculate_recursion();
         let gen_depth = visitor.generate_depth();
-        for _ in 0..100 {
-            println!(
+        loop {
+            /* println!(
                 "{:?}",
                 <$t>::__autarkie_generate(&mut visitor, &mut gen_depth.clone(), &mut 0)
             );
-            println!("--------------------------------");
+            println!("--------------------------------"); */
         }
     };
 }

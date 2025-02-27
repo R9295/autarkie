@@ -198,7 +198,7 @@ where
         let element_count = if *depth > 0 {
             visitor.random_range(if *cur_depth == 0 { 1 } else { 0 }, visitor.iterate_depth())
         } else {
-            0
+            50
         };
         if element_count == 0 {
             return vec![];
@@ -370,19 +370,17 @@ where
     fn inner_id() -> Id {
         T::__autarkie_id()
     }
-
+    // PhantomData<bool> is used as a dummy value for "None"
     fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
         v.register_ty(parent, Self::__autarkie_id(), variant);
         if !v.is_recursive(T::__autarkie_id()) {
             T::__autarkie_register(v, Some(Self::__autarkie_id()), 0);
-            // TODO: none?
-            v.register_ty(Some(Self::__autarkie_id()), Self::__autarkie_id(), 1);
+            v.register_ty(Some(Self::__autarkie_id()), PhantomData::<bool>::__autarkie_id(), 1);
             v.pop_ty();
         } else {
             v.register_ty(Some(Self::__autarkie_id()), T::__autarkie_id(), 0);
             v.pop_ty();
-            // TODO: none?
-            v.register_ty(Some(Self::__autarkie_id()), Self::__autarkie_id(), 1);
+            v.register_ty(Some(Self::__autarkie_id()), PhantomData::<bool>::__autarkie_id(), 1);
             v.pop_ty();
         }
         v.pop_ty();

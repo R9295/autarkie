@@ -63,21 +63,26 @@ impl NodeType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Ord, PartialEq, Eq, PartialOrd, Debug, Clone)]
 pub enum InnerNodeType {
     Recursive,
     NonRecursive,
 }
+
 #[derive(Debug, Clone)]
 pub struct Visitor {
     depth: DepthInfo,
     strings: Vec<String>,
+
     fields: Vec<Vec<((usize, NodeType), Id)>>,
     fields_stack: Vec<((usize, NodeType), Id)>,
     matching_cmps: Vec<(Vec<((usize, NodeType), Id)>, Vec<u8>)>,
+
     ty_map: BTreeMap<Id, BTreeMap<usize, BTreeSet<Id>>>,
     ty_done: BTreeSet<Id>,
     ty_map_stack: Vec<Id>,
+
+    ty_generate_map: BTreeMap<Id, BTreeMap<InnerNodeType, BTreeSet<usize>>>,
     rng: StdRand,
 }
 
@@ -90,6 +95,7 @@ impl Visitor {
         let index = self.random_range(0, string_count);
         self.strings.get(index).expect("5hxil4dq____").clone()
     }
+
     // ADD STRINGS FROM AUTOTOKENS
     pub fn register_string(&mut self, string: String) {
         self.strings.push(string);
@@ -189,6 +195,7 @@ impl Visitor {
     }
 
     // TODO: optimize
+    // TODO: refactor ffs
     pub fn calculate_recursion(&mut self) -> BTreeMap<Id, BTreeSet<usize>> {
         let mut recursive_nodes = BTreeMap::new();
         let mut g = DiGraphMap::<_, usize>::new();
@@ -249,7 +256,43 @@ impl Visitor {
                 }
             }
         }
+        for (ty, map) in &self.ty_map {
+            let recursive_variants = recursive_nodes.get(ty);
+            if let Some(recursive_variants) = recursive_variants {
+                let r_variants = recursive_variants.clone();
+                self.ty_generate_map.insert(
+                    ty.clone(),
+                    BTreeMap::from_iter([(InnerNodeType::Recursive, r_variants)]),
+                );
+            }
+            let mut nr_variants = map.keys().cloned().collect::<BTreeSet<_>>();
+            if let Some(recursive_variants) = recursive_variants {
+                nr_variants = nr_variants
+                    .into_iter()
+                    .filter(|item| !recursive_variants.contains(item))
+                    .collect::<BTreeSet<_>>();
+            }
+            self.ty_generate_map.entry(ty.clone()).and_modify(|inner| {inner.insert(InnerNodeType::NonRecursive, nr_variants.clone());}).or_insert(BTreeMap::from_iter([(InnerNodeType::NonRecursive, nr_variants)]));
+        }
         return recursive_nodes;
+    }
+
+    #[inline]
+    pub fn generate(&mut self, id: &Id, depth: &usize) -> usize {
+       let consider_recursive = *depth < self.depth.generate;
+       let variant = if consider_recursive {
+            let variants = self.ty_generate_map.get(id).expect("____VbO3rGYTSf");
+            let nr_variants = variants.get(&InnerNodeType::NonRecursive).expect("____lCAftArdHS");
+            let r_variants = variants.get(&InnerNodeType::Recursive).expect("____q154Wl5zf2");
+            let id = self.rng.between(0, nr_variants.len() + r_variants.len());
+            let all = nr_variants.iter().chain(r_variants).collect::<Vec<&usize>>();
+            all.get(id).expect("____VPPeXUSTFO").clone().clone()
+        } else {
+            let variants = self.ty_generate_map.get(id).expect("____clESlzqUbX").get(&InnerNodeType::NonRecursive).expect("____ffxyyA6Nub");
+            let id = self.rng.between(0, variants.len());
+            variants.get(&id).expect("____pvPK973BLH").clone()
+        };
+        variant
     }
 
     pub fn print_ty(&self) {
@@ -257,6 +300,7 @@ impl Visitor {
     }
     pub fn new(seed: u64, depth: DepthInfo) -> Self {
         let mut visitor = Self {
+            ty_generate_map: BTreeMap::default(),
             ty_done: BTreeSet::default(),
             ty_map_stack: vec![],
             depth,
