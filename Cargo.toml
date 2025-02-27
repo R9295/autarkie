@@ -5,6 +5,7 @@ members = [
 	"autarkie", 
 	"autarkie_derive", 
 	"autarkie_test",
+	"libfuzzer/libafl_libfuzzer",
 	"datafusion-sqlparser-rs",
 	"datafusion-sqlparser-rs/autarkie_fuzzer",
 	"unparser-js",
