@@ -1,3 +1,4 @@
+use core::ffi::{c_char, c_int};
 mod harness_wrap {
     #![allow(non_snake_case)]
     #![allow(non_camel_case_types)]
@@ -37,30 +38,6 @@ pub unsafe extern "C" fn LLVMFuzzerRunDriver(
         .as_ref()
         .expect("Illegal harness provided to libafl.");
 
-    // early duplicate the stderr fd so we can close it later for the target
-    #[cfg(unix)]
-    {
-        use std::{
-            os::fd::{AsRawFd, FromRawFd},
-            str::FromStr,
-        };
-
-        let stderr_fd = std::env::var(STDERR_FD_VAR)
-            .map_err(Error::from)
-            .and_then(|s| RawFd::from_str(&s).map_err(Error::from))
-            .unwrap_or_else(|_| {
-                let stderr = unsafe { libc::dup(stderr().as_raw_fd()) };
-                unsafe {
-                    std::env::set_var(STDERR_FD_VAR, stderr.to_string());
-                }
-                stderr
-            });
-        let stderr = unsafe { File::from_raw_fd(stderr_fd) };
-        env_logger::builder()
-            .parse_default_env()
-            .target(Target::Pipe(Box::new(stderr)))
-            .init();
-    }
 
     // it appears that no one, not even libfuzzer, uses this return value
     // https://github.com/llvm/llvm-project/blob/llvmorg-15.0.7/compiler-rt/lib/fuzzer/FuzzerDriver.cpp#L648
@@ -72,4 +49,5 @@ pub unsafe extern "C" fn LLVMFuzzerRunDriver(
     let argv = unsafe { *argv };
 
     // TODO: fuzz
+    0
 }
