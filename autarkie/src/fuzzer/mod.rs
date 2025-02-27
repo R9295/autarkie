@@ -116,7 +116,7 @@ where
         let mut feedback = feedback_or!(
             map_feedback,
             TimeFeedback::new(&time_observer),
-            RegisterFeedback::new()
+            RegisterFeedback::new(Rc::clone(&visitor)),
         );
 
         let mut objective = feedback_or_fast!(CrashFeedback::new());

@@ -1,5 +1,5 @@
 /// Benign feedback to capture all serialized values of nodes and store them in the corpora
-use std::{borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, cell::RefCell, marker::PhantomData, rc::Rc};
 
 use libafl::{
     corpus::{Corpus, Testcase},
@@ -9,18 +9,20 @@ use libafl::{
     Error, HasMetadata,
 };
 
-use crate::Node;
+use crate::{Node, Visitor};
 use libafl_bolts::Named;
 
 use crate::fuzzer::Context;
 
 pub struct RegisterFeedback<I> {
+    visitor: Rc<RefCell<Visitor>>,
     phantom: PhantomData<I>,
 }
 
 impl<I> RegisterFeedback<I> {
-    pub fn new() -> Self {
+    pub fn new(visitor: Rc<RefCell<Visitor>>) -> Self {
         Self {
+            visitor,
             phantom: PhantomData,
         }
     }
@@ -56,7 +58,10 @@ where
         let metadata = state
             .metadata_mut::<Context>()
             .expect("we must have context!");
-        metadata.register_input(testcase.input().as_ref().expect("we must have input!"));
+        metadata.register_input(
+            testcase.input().as_ref().expect("we must have input!"),
+            &self.visitor.borrow(),
+        );
         Ok(())
     }
 }

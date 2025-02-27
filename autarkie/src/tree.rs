@@ -4,7 +4,7 @@ use std::{
     marker::PhantomData,
 };
 
-use crate::{NodeType, Visitor};
+use crate::{visitor, NodeType, Visitor};
 
 #[cfg(debug_assertions)]
 pub type Id = std::string::String;
@@ -53,11 +53,11 @@ where
 
     fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {}
 
-    fn __autarkie_node_ty(&self) -> NodeType {
+    fn __autarkie_node_ty(&self, visitor: &Visitor) -> NodeType {
         NodeType::NonRecursive
     }
 
-    fn __autarkie_serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
+    fn __autarkie_serialized(&self, visitor: &Visitor) -> Option<Vec<(Vec<u8>, Id)>> {
         Some(vec![(serialize(&self), Self::__autarkie_id())])
     }
 
@@ -120,20 +120,20 @@ where
             .expect("invariant;")
     }
 
-    fn __autarkie_serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
+    fn __autarkie_serialized(&self, visitor: &Visitor) -> Option<Vec<(Vec<u8>, Id)>> {
         let mut vector = self
             .iter()
             .map(|i| (serialize(i), T::__autarkie_id()))
             .collect::<Vec<_>>();
         for item in self.iter() {
-            if let Some(inner) = item.__autarkie_serialized() {
+            if let Some(inner) = item.__autarkie_serialized(visitor) {
                 vector.extend(inner)
             }
         }
         Some(vector)
     }
 
-    fn __autarkie_node_ty(&self) -> NodeType {
+    fn __autarkie_node_ty(&self, visitor: &Visitor) -> NodeType {
         NodeType::Iterable(true, N, T::__autarkie_id())
     }
 
@@ -170,7 +170,7 @@ where
     }
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
         for (index, child) in self.iter().enumerate() {
-            visitor.register_field_stack(((index, child.__autarkie_node_ty()), T::__autarkie_id()));
+            visitor.register_field_stack(((index, child.__autarkie_node_ty(visitor)), T::__autarkie_id()));
             child.__autarkie_fields(visitor, 0);
             visitor.pop_field();
         }
@@ -179,7 +179,7 @@ where
     fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
         for (index, child) in self.iter().enumerate() {
             visitor
-                .register_field_stack((((index, child.__autarkie_node_ty())), T::__autarkie_id()));
+                .register_field_stack((((index, child.__autarkie_node_ty(visitor))), T::__autarkie_id()));
             child.__autarkie_cmps(visitor, index, val);
             visitor.pop_field();
         }
@@ -219,7 +219,7 @@ where
         }
     }
 
-    fn __autarkie_node_ty(&self) -> NodeType {
+    fn __autarkie_node_ty(&self, visitor: &Visitor) -> NodeType {
         NodeType::Iterable(false, self.len(), Self::inner_id())
     }
 
@@ -227,13 +227,13 @@ where
         T::__autarkie_id()
     }
 
-    fn __autarkie_serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
+    fn __autarkie_serialized(&self, visitor: &Visitor) -> Option<Vec<(Vec<u8>, Id)>> {
         let mut vector = self
             .iter()
             .map(|i| (serialize(i), T::__autarkie_id()))
             .collect::<Vec<_>>();
         for item in self.iter() {
-            if let Some(inner) = item.__autarkie_serialized() {
+            if let Some(inner) = item.__autarkie_serialized(visitor) {
                 vector.extend(inner)
             }
         }
@@ -273,7 +273,7 @@ where
 
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
         for (index, child) in self.iter().enumerate() {
-            visitor.register_field_stack(((index, child.__autarkie_node_ty()), T::__autarkie_id()));
+            visitor.register_field_stack(((index, child.__autarkie_node_ty(visitor)), T::__autarkie_id()));
             child.__autarkie_fields(visitor, 0);
             visitor.pop_field();
         }
@@ -282,7 +282,7 @@ where
     fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
         for (index, child) in self.iter().enumerate() {
             visitor
-                .register_field_stack((((index, child.__autarkie_node_ty())), T::__autarkie_id()));
+                .register_field_stack((((index, child.__autarkie_node_ty(visitor))), T::__autarkie_id()));
             child.__autarkie_cmps(visitor, index, val);
             visitor.pop_field();
         }
@@ -324,8 +324,8 @@ where
         }
     }
 
-    fn __autarkie_node_ty(&self) -> NodeType {
-        self.as_ref().__autarkie_node_ty()
+    fn __autarkie_node_ty(&self, visitor: &Visitor) -> NodeType {
+        self.as_ref().__autarkie_node_ty(visitor)
     }
 
     fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
@@ -345,8 +345,8 @@ where
         self.as_mut().__autarkie_mutate(ty, visitor, path);
     }
 
-    fn __autarkie_serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
-        self.as_ref().__autarkie_serialized()
+    fn __autarkie_serialized(&self, visitor: &Visitor) -> Option<Vec<(Vec<u8>, Id)>> {
+        self.as_ref().__autarkie_serialized(visitor)
     }
 }
 
@@ -420,10 +420,10 @@ where
 
     // TODO: for now we perform duplicate serialization cause the inner field is also serialized.
     // and our parent will serialize us
-    fn __autarkie_serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
+    fn __autarkie_serialized(&self, visitor: &Visitor) -> Option<Vec<(Vec<u8>, Id)>> {
         if let Some(inner) = self {
             let mut vector = vec![(serialize(&inner), T::__autarkie_id())];
-            if let Some(inner_fields) = inner.__autarkie_serialized() {
+            if let Some(inner_fields) = inner.__autarkie_serialized(visitor) {
                 vector.extend(inner_fields)
             }
             Some(vector)
@@ -434,7 +434,7 @@ where
 
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
         if let Some(inner) = self {
-            visitor.register_field_stack(((index, inner.__autarkie_node_ty()), T::__autarkie_id()));
+            visitor.register_field_stack(((index, inner.__autarkie_node_ty(visitor)), T::__autarkie_id()));
             inner.__autarkie_fields(visitor, 0);
             visitor.pop_field();
         }
@@ -442,7 +442,7 @@ where
 
     fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
         if let Some(inner) = self {
-            visitor.register_field_stack(((index, inner.__autarkie_node_ty()), T::__autarkie_id()));
+            visitor.register_field_stack(((index, inner.__autarkie_node_ty(visitor)), T::__autarkie_id()));
             inner.__autarkie_cmps(visitor, 0, val);
             visitor.pop_field();
         }
@@ -518,16 +518,16 @@ where
         }
     }
 
-    fn __autarkie_serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
+    fn __autarkie_serialized(&self, visitor: &Visitor) -> Option<Vec<(Vec<u8>, Id)>> {
         if let Ok(inner) = self {
             let mut vector = vec![(serialize(&inner), T::__autarkie_id())];
-            if let Some(inner_fields) = inner.__autarkie_serialized() {
+            if let Some(inner_fields) = inner.__autarkie_serialized(visitor) {
                 vector.extend(inner_fields)
             }
             Some(vector)
         } else if let Err(inner) = self {
             let mut vector = vec![(serialize(&inner), T::__autarkie_id())];
-            if let Some(inner_fields) = inner.__autarkie_serialized() {
+            if let Some(inner_fields) = inner.__autarkie_serialized(visitor) {
                 vector.extend(inner_fields)
             }
             Some(vector)
@@ -537,7 +537,7 @@ where
     }
 
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
-        visitor.register_field_stack(((index, self.__autarkie_node_ty()), Self::__autarkie_id()));
+        visitor.register_field_stack(((index, self.__autarkie_node_ty(visitor)), Self::__autarkie_id()));
         if let Ok(inner) = self {
             inner.__autarkie_fields(visitor, 0);
         } else if let Err(inner) = self {
@@ -547,7 +547,7 @@ where
     }
 
     fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
-        visitor.register_field_stack(((index, self.__autarkie_node_ty()), Self::__autarkie_id()));
+        visitor.register_field_stack(((index, self.__autarkie_node_ty(visitor)), Self::__autarkie_id()));
         if let Ok(inner) = self {
             inner.__autarkie_cmps(visitor, 0, val);
         } else if let Err(inner) = self {
@@ -611,7 +611,7 @@ where
         }
     }
 
-    fn __autarkie_node_ty(&self) -> NodeType {
+    fn __autarkie_node_ty(&self, visitor: &Visitor) -> NodeType {
         NodeType::Iterable(false, self.len(), Self::__autarkie_id())
     }
 
@@ -692,7 +692,7 @@ where
         }
     }
 
-    fn __autarkie_serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
+    fn __autarkie_serialized(&self, visitor: &Visitor) -> Option<Vec<(Vec<u8>, Id)>> {
         None
     }
 }
@@ -750,11 +750,11 @@ macro_rules! tuple_impls {
                 v.pop_ty();
             }
 
-            fn __autarkie_serialized(&self) -> Option<Vec<(Vec<u8>, Id)>> {
+            fn __autarkie_serialized(&self, visitor: &Visitor) -> Option<Vec<(Vec<u8>, Id)>> {
                 let mut vector = Vec::new();
                 $(vector.push((serialize(&self.$id), $T::__autarkie_id()));)*
                 $({
-                    if let Some(inner) = self.$id.__autarkie_serialized() {
+                    if let Some(inner) = self.$id.__autarkie_serialized(visitor) {
                         vector.extend(inner)
                     }
                 })*

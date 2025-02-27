@@ -257,6 +257,11 @@ impl Visitor {
         }
         return recursive_nodes;
     }
+
+    #[inline]
+    pub fn is_recursive_variant(&self, id: Id, variant: usize) -> bool {
+        self.ty_generate_map.get(&id).expect("____H2PJrlvAdz").get(&GenerateType::Recursive).expect("____k4GOs0ipph").contains(&variant)
+    }
     #[inline]
     /// This function is used by enums to determine which variant to generate.
     /// Since some variant are recursive, we check whether our depth is under the recursive depth

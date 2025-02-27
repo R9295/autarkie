@@ -22,20 +22,20 @@ macro_rules! impl_node_serde_array {
                     .expect("invariant;")
             }
 
-            fn __autarkie_serialized(&self) -> Option<Vec<(Vec<u8>, crate::Id)>> {
+            fn __autarkie_serialized(&self, visitor: &Visitor) -> Option<Vec<(Vec<u8>, crate::Id)>> {
                 let mut vector = self
                     .iter()
                     .map(|i| (serialize(i), T::__autarkie_id()))
                     .collect::<Vec<_>>();
                 for item in self.iter() {
-                    if let Some(inner) = item.__autarkie_serialized() {
+                    if let Some(inner) = item.__autarkie_serialized(visitor) {
                         vector.extend(inner)
                     }
                 }
                 Some(vector)
             }
 
-            fn __autarkie_node_ty(&self) -> crate::NodeType {
+            fn __autarkie_node_ty(&self, visitor: &Visitor) -> crate::NodeType {
                 crate::NodeType::Iterable(true, $n, T::__autarkie_id())
             }
 
@@ -73,7 +73,7 @@ macro_rules! impl_node_serde_array {
             fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
                 for (index, child) in self.iter().enumerate() {
                     visitor.register_field_stack((
-                        ((index, child.__autarkie_node_ty())),
+                        ((index, child.__autarkie_node_ty(visitor))),
                         T::__autarkie_id(),
                     ));
                     child.__autarkie_fields(visitor, 0);
@@ -84,7 +84,7 @@ macro_rules! impl_node_serde_array {
             fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
                 for (index, child) in self.iter().enumerate() {
                     visitor.register_field_stack((
-                        ((index, child.__autarkie_node_ty())),
+                        ((index, child.__autarkie_node_ty(visitor))),
                         T::__autarkie_id(),
                     ));
                     child.__autarkie_cmps(visitor, index, val);

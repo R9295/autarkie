@@ -1,4 +1,4 @@
-use crate::{Id, Node};
+use crate::{Id, Node, Visitor};
 use libafl::{corpus::CorpusId, SerdeAny};
 use libafl_bolts::current_time;
 use serde::{Deserialize, Serialize};
@@ -18,11 +18,11 @@ pub struct Context {
 
 // TODO: chunk & cmp reloading
 impl Context {
-    pub fn register_input<I>(&mut self, input: &I)
+    pub fn register_input<I>(&mut self, input: &I, visitor: &Visitor)
     where
         I: Node,
     {
-        for field in input.__autarkie_serialized().unwrap() {
+        for field in input.__autarkie_serialized(visitor).unwrap() {
             let (data, ty) = field;
             // todo: optimize this
             let path = self.out_dir.join("chunks").join(ty.to_string());

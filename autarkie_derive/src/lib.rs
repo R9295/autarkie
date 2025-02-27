@@ -14,14 +14,14 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         Data::Struct(ref data) => {
             let fields = get_fields(&data.fields);
             let is_named = matches!(data.fields, syn::Fields::Named(_));
-            let (parsed, _) = parse_fields(fields, None);
+            let parsed = parse_fields(fields);
             let generate = construct_generate_function_struct(&parsed, is_named);
 
             let serialized_ids = parsed.iter().map(|field| {
                 let name = field.get_name(is_named);
                 let ty = &field.ty;
                 quote! {
-                        if !self.#name.__autarkie_node_ty().is_iterable() {
+                        if !self.#name.__autarkie_node_ty(autarkie_visitor).is_iterable() {
                             vector.push((::autarkie::serialize(&self.#name), <#ty>::__autarkie_id()));
                         }
                 }
@@ -30,7 +30,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let serialized_recursive = parsed.iter().map(|field| {
                 let name = field.get_name(is_named);
                 quote! {
-                    if let Some(fields) = self.#name.__autarkie_serialized() {
+                    if let Some(fields) = self.#name.__autarkie_serialized(autarkie_visitor) {
                         vector.extend(fields);
                     }
                 }
@@ -41,7 +41,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 let ty = &field.ty;
                 let name = field.get_name(is_named);
                 quote! {
-                    v.register_field(((#id, self.#name.__autarkie_node_ty()), <#ty>::__autarkie_id()));
+                    v.register_field(((#id, self.#name.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
                     self.#name.__autarkie_fields(v, 0);
                     v.pop_field();
                 }
@@ -51,7 +51,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 let ty = &field.ty;
                 let name = field.get_name(is_named);
                 quote! {
-                    v.register_field(((#id, self.#name.__autarkie_node_ty()), <#ty>::__autarkie_id()));
+                    v.register_field(((#id, self.#name.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
                     self.#name.__autarkie_cmps(v, 0, val);
                     v.pop_field();
 
@@ -104,7 +104,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #(#register_cmps)*
                     }
 
-                    fn __autarkie_serialized(&self) -> Option<std::vec::Vec<(std::vec::Vec<u8>, autarkie::tree::Id)>> {
+                    fn __autarkie_serialized(&self, autarkie_visitor: &::autarkie::Visitor) -> Option<std::vec::Vec<(std::vec::Vec<u8>, autarkie::tree::Id)>> {
                         let mut vector = ::std::vec![];
                         #(#serialized_ids);*
                         #(#serialized_recursive);*
@@ -150,48 +150,34 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let mut inner_mutate = vec![];
             let mut serialized = vec![];
             let mut fn_cmps = vec![];
-            let mut recursive_variants = vec![];
-            let mut non_recursive_variants = vec![];
             let mut are_we_recursive = vec![];
             let mut register_ty = vec![];
 
             for (i, variant) in data.variants.iter().enumerate() {
                 let variant_name = &variant.ident;
-                let attrs = &variant.attrs;
-                let (fields, mut is_recursive) =
-                    parse_fields(get_fields(&variant.fields), Some(root_name.to_string()));
-                // a user may also manually annotate recursive
-                if !is_recursive {
-                    for attr in attrs {
-                        if let Meta::Path(ref list) = attr.meta {
-                            // make sure the attribute we are considereng is ours.
-                            if list.segments.first().unwrap().ident == "autarkie_recursive" {
-                                is_recursive = true;
-                            }
-                        }
-                    }
-                }
-
+                let fields = parse_fields(get_fields(&variant.fields));
                 let is_named = matches!(variant.fields, syn::Fields::Named(_));
-                if is_recursive {
-                    recursive_variants.push(quote! {#i,});
-                } else {
-                    non_recursive_variants.push(quote! {#i,});
-                }
-                let node_ty = if is_recursive {
-                    quote! {autarkie::visitor::NodeType::NonRecursive}
-                } else {
-                    quote! {autarkie::visitor::NodeType::Recursive}
-                };
                 are_we_recursive.push(if !fields.is_empty() {
                     if is_named {
-                        quote! {#root_name::#variant_name{..} => #node_ty}
+                        quote! {#root_name::#variant_name{..} => {
+                            if autarkie_visitor.is_recursive_variant(Self::__autarkie_id(), #i) {
+                             autarkie::visitor::NodeType::Recursive
+                            } else {
+                             autarkie::visitor::NodeType::NonRecursive
+                            }
+                        }}
                     } else {
-                        quote! {#root_name::#variant_name(..) => #node_ty}
+                        quote! {#root_name::#variant_name(..) => {
+                            if autarkie_visitor.is_recursive_variant(Self::__autarkie_id(), #i) {
+                             autarkie::visitor::NodeType::Recursive
+                            } else {
+                             autarkie::visitor::NodeType::NonRecursive
+                            }
+                        }}
                     }
                 } else {
                     quote! {
-                        #root_name::#variant_name {} => #node_ty
+                        #root_name::#variant_name {} => autarkie::visitor::NodeType::NonRecursive
                     }
                 });
 
@@ -209,7 +195,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         let ty = &field.ty;
                         let id = &field.id;
                         quote! {
-                            v.register_field(((#id, #name.__autarkie_node_ty()), <#ty>::__autarkie_id()));
+                            v.register_field(((#id, #name.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
                             #name.__autarkie_fields(v, #id);
                             v.pop_field();
                         }
@@ -225,7 +211,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     };
                     Some(quote! {
                             #match_arm {
-                            v.register_field_stack(((#i, self.__autarkie_node_ty()), Self::__autarkie_id()));
+                            v.register_field_stack(((#i, self.__autarkie_node_ty(v)), Self::__autarkie_id()));
                             #(#variant_fields_register)*
                             v.pop_field();
                         }
@@ -264,7 +250,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         let ty = &field.ty;
                         let id = &field.id;
                         quote! {
-                            v.register_field(((#id, #name.__autarkie_node_ty()), <#ty>::__autarkie_id()));
+                            v.register_field(((#id, #name.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
                             #name.__autarkie_cmps(v, #id, val);
                             v.pop_field();
                         }
@@ -280,7 +266,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     };
                     Some(quote! {
                             #match_arm {
-                            v.register_field_stack(((#i, self.__autarkie_node_ty()), Self::__autarkie_id()));
+                            v.register_field_stack(((#i, self.__autarkie_node_ty(v)), Self::__autarkie_id()));
                             #(#variant_fields_cmp)*
                             v.pop_field();
                         }
@@ -351,10 +337,10 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         let name = &field.name;
                         let ty = &field.ty;
                         quote! {
-                        if !#name.__autarkie_node_ty().is_iterable() {
+                        if !#name.__autarkie_node_ty(autarkie_visitor).is_iterable() {
                                 vector.push((::autarkie::serialize(&#name), <#ty>::__autarkie_id()));
                             }
-                            if let Some(fields) = #name.__autarkie_serialized() {
+                            if let Some(fields) = #name.__autarkie_serialized(autarkie_visitor) {
                                 vector.extend(fields);
                             }
                         }
@@ -416,7 +402,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #(#fn_cmps)*;
                     }
 
-                    fn __autarkie_serialized(&self) -> Option<std::vec::Vec<(std::vec::Vec<u8>, autarkie::tree::Id)>> {
+                    fn __autarkie_serialized(&self, autarkie_visitor: &::autarkie::Visitor) -> Option<std::vec::Vec<(std::vec::Vec<u8>, autarkie::tree::Id)>> {
                         let mut vector = ::std::vec![];
                         match self {
                              #(#serialized,)*
@@ -424,7 +410,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         Some(vector)
                     }
 
-                    fn __autarkie_node_ty(&self) -> autarkie::visitor::NodeType {
+                    fn __autarkie_node_ty(&self, autarkie_visitor: &autarkie::Visitor) -> autarkie::visitor::NodeType {
                         match self {
                             #(#are_we_recursive,)*
                         }
@@ -446,7 +432,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                                     *self = Self::__autarkie_generate(autarkie_visitor, bias, &mut 0);
                                 }
                                 autarkie::MutationType::RecursiveReplace => {
-                                    if self.__autarkie_node_ty().is_recursive() {
+                                    if self.__autarkie_node_ty(autarkie_visitor).is_recursive() {
                                         // 0 depth == always non-recursive
                                         *self = Self::__autarkie_generate(autarkie_visitor, &mut 0, &mut 0);
                                     }
@@ -470,10 +456,9 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 fn parse_fields(
     fields: Option<&syn::punctuated::Punctuated<syn::Field, Comma>>,
-    root_type: Option<String>,
-) -> (Vec<GrammarField>, bool) {
+) -> Vec<GrammarField> {
     if fields.is_none() {
-        return (vec![], false);
+        return vec![];
     }
     let fields = fields.unwrap();
     let fields = fields
@@ -493,27 +478,7 @@ fn parse_fields(
             }
         })
         .collect::<Vec<_>>();
-    // we automatically check if any of the fields is a recursive type.
-    // this is inexhaustive as we do not check for other types, only ours
-    let has_recursive = if root_type.is_some() {
-        let recursive_regex = regex::Regex::new(&format!(
-            "[^a-zA-Z0-9]({})[^a-zA-Z0-9]",
-            root_type.unwrap_or_default()
-        ))
-        .unwrap();
-        let mut is_recursive = false;
-        for field in &fields {
-            let ty = &field.ty;
-            if recursive_regex.is_match(&quote! {#ty}.to_string()) {
-                is_recursive = true;
-                break;
-            }
-        }
-        is_recursive
-    } else {
-        false
-    };
-    (fields, has_recursive)
+    fields
 }
 
 fn get_field_defs(fields: &Vec<GrammarField>) -> Vec<proc_macro2::TokenStream> {
