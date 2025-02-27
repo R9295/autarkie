@@ -9,7 +9,7 @@ pub use libafl::corpus::CorpusId;
 pub use libafl::inputs::Input;
 pub use libafl::inputs::TargetBytesConverter;
 pub use libafl_bolts::ownedref::OwnedSlice;
-pub use libafl_bolts::Error as LibAflError;
+pub use libafl_bolts::Error as LibAFLError;
 
 pub mod tree;
 pub mod visitor;
@@ -54,6 +54,7 @@ macro_rules! impl_converter {
             }
         }
     };
+    // We may want to render to bytes manually (eg: to_string) so we offer the possibility of a closure too.
     ($t:ty, $closure:expr) => {
         #[derive(Clone)]
         struct FuzzDataTargetBytesConverter;
@@ -81,7 +82,7 @@ macro_rules! impl_converter {
 macro_rules! impl_input {
     ($t:ty) => {
         impl autarkie::Input for $t {
-            fn to_file<P>(&self, path: P) -> Result<(), autarkie::LibAflError>
+            fn to_file<P>(&self, path: P) -> Result<(), autarkie::LibAFLError>
             where
                 P: AsRef<std::path::Path>,
             {
@@ -89,13 +90,14 @@ macro_rules! impl_input {
                 std::fs::write(path, bytes)?;
                 Ok(())
             }
+
             // TODO: don't serialize here
             fn generate_name(&self, id: Option<autarkie::CorpusId>) -> String {
                 let bytes = autarkie::serialize(self);
                 std::format!("{}", autarkie::hash(bytes.as_slice()))
             }
 
-            fn from_file<P>(path: P) -> Result<Self, autarkie::LibAflError>
+            fn from_file<P>(path: P) -> Result<Self, autarkie::LibAFLError>
             where
                 P: AsRef<std::path::Path>,
             {

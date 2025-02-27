@@ -1,3 +1,4 @@
+/// Primitives for parity-scale-codec
 use parity_scale_codec::{Compact, Decode, Encode};
 use serde::{Deserialize, Serialize};
 

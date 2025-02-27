@@ -4,6 +4,7 @@ use petgraph::Directed;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
+/// Find cycles in type tree to find which types are recursive
 pub fn find_cycles<N: Copy + Eq + std::hash::Hash + Ord + Debug, E>(
     graph: &GraphMap<N, E, Directed>,
 ) -> HashSet<Vec<N>> {
@@ -22,7 +23,7 @@ pub fn find_cycles<N: Copy + Eq + std::hash::Hash + Ord + Debug, E>(
     cycles
 }
 
-pub fn dfs_cycle<N: Copy + Eq + std::hash::Hash + Ord + Debug, E>(
+fn dfs_cycle<N: Copy + Eq + std::hash::Hash + Ord + Debug, E>(
     graph: &GraphMap<N, E, Directed>,
     node: N,
     visited: &mut HashSet<N>,
