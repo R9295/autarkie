@@ -325,6 +325,16 @@ pub enum NodeType {
     ),
 }
 
+impl NodeType {
+    pub fn is_recursive(&self) -> bool {
+        matches!(self, NodeType::Recursive)
+    }
+    
+    pub fn is_iterable(&self) -> bool {
+        matches!(self, NodeType::Iterable(_, _, _))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct DepthInfo {
     /// for recursive generation (eg. if an enum is recursive (Box<Self>))
