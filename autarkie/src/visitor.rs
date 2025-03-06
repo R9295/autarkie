@@ -141,7 +141,11 @@ impl Visitor {
 
     pub fn register_ty(&mut self, parent: Option<Id>, id: Id, variant: usize) {
         self.ty_map_stack.push(id.clone());
+        #[cfg(debug_assertions)]
         let parent = parent.unwrap_or("AutarkieInternalFuzzData".to_string());
+        #[cfg(not(debug_assertions))]
+        // Let's hope we get no collisions!
+        let parent = u128::MIN;
         if !self.ty_map.get(&parent).is_some() {
             self.ty_map.insert(
                 parent.clone(),

@@ -3,7 +3,7 @@ use std::{
     fmt::Debug,
     marker::PhantomData,
 };
-
+use std::borrow::Cow;
 use crate::{visitor, NodeType, Visitor};
 
 #[cfg(debug_assertions)]
@@ -97,6 +97,16 @@ impl<T: 'static> Node for PhantomData<T> {
         cur_depth: &mut usize,
     ) -> Self {
         Self
+    }
+}
+
+impl<T: 'static + Node + Clone> Node for Cow<'static, T> {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: &mut usize,
+    ) -> Self {
+        Cow::Owned(T::__autarkie_generate(visitor, depth, cur_depth))
     }
 }
 

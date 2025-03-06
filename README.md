@@ -1,204 +1,152 @@
-How to run
+# Autarkie - A Native Grammar Fuzzer for Rust Projects
+Autarkie is a native grammar fuzzer for Rust projects. Using procedural macros, it (almost completely) automatically creates a grammar fuzzer. Autarkie is heavily inspired by [nautilus](https://github.com/nautilus-fuzz/nautilus). Please see [Limitations and Caveats]() for Autarkie's limitations.
 
-# Serialization
-There are three serialization type supported:
-1. ``scale`` (parity-scale-codec)
-2. ``bincode`` (bincode + serde)
-3. ``borsh`` (borsh)
+# Features
+- Supports both AFL++ and Libfuzzer.
+- No grammar maintenance; if the project updated, the grammar updates too.
+- Grammar is completely exhaustive; the compiler will make sure that every necessary type is included. No more guesswork.
+- As long as the grammar is defined using Rust, you can fuzz C/C++ too (using AFL++ forkserver)
+- Really easy to use, complexity is abstracted for you.
+- Trivial to integrate with other fuzzers.
 
-NOTE: Static arrays eg. ``[T; N]`` are NOT supported for ``bincode``
-cause ``serde`` does not implement ``serialize`` for ``[T;N]``.
 
-# Important
-Unforunately, ``LibAFL`` requires the input to be serde Serializable and Deserializable. So if we use any other serialization primitive such as ``scale`` or ``borsh``, we STILL need to derive ``serde::Serialize`` and ``serde::Deserialize``
+# How to Use
+There are two main walkthroughs:
+1. Fuzzing a target with a string input such as an [SQL parser](https://github.com/apache/datafusion-sqlparser-rs).
 
-NOTE: Still need to implement ``HashMap`` & ``HashSet`` support.
+This example fuzzes Apache's ``datafusion-sqlparser-rs``.
 
-For this example, we will use bincode.
-# 1 Derive Grammar
+2. Fuzz a target with a native rust type as an input, such as an [Interpreter](https://github.com/solana-labs/rbpf).
+
+This example fuzzes Solana's ``rbpf`` interpreter.
+
+# Fuzzing SQL
+## Derive our Grammar.
+1. Clone the target
 ```
-cd my_target
+git clone https://github.com/apache/datafusion-sqlparser-rs
+cd datafusion-sqlparser-rs
 ```
+2. Add autarkie as a dependency to the target. 
 
-## Add dependencies
+In the root ``Cargo.toml``
 ``` toml
-# Note: each serialization primitive is a feature. 
-# You MUST pick one. there is no default
-autarkie = {path = "path/to/autarkie/autarkie", features=["derive", "bincode"]}
-serde = "1.0.214"
+autarkie = { git = "https://github.com/R9295/autarkie", features = ["derive", "bincode"] }
+```
+Since datafusion-sqlparser-rs supports serde serialization natively, we pick [bincode](https://github.com/bincode-org/bincode) as Autarkie's serialization format. 
+This further reduces our effort.
+
+3. Instrument types with Autarkie's ``Grammar`` procedural macro.
+
+We can simply find all types which have ``serde::Serialize`` derived and additionally add ``autarkie::Grammar``
+
+```
+cd src
+rg "Serialize" --files-with-matches | xargs sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g'
 ```
 
-## Derive Grammar
-Note: If the ``Instruction`` struct has nested types, we must also derive all of this for the nested types.
+4. Sanity check
 
-``` rust
-#[derive(
-    Debug,
-    autarkie::Grammar, 
-    Clone,
-    Default,
-    serde::Serialize,
-    serde::Deserialize,
-)]
-pub struct Instruction {
-    pub opc: u8,
-    pub reg: u8,
-    pub offset: u16,
-    pub imm: u32,
-}
+Let's build to see if everything is okay. Note that the ``serde`` feature will need to be enabled manually.
 ```
-
-## Bonus
-If you have literals, eg for us, the op-codes are limited, we can use ``literals``
-
-``` rust
-#[derive(
-    Debug,
-    autarkie::Grammar, 
-    Clone,
-    Default,
-    serde::Serialize,
-    serde::Deserialize,
-)]
-pub struct Instruction {
-    #[literal(MY_OPCODE_ONE, 0, 2, 3, 5, MY_OPCODE_TWO)]
-    pub opc: u8,
-    pub reg: u8,
-    pub offset: u16,
-    pub imm: u32,
-
-}
+cargo build --features serde
 ```
+It should compile just fine!
 
-# 2. Create a Ziggy project
+## Build our Fuzzer
+Now that we have derived our Grammar, we need to build a fuzzer. 
+We will build a AFL++ compatible fuzzer.
+1. Create a new cargo project.
 ```
-cd ..
-mkdir fuzzer
-cd fuzzer
+cd ../.. 
+mkdir sql-grammar-fuzzer
 cargo init
+vim Cargo.toml
+```
+2. Add our dependencies
+```
+autarkie = { git = "https://github.com/R9295/autarkie", features = ["derive", "bincode"] }
+sqlparser = {path = "../datafusion-sqlparser-rs", features = ["serde"]}
+serde = { version = "1.0.218", features = ["derive"] }
 ```
 
-## Add dependencies
-``` bash
-cargo add ziggy 
-cargo add serde --features derive
-# Add the library you want to fuzz
+3. Implement our fuzzer
 ```
-
-## Make your harness
+vim src/main.rs
+```
+Copy the following in the ``main.rs``
 ``` rust
-// Note: this is important
-#![feature(core_intrinsics)]
+use sqlparser::ast::Statement;
 
-// import your Instruction struct for which you derived Grammar
-use my_lib::Instruction
-
-// This struct's fields & types should be the exact SAME as the one in my_lib
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, autarkie::Grammar, serde::Serialize, serde::Deserialize)]
 struct FuzzData {
-    calls: Vec<Instruction>,
-    mem: Vec<u8>,
+    statements: Vec<Statement> 
 }
 
-fn main() {
-        let mut data = data;
-        let input: FuzzData = bincode::deserialize(&mut data);
-        if input.is_err() {
-            // this should never happen but may also using AFL++ so inputs
-            // may be invalid
-            return;
-        }
-        let input = input.unwrap();
-        do_fuzz(input);
-}
+autarkie::fuzz_afl!(FuzzData, |data: FuzzData| {
+    // render it to a string for our target
+    data.statements.iter().map(|stmt| stmt.to_string()).collect::<String>().into_bytes()
+});
+```
+That's it!
 
-fn do_fuzz(input: FuzzData) {
-
-}
-
-```
-## Ideally create an allowlist
-``` sh
-vim allowlist.txt
-# allowlist.txt
-fun:*my_package*
-fun:*my_dependency_one*
-fun:*my_dependency_two*
-```
-eg:
-```
-fun:*solana_rbpf*
-```
-## Build
-``` sh
-AFLRS_REQUIRE_PLUGINS=1 AFL_LLVM_ALLOWLIST=$(pwd)/allowlist.txt cargo ziggy build
-```
+Note: The custom rendering is necessary since we store the input in ``bincode`` format. 
+For non-string based targets which use native rust types (see the other example) we can simply de-serialize the bytes in the target
 
 
-# 3 Create our Fuzzer
+# Fuzz (With AFL++)
+Let's create a harness for ``datafusion-sqlparser-rs``.
 
+1. Initialize the project
 ```
-cd my_fuzzer
+cd ../harness
 cargo init
+cargo install cargo-afl
+cargo add afl
+vim Cargo.toml
 ```
 
-## Add depdenencies
+2. Add ``datafusion-sqlparser-rs`` as a dependency.
 ``` toml
-autarkie = {path = "/path/to/autarkie/autarkie", features=["derive", "bincode"]}
-libafl-fuzzer = {path = "/path/to/autarkie/libafl-fuzzer", features = ["bincode"]}
-
-
-blake3 = "1.5.4"
-serde = {version = "1.0.214", features = ["derive"] }
-libafl = {path = "/path/to/LibAFL/libafl"}
-libafl_bolts = {path = "/path/to/LibAFL/libafl_bolts"}
-blake3 = "1.5.4"
+[dependencies]
+sqlparser = {path = "../datafusion-sqlparser-rs", features = ["serde"]}
 ```
 
-## Create the fuzzer
+3. Add our harness in ``src/main.rs``
 ``` rust
-#![feature(core_intrinsics)]
-
-use libafl_fuzzer::{fuzz, impl_converter, impl_input};
-
-use my_target::Instruction;
-use autarkie::Grammar;
-
-#[derive(
-    Clone, Debug, Grammar, serde::Serialize, serde::Deserialize,
-)]
-pub struct FuzzData {
-    pub instructions: Vec<Instruction>,
-    pub mem: Vec<u8>,
-
-}
-// Create the Converter for FuzzData -> Vec<u8> for Forkserver
-impl_converter!(FuzzData);
-
-// Implements libafl's Input trait for FuzzData
-impl_input!(FuzzData);
-
-fn main() { 
-    // NOTE: even if your struct is not called FuzzData, this must be called FuzzDataTargetBytesConverter!
-    fuzz(FuzzDataTargetBytesConverter::new());
-}
-
+use sqlparser::dialect::GenericDialect;
+use sqlparser::parser::Parser;
+afl::fuzz!(|data: &[u8]| {
+    if let Ok(s) = std::str::from_utf8(data) {
+        let dialect = GenericDialect {};
+        let _ = Parser::parse_sql(&dialect, &data);
+    }
+});
 ```
-## Build
-``` sh
+4. Build the target
+```
+AFLRS_REQUIRE_PLUGINS=1 cargo afl build
+```
+``AFLRS_REQUIRE_PLUGINS=1`` uses AFL++ instrumentation instead of the native LLVM PC-Guard instrumentation. The AFL++ one is slightly better, so we prefer it. The plugin also enables AFL++'s cmplog feature, which we may benefit from.
+
+Note: If on MacOS, omit ``AFLRS_REQUIRE_PLUGINS=1`` since it won't work.
+
+
+# Start our fuzzing campaign!
+1. Build our fuzzer in release mode
+```
+cd ../sql-grammar-fuzzer
 cargo build --release
 ```
 
-# Run
-Use ``-cX`` for amount of cores, where 0 cores = 1
+2. Run
 ```
-./target/release/my-fuzezr -c0 ../my-ziggy-target/target/afl/debug/ziggy_target
+./target/release/grammar-fuzzer -o ./out -m 100 ../harness/target/afl/debug/harness
 ```
-You might get an error:
-```
-thread 'main' panicked
-called `Result::unwrap()` on an `Err` value: IllegalState("The target map size is 7360 but the allocated map size is 7332. Increase the initial size of the forkserver map to at least that size using the forkserver builder's `coverage_map_size`.", ErrorBacktrace)
-```
-where "target map size" is bigger than allocated map size. Then simply add the *differece* in map size ``(7360 - 7332)`` in the ``-m`` parameter. eg: ``-m100``. 
-you can be a bit lazy with this because discovered edges will always be the same.
-We don't show edge % anyways. But ideally - don't be lazy and do the maths!
+# Limitations and Caveats
+### Static Lifetimes
+The type MUST own all it's data; it cannot use lifetimes. This is due to the use of ``std::intrinsics::type_id`` which require types to have a ``'static`` lifetime.
+
+Note: that you can simply write a wrapper type that owns all the data and converts it to the native type
+### Nightly only
+Limited to ``nightly`` due to the usage of  the ``#![feature(compiler_intrinsics)]`` feature.
