@@ -60,6 +60,7 @@ We will build a AFL++ compatible fuzzer.
 ```
 cd ../.. 
 mkdir sql-grammar-fuzzer
+cd sql-grammar-fuzzer
 cargo init
 vim Cargo.toml
 ```
