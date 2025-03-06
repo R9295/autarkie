@@ -94,7 +94,7 @@ Note: The custom rendering is necessary since we store the input in ``bincode`` 
 For non-string based targets which use native rust types (see the other example) we can simply de-serialize the bytes in the target
 
 
-# Fuzz (With AFL++)
+# Build our fuzzing harness
 Let's create a harness for ``datafusion-sqlparser-rs``.
 
 1. Initialize the project
@@ -140,8 +140,11 @@ cargo build --release
 ```
 
 2. Run
+
+Note: remove ``-e`` if you didn't use ``AFLRS_REQUIRE_PLUGINS=1``.
+
 ```
-./target/release/grammar-fuzzer -o ./out -m 100 ../harness/target/afl/debug/harness
+./target/release/grammar-fuzzer -c0 -e -m 5 ../harness/target/afl/debug/harness
 ```
 # Limitations and Caveats
 ### Static Lifetimes
