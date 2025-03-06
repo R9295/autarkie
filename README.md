@@ -117,12 +117,14 @@ sqlparser = {path = "../datafusion-sqlparser-rs", features = ["serde"]}
 ``` rust
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
-afl::fuzz!(|data: &[u8]| {
-    if let Ok(s) = std::str::from_utf8(data) {
-        let dialect = GenericDialect {};
-        let _ = Parser::parse_sql(&dialect, &data);
-    }
-});
+fn main() {
+    afl::fuzz!(|data: &[u8]| {
+        if let Ok(s) = std::str::from_utf8(data) {
+            let dialect = GenericDialect {};
+            let _ = Parser::parse_sql(&dialect, &s);
+        }
+    });
+}
 ```
 4. Build the target
 ```
