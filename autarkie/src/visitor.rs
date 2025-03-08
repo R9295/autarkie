@@ -56,7 +56,7 @@ impl StringPool {
     }
 
     /// Add `num` amount of unique strings of `max_len`
-    pub fn add_strings(&mut self, r: &mut StdRand,  num: usize, max_len: usize) {
+    pub fn add_strings(&mut self, r: &mut StdRand, num: usize, max_len: usize) {
         while self.strings.len() < num {
             let element_count = r.between(1, max_len);
             let printables =
@@ -145,7 +145,7 @@ impl Visitor {
         let parent = parent.unwrap_or("AutarkieInternalFuzzData".to_string());
         #[cfg(not(debug_assertions))]
         // Let's hope we get no collisions!
-        let parent = u128::MIN;
+        let parent = parent.unwrap_or(u128::MIN);
         if !self.ty_map.get(&parent).is_some() {
             self.ty_map.insert(
                 parent.clone(),
@@ -234,19 +234,16 @@ impl Visitor {
             }
         }
         for (ty, map) in &self.ty_map {
-            let recursive_variants = recursive_nodes.get(ty);
-            if let Some(recursive_variants) = recursive_variants {
-                let r_variants = recursive_variants.clone();
-                self.ty_generate_map.insert(
-                    ty.clone(),
-                    BTreeMap::from_iter([(GenerateType::Recursive, r_variants)]),
-                );
-            }
+            let r_variants = recursive_nodes.get(ty).unwrap_or(&BTreeSet::default()).clone();
+            self.ty_generate_map.insert(
+                ty.clone(),
+                BTreeMap::from_iter([(GenerateType::Recursive, r_variants.clone())]),
+            );
             let mut nr_variants = map.keys().cloned().collect::<BTreeSet<_>>();
-            if let Some(recursive_variants) = recursive_variants {
+            if r_variants.len() > 0 {
                 nr_variants = nr_variants
                     .into_iter()
-                    .filter(|item| !recursive_variants.contains(item))
+                    .filter(|item| !r_variants.contains(item))
                     .collect::<BTreeSet<_>>();
             }
             self.ty_generate_map
@@ -259,13 +256,33 @@ impl Visitor {
                     nr_variants,
                 )]));
         }
+        // SINCE THERE MAY BE VARIANTS WITH NO NON-RECURSIVE VARIANTS
+        // TRY: FORCING NONE if inner is recursive && we are above a certain amount of depth
+        // already. Just like HOW VEC DOES IT
+        #[cfg(debug_assertions)]
+        {
+            let mut error = false;
+            for (ty, val) in self.ty_generate_map.iter() {
+                if val.get(&GenerateType::NonRecursive).unwrap().len() == 0 {
+                    println!("{:?} HAS NO NON RECURSIVE VARIANTS", ty);
+                    error = true;
+                }
+            }
+            if error {
+                panic!("found types with no non-recursive variants.");
+            }
+        }
         return recursive_nodes;
     }
 
     #[inline]
     pub fn is_recursive_variant(&self, id: Id, variant: usize) -> bool {
-        self.ty_generate_map.get(&id).expect("____H2PJrlvAdz").get(&GenerateType::Recursive).expect("____k4GOs0ipph").contains(&variant)
+        self.ty_generate_map
+            .get(&id)
+            .expect("____H2PJrlvAdz")
+            .get(&GenerateType::Recursive).expect("oBdODZ8L____").contains(&variant)
     }
+
     #[inline]
     /// This function is used by enums to determine which variant to generate.
     /// Since some variant are recursive, we check whether our depth is under the recursive depth
@@ -280,11 +297,16 @@ impl Visitor {
             let r_variants = variants
                 .get(&GenerateType::Recursive)
                 .expect("____q154Wl5zf2");
-            let id = self.rng.between(0, r_variants.len() + nr_variants.len());
-            if id < nr_variants.len() {
-                nr_variants.get(&id).expect("____ql6E70MLIb").clone()
+            let nr_variants_len = nr_variants.len().saturating_sub(1);
+            let r_variants_len = r_variants.len().saturating_sub(1);
+            let id = self.rng.between(0, nr_variants_len + r_variants_len);
+            if id <= nr_variants_len {
+                nr_variants.iter().nth(id).expect("____ql6E70MLIb").clone()
             } else {
-                r_variants.get(&id.checked_sub(nr_variants.len()).expect("____ibvCjQB5oX")).expect("____LaawYczeqc").clone()
+                r_variants
+                    .iter().nth(id.checked_sub(nr_variants_len).expect("____ibvCjQB5oX"))
+                    .expect("____LaawYczeqc")
+                    .clone()
             }
         } else {
             let variants = self
@@ -293,8 +315,10 @@ impl Visitor {
                 .expect("____clESlzqUbX")
                 .get(&GenerateType::NonRecursive)
                 .expect("____ffxyyA6Nub");
-            let id = self.rng.between(0, variants.len());
-            variants.get(&id).expect("____pvPK973BLH").clone()
+            let variants_len = variants.len().saturating_sub(1);
+            let nth = self.rng.between(0, variants_len);
+            println!("{:?}", (id, variants));
+            variants.iter().nth(nth).expect("____pvPK973BLH").clone()
         };
         variant
     }
@@ -338,7 +362,7 @@ impl NodeType {
     pub fn is_recursive(&self) -> bool {
         matches!(self, NodeType::Recursive)
     }
-    
+
     pub fn is_iterable(&self) -> bool {
         matches!(self, NodeType::Iterable(_, _, _))
     }

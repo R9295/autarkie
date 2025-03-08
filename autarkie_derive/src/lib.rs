@@ -365,7 +365,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 }
             } else {
                 let variant_id_calculation = {
-                    quote!{
+                    quote! {
                         let variant_id = v.generate(&Self::__autarkie_id(), cur_depth);
                     }
                 };
