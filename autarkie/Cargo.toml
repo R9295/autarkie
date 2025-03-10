@@ -14,7 +14,7 @@ borsh = { version = "1.5.3", features = ["derive"], optional = true }
 
 libafl = {workspace = true}
 libafl_bolts = {workspace = true}
-libafl_targets = {workspace = true}
+libafl_targets = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "aa0391ef8d47c229d2306d43f898e4ea28ca4186" }
 blake3 = "1.5.5"
 colored = "3.0.0"
 petgraph = "0.7.1"

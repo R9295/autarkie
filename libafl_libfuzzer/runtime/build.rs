@@ -23,4 +23,3 @@ fn main() {
         .file("src/harness_wrap.cpp")
         .compile("harness_wrap");
 }
-

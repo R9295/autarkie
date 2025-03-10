@@ -1,15 +1,6 @@
-use core::ffi::{c_char, c_int};
-mod harness_wrap {
-    #![allow(non_snake_case)]
-    #![allow(non_camel_case_types)]
-    #![allow(non_upper_case_globals)]
-    #![allow(unused)]
-    #![allow(improper_ctypes)]
-    #![allow(clippy::unreadable_literal)]
-    #![allow(missing_docs)]
-    #![allow(unused_qualifications)]
-    include!(concat!(env!("OUT_DIR"), "/harness_wrap.rs"));
-}
+//! The `LibAFL` `LibFuzzer` runtime, exposing the same functions as the original [`LibFuzzer`](https://llvm.org/docs/LibFuzzer.html).
+use core::ffi::{c_int, c_char};
+use std::error::Error;
 
 unsafe extern "C" {
     // redeclaration against libafl_targets because the pointers in our case may be mutable
@@ -38,7 +29,6 @@ pub unsafe extern "C" fn LLVMFuzzerRunDriver(
         .as_ref()
         .expect("Illegal harness provided to libafl.");
 
-
     // it appears that no one, not even libfuzzer, uses this return value
     // https://github.com/llvm/llvm-project/blob/llvmorg-15.0.7/compiler-rt/lib/fuzzer/FuzzerDriver.cpp#L648
     unsafe {
@@ -47,7 +37,5 @@ pub unsafe extern "C" fn LLVMFuzzerRunDriver(
 
     let argc = unsafe { *argc } as isize;
     let argv = unsafe { *argv };
-
-    // TODO: fuzz
     0
 }

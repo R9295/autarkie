@@ -55,11 +55,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     command.arg("build");
 
-    let mut features: Vec<&str> = vec![];
+    let mut features = vec![];
 
-    /* if cfg!(any(feature = "fork")) {
+    if cfg!(any(feature = "fork")) {
         features.push("fork");
-    } */
+    }
 
     if !features.is_empty() {
         command.arg("--features").arg(features.join(","));
