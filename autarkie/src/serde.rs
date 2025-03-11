@@ -13,16 +13,19 @@ macro_rules! impl_node_serde_array {
                 visitor: &mut Visitor,
                 depth: &mut usize,
                 cur_depth: &mut usize,
-            ) -> Self {
+            ) -> Option<Self> {
                 // TODO: optimize?
-                (0..$n)
+                Some((0..$n)
                     .map(|_| T::__autarkie_generate(visitor, depth, cur_depth))
+                    .filter_map(|i| i)
                     .collect::<Vec<T>>()
-                    .try_into()
-                    .expect("invariant;")
+                    .try_into().ok()?)
             }
 
-            fn __autarkie_serialized(&self, visitor: &Visitor) -> Option<Vec<(Vec<u8>, crate::Id)>> {
+            fn __autarkie_serialized(
+                &self,
+                visitor: &Visitor,
+            ) -> Option<Vec<(Vec<u8>, crate::Id)>> {
                 let mut vector = self
                     .iter()
                     .map(|i| (serialize(i), T::__autarkie_id()))
@@ -64,7 +67,11 @@ macro_rules! impl_node_serde_array {
                             *self = deserialize(other);
                         }
                         MutationType::GenerateReplace(ref mut bias) => {
-                            *self = Self::__autarkie_generate(visitor, bias, &mut 0)
+                            if let Some(generated) =
+                                Self::__autarkie_generate(visitor, bias, &mut 0)
+                            {
+                                *self = generated;
+                            }
                         }
                         _ => unreachable!("tAL6LPUb____"),
                     }
