@@ -24,9 +24,9 @@ macro_rules! impl_node_serde_array {
 
             fn __autarkie_serialized(
                 &self,
-                visitor: &Visitor,
-            ) -> Option<Vec<(Vec<u8>, crate::Id)>> {
-                let mut vector = self
+                visitor: &mut Visitor,
+            ) {
+                /* let mut vector = self
                     .iter()
                     .map(|i| (serialize(i), T::__autarkie_id()))
                     .collect::<Vec<_>>();
@@ -35,7 +35,7 @@ macro_rules! impl_node_serde_array {
                         vector.extend(inner)
                     }
                 }
-                Some(vector)
+                Some(vector) */
             }
 
             fn __autarkie_node_ty(&self, visitor: &Visitor) -> crate::NodeType {

@@ -103,11 +103,11 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #(#register_cmps)*
                     }
 
-                    fn __autarkie_serialized(&self, autarkie_visitor: &::autarkie::Visitor) -> Option<std::vec::Vec<(std::vec::Vec<u8>, autarkie::tree::Id)>> {
-                        let mut vector = ::std::vec![];
+                    fn __autarkie_serialized(&self, autarkie_visitor: &mut ::autarkie::Visitor) {
+                        /* let mut vector = ::std::vec![];
                         #(#serialized_ids);*
                         #(#serialized_recursive);*
-                        Some(vector)
+                        Some(vector) */
                     }
 
                     fn __autarkie_mutate(&mut self, 
@@ -405,12 +405,12 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #(#fn_cmps)*;
                     }
 
-                    fn __autarkie_serialized(&self, autarkie_visitor: &::autarkie::Visitor) -> Option<std::vec::Vec<(std::vec::Vec<u8>, autarkie::tree::Id)>> {
-                        let mut vector = ::std::vec![];
+                    fn __autarkie_serialized(&self, autarkie_visitor: &mut ::autarkie::Visitor) {
+                        /* let mut vector = ::std::vec![];
                         match self {
                              #(#serialized,)*
                         }
-                        Some(vector)
+                        Some(vector) */
                     }
 
                     fn __autarkie_node_ty(&self, autarkie_visitor: &autarkie::Visitor) -> autarkie::visitor::NodeType {

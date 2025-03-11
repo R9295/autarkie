@@ -26,6 +26,8 @@ pub struct Visitor {
     ty_done: BTreeSet<Id>,
     ty_map_stack: Vec<Id>,
 
+    serialized: Vec<(Vec<u8>, Id)>,
+
     ty_generate_map: BTreeMap<Id, BTreeMap<GenerateType, BTreeSet<usize>>>,
     rng: StdRand,
 }
@@ -129,6 +131,15 @@ impl Visitor {
         let fields = std::mem::take(&mut self.fields);
         self.field_stack.clear();
         fields
+    }
+    
+    pub fn add_serialized(&mut self, serialized_data: Vec<u8>, id: Id) {
+        self.serialized.push((serialized_data, id))
+    }
+    
+    pub fn serialized(&mut self) -> Vec<(Vec<u8>, Id)> {
+        let serialized = std::mem::take(&mut self.serialized);
+        serialized
     }
 
     pub fn generate_depth(&self) -> usize {
@@ -339,6 +350,7 @@ impl Visitor {
             fields: vec![],
             field_stack: vec![],
             matching_cmps: vec![],
+            serialized: vec![],
             strings: StringPool::new(),
             ty_map: BTreeMap::new(),
             rng: StdRand::with_seed(seed),
