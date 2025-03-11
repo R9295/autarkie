@@ -270,19 +270,6 @@ impl Visitor {
         // SINCE THERE MAY BE VARIANTS WITH NO NON-RECURSIVE VARIANTS
         // TRY: FORCING NONE if inner is recursive && we are above a certain amount of depth
         // already. Just like HOW VEC DOES IT
-        #[cfg(debug_assertions)]
-        {
-            let mut error = false;
-            for (ty, val) in self.ty_generate_map.iter() {
-                if val.get(&GenerateType::NonRecursive).unwrap().len() == 0 {
-                    println!("{:?} HAS NO NON RECURSIVE VARIANTS", ty);
-                    error = true;
-                }
-            }
-            if error {
-                panic!("found types with no non-recursive variants.");
-            }
-        }
         return recursive_nodes;
     }
 

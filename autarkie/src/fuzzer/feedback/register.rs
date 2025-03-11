@@ -60,7 +60,7 @@ where
             .expect("we must have context!");
         metadata.register_input(
             testcase.input().as_ref().expect("we must have input!"),
-            &self.visitor.borrow(),
+            &mut self.visitor.borrow_mut(),
         );
         Ok(())
     }

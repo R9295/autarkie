@@ -22,7 +22,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 let ty = &field.ty;
                 quote! {
                         if !self.#name.__autarkie_node_ty(autarkie_visitor).is_iterable() {
-                            vector.push((::autarkie::serialize(&self.#name), <#ty>::__autarkie_id()));
+                            autarkie_visitor.add_serialized(::autarkie::serialize(&self.#name), <#ty>::__autarkie_id());
                         }
                 }
             });
@@ -30,9 +30,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let serialized_recursive = parsed.iter().map(|field| {
                 let name = field.get_name(is_named);
                 quote! {
-                    if let Some(fields) = self.#name.__autarkie_serialized(autarkie_visitor) {
-                        vector.extend(fields);
-                    }
+                    self.#name.__autarkie_serialized(autarkie_visitor);
                 }
             });
 
@@ -104,10 +102,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     }
 
                     fn __autarkie_serialized(&self, autarkie_visitor: &mut ::autarkie::Visitor) {
-                        /* let mut vector = ::std::vec![];
                         #(#serialized_ids);*
                         #(#serialized_recursive);*
-                        Some(vector) */
                     }
 
                     fn __autarkie_mutate(&mut self, 
@@ -339,11 +335,9 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         let ty = &field.ty;
                         quote! {
                         if !#name.__autarkie_node_ty(autarkie_visitor).is_iterable() {
-                                vector.push((::autarkie::serialize(&#name), <#ty>::__autarkie_id()));
+                                autarkie_visitor.add_serialized(::autarkie::serialize(&#name), <#ty>::__autarkie_id());
                             }
-                            if let Some(fields) = #name.__autarkie_serialized(autarkie_visitor) {
-                                vector.extend(fields);
-                            }
+                            #name.__autarkie_serialized(autarkie_visitor);
                         }
                     });
                     let serialized_variant = quote! {
@@ -406,11 +400,9 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     }
 
                     fn __autarkie_serialized(&self, autarkie_visitor: &mut ::autarkie::Visitor) {
-                        /* let mut vector = ::std::vec![];
                         match self {
                              #(#serialized,)*
                         }
-                        Some(vector) */
                     }
 
                     fn __autarkie_node_ty(&self, autarkie_visitor: &autarkie::Visitor) -> autarkie::visitor::NodeType {

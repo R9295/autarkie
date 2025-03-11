@@ -57,10 +57,7 @@ where
         NodeType::NonRecursive
     }
 
-    fn __autarkie_serialized(&self, visitor: &mut Visitor) {
-            visitor.add_serialized(serialize(&self), Self::__autarkie_id());
-/*         Some(vec![(serialize(&self), Self::__autarkie_id())]) */
-    }
+    fn __autarkie_serialized(&self, visitor: &mut Visitor){}
 
     fn __autarkie_mutate(&mut self, ty: &mut MutationType, visitor: &mut Visitor, path: VecDeque<usize>) {
         debug_assert!(path.len() == 0);
@@ -113,6 +110,10 @@ impl<T: 'static + Node + Clone> Node for Cow<'static, T> {
             visitor, depth, cur_depth,
         )?))
     }
+    fn __autarkie_serialized(&self, visitor: &mut Visitor){
+        visitor.add_serialized(serialize(self.as_ref()), T::__autarkie_id());
+        self.as_ref().__autarkie_serialized(visitor);
+    }
 }
 
 // TODO: fix and make the same as Vec
@@ -142,6 +143,10 @@ where
     }
 
     fn __autarkie_serialized(&self, visitor: &mut Visitor) {
+        for item in self {
+            visitor.add_serialized(serialize(&item), T::__autarkie_id());
+            item.__autarkie_serialized(visitor);
+        }
     }
 
     fn __autarkie_node_ty(&self, visitor: &Visitor) -> NodeType {
@@ -246,16 +251,10 @@ where
     }
 
     fn __autarkie_serialized(&self, visitor: &mut Visitor) {
-        /* let mut vector = self
-            .iter()
-            .map(|i| (serialize(i), T::__autarkie_id()))
-            .collect::<Vec<_>>();
-        for item in self.iter() {
-            if let Some(inner) = item.__autarkie_serialized(visitor) {
-                vector.extend(inner)
-            }
+        for item in self {
+            visitor.add_serialized(serialize(&item), T::__autarkie_id());
+            item.__autarkie_serialized(visitor);
         }
-        Some(vector) */
     }
 
     fn __autarkie_mutate(
@@ -371,7 +370,7 @@ where
     }
 
     fn __autarkie_serialized(&self, visitor: &mut Visitor) {
-      //  self.as_ref().__autarkie_serialized(visitor)
+      self.as_ref().__autarkie_serialized(visitor)
     }
 }
 
@@ -448,15 +447,11 @@ where
     // TODO: for now we perform duplicate serialization cause the inner field is also serialized.
     // and our parent will serialize us
     fn __autarkie_serialized(&self, visitor: &mut Visitor) {
-        /* if let Some(inner) = self {
-            let mut vector = vec![(serialize(&inner), T::__autarkie_id())];
-            if let Some(inner_fields) = inner.__autarkie_serialized(visitor) {
-                vector.extend(inner_fields)
-            }
-            Some(vector)
-        } else {
-            None
-        } */
+        let Some(inner) = self else {
+            return;
+        };
+        visitor.add_serialized(serialize(&inner), T::__autarkie_id());
+        inner.__autarkie_serialized(visitor);
     }
 
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
@@ -554,21 +549,15 @@ where
     }
 
     fn __autarkie_serialized(&self, visitor: &mut Visitor) {
-        /* if let Ok(inner) = self {
-            let mut vector = vec![(serialize(&inner), T::__autarkie_id())];
-            if let Some(inner_fields) = inner.__autarkie_serialized(visitor) {
-                vector.extend(inner_fields)
-            }
-            Some(vector)
+        if let Ok(inner) = self {
+            visitor.add_serialized(serialize(&inner), T::__autarkie_id());
+            inner.__autarkie_serialized(visitor);
         } else if let Err(inner) = self {
-            let mut vector = vec![(serialize(&inner), T::__autarkie_id())];
-            if let Some(inner_fields) = inner.__autarkie_serialized(visitor) {
-                vector.extend(inner_fields)
-            }
-            Some(vector)
+            visitor.add_serialized(serialize(&inner), E::__autarkie_id());
+            inner.__autarkie_serialized(visitor);
         } else {
             unreachable!("zKJv3wsE____")
-        } */
+        }
     }
 
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
@@ -742,6 +731,12 @@ where
     }
 
     fn __autarkie_serialized(&self, visitor: &mut Visitor) {
+        for (k , v) in self {
+            visitor.add_serialized(serialize(&k), K::__autarkie_id());
+            k.__autarkie_serialized(visitor);
+            visitor.add_serialized(serialize(&k), V::__autarkie_id());
+            v.__autarkie_serialized(visitor);
+        }
     }
 }
 
@@ -801,14 +796,10 @@ macro_rules! tuple_impls {
             }
 
             fn __autarkie_serialized(&self, visitor: &mut Visitor) {
-                /* let mut vector = Vec::new();
-                $(vector.push((serialize(&self.$id), $T::__autarkie_id()));)*
                 $({
-                    if let Some(inner) = self.$id.__autarkie_serialized(visitor) {
-                        vector.extend(inner)
-                    }
+                    visitor.add_serialized(serialize(&self.$id), $T::__autarkie_id());
+                    self.$id.__autarkie_serialized(visitor);
                 })*
-                    Some(vector) */
             }
 
             fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {

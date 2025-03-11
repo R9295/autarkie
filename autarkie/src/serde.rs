@@ -15,27 +15,21 @@ macro_rules! impl_node_serde_array {
                 cur_depth: &mut usize,
             ) -> Option<Self> {
                 // TODO: optimize?
-                Some((0..$n)
-                    .map(|_| T::__autarkie_generate(visitor, depth, cur_depth))
-                    .filter_map(|i| i)
-                    .collect::<Vec<T>>()
-                    .try_into().ok()?)
+                Some(
+                    (0..$n)
+                        .map(|_| T::__autarkie_generate(visitor, depth, cur_depth))
+                        .filter_map(|i| i)
+                        .collect::<Vec<T>>()
+                        .try_into()
+                        .ok()?,
+                )
             }
 
-            fn __autarkie_serialized(
-                &self,
-                visitor: &mut Visitor,
-            ) {
-                /* let mut vector = self
-                    .iter()
-                    .map(|i| (serialize(i), T::__autarkie_id()))
-                    .collect::<Vec<_>>();
-                for item in self.iter() {
-                    if let Some(inner) = item.__autarkie_serialized(visitor) {
-                        vector.extend(inner)
-                    }
+            fn __autarkie_serialized(&self, visitor: &mut Visitor) {
+                for item in self {
+                    visitor.add_serialized(serialize(&item), T::__autarkie_id());
+                    item.__autarkie_serialized(visitor);
                 }
-                Some(vector) */
             }
 
             fn __autarkie_node_ty(&self, visitor: &Visitor) -> crate::NodeType {
