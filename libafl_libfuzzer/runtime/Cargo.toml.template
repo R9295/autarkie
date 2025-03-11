@@ -9,12 +9,11 @@ publish = false
 [features]
 default = ["fork"]
 ## Enables forking mode for the LibAFL launcher (instead of starting new processes)
-# fork = ["libafl/fork"]
-fork = []
-#track_hit_feedbacks = [
-#  "libafl/track_hit_feedbacks",
-#  "libafl_targets/track_hit_feedbacks",
-#]
+fork = ["libafl/fork"]
+track_hit_feedbacks = [
+  "libafl/track_hit_feedbacks",
+  "libafl_targets/track_hit_feedbacks",
+]
 
 [profile.release]
 lto = true
@@ -33,38 +32,21 @@ name = "afl_libfuzzer_runtime"     # historically, cargo-fuzz strips double-pref
 crate-type = ["staticlib", "rlib"]
 
 [dependencies]
-#libafl = { path = "../libafl", default-features = false, features = [
-#  "std",
-#  "derive",
-#  "llmp_compression",
-#  "rand_trait",
-#  "regex",
-#  "errors_backtrace",
-#  "serdeany_autoreg",
-#  "tui_monitor",
-#  "unicode",
-#] }
-#libafl_bolts = { path = "../libafl_bolts", default-features = false, features = [
-#  "std",
-#  "derive",
-#  "llmp_compression",
-#  "rand_trait",
-#  "serdeany_autoreg",
-#  "errors_backtrace",
-#] }
-#libafl_targets = { path = "../libafl_targets", features = [
-#  "sancov_8bit",
-#  "sancov_cmplog",
-#  "sancov_value_profile",
-#  "sancov_pcguard",
-#  "libfuzzer",
-#  "libfuzzer_oom",
-#  "libfuzzer_define_run_driver",
-#  "libfuzzer_interceptors",
-#  "sanitizers_flags",
-#  "whole_archive",
-#  "sanitizer_interfaces",
-#] }
+libafl = { workspace = true }
+libafl_bolts = { workspace = true }
+libafl_targets = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "aa0391ef8d47c229d2306d43f898e4ea28ca4186", features = [
+  "sancov_8bit",
+  "sancov_cmplog",
+  "sancov_value_profile",
+  "sancov_pcguard",
+  "libfuzzer",
+  "libfuzzer_oom",
+  "libfuzzer_define_run_driver",
+  "libfuzzer_interceptors",
+  "sanitizers_flags",
+  "whole_archive",
+  "sanitizer_interfaces",
+] }
 
 ahash = { version = "0.8.11", default-features = false }
 libc = "0.2.159"

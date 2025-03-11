@@ -1,6 +1,6 @@
 [package]
 name = "libafl_libfuzzer"
-version = "0.15.1"
+version = "0.1.0"
 description = "libFuzzer shim which uses LibAFL with common defaults"
 repository = "https://github.com/AFLplusplus/LibAFL/"
 readme = "../README.md"
@@ -51,9 +51,7 @@ libafl-libfuzzer-use-version = []
 [dependencies]
 libfuzzer-sys = { version = "0.4.7", default-features = false }
 
-
 [package.metadata.docs.rs]
-features = ["document-features"]
 all-features = true
 
 rustdoc-args = ["--cfg", "docsrs"]
