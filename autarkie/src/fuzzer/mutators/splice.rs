@@ -1,13 +1,14 @@
 use crate::Visitor;
 use crate::{MutationType, Node};
 use libafl::monitors::PerfFeature;
-use libafl::{start_timer, mark_feature_time};
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
     state::{HasCorpus, HasRand, State},
     HasMetadata,
 };
+#[cfg(feature = "introspection")]
+use libafl::{mark_feature_time, start_timer};
 use libafl_bolts::{current_time, AsSlice, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
 
@@ -24,7 +25,7 @@ pub struct AutarkieSpliceMutator<I> {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]
 pub enum Data {
-    Fields
+    Fields,
 }
 
 impl<I, S> Mutator<I, S> for AutarkieSpliceMutator<I>
@@ -34,9 +35,12 @@ where
     S::Corpus: Corpus<Input = I>,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
-        let metadata = state.metadata::<Context>()?;
+        let mut metadata = state.metadata_mut::<Context>()?;
+        let mut mutated_path = None;
+        #[cfg(feature = "introspection")]
         start_timer!(state);
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
+        #[cfg(feature = "introspection")]
         mark_feature_time!(state, Data::Fields);
         let mut fields = self.visitor.borrow_mut().fields();
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
@@ -51,6 +55,7 @@ where
                 }
                 if let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) {
                     let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
+                    mutated_path = Some(path.clone());
                     let subslice_bounds = calculate_subslice_bounds(
                         *field_len,
                         self.max_subslice_size,
@@ -105,6 +110,7 @@ where
                         vec![]
                     };
                     data.extend(items.iter().flatten());
+                    mutated_path = Some(path.clone());
                     #[cfg(debug_assertions)]
                     println!("splice | full | {:?}", field);
                     input.__autarkie_mutate(
@@ -112,8 +118,8 @@ where
                         &mut self.visitor.borrow_mut(),
                         path,
                     );
-                }
-            }
+                } else {return Ok(MutationResult::Skipped)}
+            } 
         } else {
             if let Some(possible_splices) = metadata.get_inputs_for_type(ty) {
                 let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
@@ -125,6 +131,7 @@ where
                     )
                     .unwrap();
                 let data = std::fs::read(random_splice).unwrap();
+                mutated_path = Some(path.clone());
                 #[cfg(debug_assertions)]
                 println!("splice | one | {:?} {:?}", field, path);
                 input.__autarkie_mutate(
@@ -132,9 +139,12 @@ where
                     &mut self.visitor.borrow_mut(),
                     path,
                 );
-            }
+            } else {
+                return Ok(MutationResult::Skipped);
+            };
         }
-        Ok(MutationResult::Skipped)
+        metadata.mutated_field(mutated_path.unwrap());
+        Ok(MutationResult::Mutated)
     }
 
     fn post_exec(

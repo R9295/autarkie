@@ -1,5 +1,6 @@
 use crate::Visitor;
 use crate::{MutationType, Node};
+#[cfg(feature = "introspection")]
 use libafl::{start_timer, mark_feature_time};
 use libafl::{
     corpus::Corpus,
@@ -27,9 +28,12 @@ where
     S::Corpus: Corpus<Input = I>,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
+        let mut metadata = state.metadata_mut::<Context>()?;
+        #[cfg(feature = "introspection")]
         start_timer!(state);
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
+        #[cfg(feature = "introspection")]
         mark_feature_time!(state, Data::Fields);
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &mut fields[field_splice_index];
@@ -52,6 +56,7 @@ where
             for index in subslice_bounds {
                 let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
                 path.push_back(index);
+                metadata.mutated_field(path.clone());
                 #[cfg(debug_assertions)]
                 println!("recursive_mutate | subslice | {:?}", field);
                 input.__autarkie_mutate(
@@ -62,6 +67,7 @@ where
             }
         } else {
             let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
+            metadata.mutated_field(path.clone());
             #[cfg(debug_assertions)]
             println!("recursive_mutate | single | {:?}", field);
             input.__autarkie_mutate(

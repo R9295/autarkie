@@ -1,10 +1,10 @@
-use crate::{Node, Visitor};
+use crate::{Node, Visitor, fuzzer::context::Context};
 use libafl::{
     corpus::Corpus,
     executors::Executor,
     stages::Stage,
     state::{HasCorpus, HasCurrentTestcase, State, UsesState},
-    Evaluator,
+    Evaluator, HasMetadata,
 };
 use serde::Serialize;
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
@@ -27,7 +27,7 @@ impl<I> GenerateStage<I> {
 impl<E, EM, Z, S, I> Stage<E, EM, S, Z> for GenerateStage<I>
 where
     I: Node + Serialize,
-    S: State + HasCurrentTestcase + HasCorpus,
+    S: State + HasCurrentTestcase + HasCorpus + HasMetadata,
     S::Corpus: Corpus<Input = I>,
     E: Executor<EM, I, S, Z>,
     EM: UsesState<State = S>,
@@ -40,6 +40,8 @@ where
         state: &mut S,
         manager: &mut EM,
     ) -> Result<(), libafl_bolts::Error> {
+        let mut metadata = state.metadata_mut::<Context>()?;
+        metadata.generated_input();
         let Some(generated) = generate(&mut self.visitor.borrow_mut()) else {
             return Ok(());
         };

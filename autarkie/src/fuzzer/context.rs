@@ -14,7 +14,7 @@ use std::{
 pub enum InputCause {
     Default,
     Generated,
-    Mutated(Vec<VecDeque<FieldLocation>>),
+    Mutated(Vec<VecDeque<usize>>),
 }
 #[derive(Debug, Clone, SerdeAny, Serialize, Deserialize)]
 pub struct Context {
@@ -29,14 +29,14 @@ impl Context {
     where
         I: Node,
     {
-        if matches!(self.input_cause, InputCause::Default) {
+        /* if matches!(self.input_cause, InputCause::Default) {
             return;
         }
         let paths = match &self.input_cause {
             InputCause::Default => unreachable!(),
             InputCause::Generated => None,
             InputCause::Mutated(fields) => Some(fields)
-        };
+        }; */
         input.__autarkie_serialized(visitor);
         for field in visitor.serialized() {
             let (data, ty) = field;
@@ -60,6 +60,18 @@ impl Context {
                     self.type_input_map.insert(ty, vec![path]);
                 }
             }
+        }
+        self.input_cause = InputCause::Default;
+    }
+    
+    pub fn generated_input(&mut self) {
+        self.input_cause = InputCause::Generated;
+    }
+    pub fn mutated_field(&mut self, field: VecDeque<usize>) {
+        if let InputCause::Mutated(ref mut inner) = self.input_cause {
+            inner.push(field)
+        } else {
+            self.input_cause = InputCause::Mutated(vec![field]);
         }
     }
 

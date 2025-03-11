@@ -1,7 +1,7 @@
 use crate::Node;
 use crate::Visitor;
-use libafl::mark_feature_time;
-use libafl::start_timer;
+#[cfg(feature = "introspection")]
+use libafl::{start_timer, mark_feature_time};
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
@@ -25,9 +25,11 @@ where
     S::Corpus: Corpus<Input = I>,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
-        let metadata = state.metadata::<Context>().unwrap();
+        let mut metadata = state.metadata_mut::<Context>().unwrap();
+        #[cfg(feature = "introspection")]
         start_timer!(state);
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
+        #[cfg(feature = "introspection")]
         mark_feature_time!(state, Data::Fields);
         let mut fields = self
             .visitor
@@ -35,8 +37,8 @@ where
             .fields()
             .into_iter()
             .filter(|inner| {
-                let last = inner.last().unwrap();
-                matches!(crate::NodeType::Iterable, last)
+                let last = inner.last().as_ref().unwrap();
+                matches!(&crate::NodeType::Iterable, last)
             })
             .collect::<Vec<_>>();
         if fields.len() == 0 {
@@ -75,6 +77,7 @@ where
                         path.clone(),
                     );
                 }
+                metadata.mutated_field(path.clone());
                 return Ok(MutationResult::Mutated);
             } else {
                 return Ok(MutationResult::Skipped);

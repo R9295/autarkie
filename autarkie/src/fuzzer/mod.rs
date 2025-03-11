@@ -204,6 +204,8 @@ where
                 &[fuzzer_dir.join("queue").clone()],
             )?;
             for _ in 0..opt.initial_generated_inputs {
+                let mut metadata = state.metadata_mut::<Context>().expect("fxeZamEw____");
+                metadata.generated_input();
                 let mut generated = crate::fuzzer::generate::generate(&mut visitor.borrow_mut());
                 while generated.is_none() {
                     generated = crate::fuzzer::generate::generate(&mut visitor.borrow_mut());
