@@ -287,9 +287,9 @@ impl Visitor {
     /// This function is used by enums to determine which variant to generate.
     /// Since some variant are recursive, we check whether our depth is under the recursive depth
     /// limit.
-    pub fn generate(&mut self, id: &Id, depth: &usize) -> usize {
+    pub fn generate(&mut self, id: &Id, depth: &usize) -> Option<(usize, bool)> {
         let consider_recursive = *depth < self.depth.generate;
-        let variant = if consider_recursive {
+        let (variant, is_recursive) = if consider_recursive {
             let variants = self.ty_generate_map.get(id).expect("____VbO3rGYTSf");
             let nr_variants = variants
                 .get(&GenerateType::NonRecursive)
@@ -301,12 +301,12 @@ impl Visitor {
             let r_variants_len = r_variants.len().saturating_sub(1);
             let id = self.rng.between(0, nr_variants_len + r_variants_len);
             if id <= nr_variants_len {
-                nr_variants.iter().nth(id).expect("____ql6E70MLIb").clone()
+                (nr_variants.iter().nth(id).expect("____ql6E70MLIb").clone(), false)
             } else {
-                r_variants
+                (r_variants
                     .iter().nth(id.checked_sub(nr_variants_len).expect("____ibvCjQB5oX"))
                     .expect("____LaawYczeqc")
-                    .clone()
+                    .clone(), true)
             }
         } else {
             let variants = self
@@ -315,12 +315,14 @@ impl Visitor {
                 .expect("____clESlzqUbX")
                 .get(&GenerateType::NonRecursive)
                 .expect("____ffxyyA6Nub");
+            if variants.len() == 0 {
+                return None;
+            }
             let variants_len = variants.len().saturating_sub(1);
             let nth = self.rng.between(0, variants_len);
-            println!("{:?}", (id, variants));
-            variants.iter().nth(nth).expect("____pvPK973BLH").clone()
+            (variants.iter().nth(nth).expect("____pvPK973BLH").clone(), false)
         };
-        variant
+        Some((variant, is_recursive))
     }
 
     pub fn new(seed: u64, depth: DepthInfo) -> Self {

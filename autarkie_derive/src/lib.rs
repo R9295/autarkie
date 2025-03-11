@@ -368,12 +368,14 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             } else {
                 let variant_id_calculation = {
                     quote! {
-                        let variant_id = v.generate(&Self::__autarkie_id(), cur_depth);
+                        let (variant_id, is_recursive) = v.generate(&Self::__autarkie_id(), cur_depth)?;
                     }
                 };
                 quote! {
-                        *cur_depth += 1usize;
                         #variant_id_calculation
+                        if is_recursive {
+                            *cur_depth += 1usize;
+                        }
                         match variant_id {
                              #(#generate,)*
                             _ => unreachable!()
