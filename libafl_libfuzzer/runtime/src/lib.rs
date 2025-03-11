@@ -1,4 +1,19 @@
-use core::ffi::{c_char, c_int};
+use core::ffi::{CStr, c_char, c_int};
+use std::{fs::File, io::stderr, os::fd::RawFd};
+
+use env_logger::Target;
+use libafl::{
+    Error,
+};
+use libafl_bolts::AsSlice;
+use libc::_exit;
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
+mod fuzz;
+
 mod harness_wrap {
     #![allow(non_snake_case)]
     #![allow(non_camel_case_types)]
@@ -9,6 +24,51 @@ mod harness_wrap {
     #![allow(missing_docs)]
     #![allow(unused_qualifications)]
     include!(concat!(env!("OUT_DIR"), "/harness_wrap.rs"));
+}
+
+pub(crate) use harness_wrap::libafl_libfuzzer_test_one_input;
+
+#[expect(clippy::struct_excessive_bools)]
+struct CustomMutationStatus {
+    std_mutational: bool,
+    std_no_mutate: bool,
+    std_no_crossover: bool,
+    custom_mutation: bool,
+    custom_crossover: bool,
+}
+
+impl CustomMutationStatus {
+    fn new() -> Self {
+        let custom_mutation = libafl_targets::libfuzzer::has_custom_mutator();
+        let custom_crossover = libafl_targets::libfuzzer::has_custom_crossover();
+
+        // we use all libafl mutations
+        let std_mutational = !(custom_mutation || custom_crossover);
+        // we use libafl crossover, but not libafl mutations
+        let std_no_mutate = !std_mutational && custom_mutation && !custom_crossover;
+        // we use libafl mutations, but not libafl crossover
+        let std_no_crossover = !std_mutational && !custom_mutation && custom_crossover;
+
+        Self {
+            std_mutational,
+            std_no_mutate,
+            std_no_crossover,
+            custom_mutation,
+            custom_crossover,
+        }
+    }
+}
+
+/// Starts to fuzz on a single node
+pub fn start_fuzzing_single<F, S, EM>(
+    mut fuzz_single: F,
+    initial_state: Option<S>,
+    mgr: EM,
+) -> Result<(), Error>
+where
+    F: FnMut(Option<S>, EM, usize) -> Result<(), Error>,
+{
+    fuzz_single(initial_state, mgr, 0)
 }
 
 unsafe extern "C" {
@@ -38,7 +98,6 @@ pub unsafe extern "C" fn LLVMFuzzerRunDriver(
         .as_ref()
         .expect("Illegal harness provided to libafl.");
 
-
     // it appears that no one, not even libfuzzer, uses this return value
     // https://github.com/llvm/llvm-project/blob/llvmorg-15.0.7/compiler-rt/lib/fuzzer/FuzzerDriver.cpp#L648
     unsafe {
@@ -47,7 +106,5 @@ pub unsafe extern "C" fn LLVMFuzzerRunDriver(
 
     let argc = unsafe { *argc } as isize;
     let argv = unsafe { *argv };
-
-    // TODO: fuzz
     0
 }

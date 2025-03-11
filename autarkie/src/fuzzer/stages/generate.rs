@@ -40,8 +40,9 @@ where
         state: &mut S,
         manager: &mut EM,
     ) -> Result<(), libafl_bolts::Error> {
-        let generated = generate(&mut self.visitor.borrow_mut());
-        fuzzer.evaluate_input(state, executor, manager, generated)?;
+        if let Some(generated) = generate(&mut self.visitor.borrow_mut()) {
+            fuzzer.evaluate_input(state, executor, manager, generated)?;
+        }
         Ok(())
     }
 
@@ -54,7 +55,7 @@ where
     }
 }
 
-pub fn generate<I>(visitor: &mut Visitor) -> I
+pub fn generate<I>(visitor: &mut Visitor) -> Option<I>
 where
     I: Node,
 {

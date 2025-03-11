@@ -202,9 +202,12 @@ where
                 &[fuzzer_dir.join("queue").clone()],
             )?;
             for _ in 0..opt.initial_generated_inputs {
-                let generated: I = crate::fuzzer::generate::generate(&mut visitor.borrow_mut());
+                let mut generated = crate::fuzzer::generate::generate(&mut visitor.borrow_mut());
+                while generated.is_none() {
+                    generated = crate::fuzzer::generate::generate(&mut visitor.borrow_mut());
+                }
                 fuzzer
-                    .evaluate_input(&mut state, &mut executor, &mut mgr, generated)
+                    .evaluate_input(&mut state, &mut executor, &mut mgr, generated.expect("dVoSuGRU____"))
                     .unwrap();
             }
             println!("We imported {} inputs from disk.", state.corpus().count());

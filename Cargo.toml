@@ -5,10 +5,11 @@ members = [
 	"autarkie", 
 	"autarkie_derive", 
 	"autarkie_test",
-	"libfuzzer/libafl_libfuzzer",
+	"libafl_libfuzzer",
+	"libafl_libfuzzer_runtime",
 ]
 
 [workspace.dependencies]
 libafl = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "aa0391ef8d47c229d2306d43f898e4ea28ca4186", features = ["errors_backtrace"]}
-libafl_targets = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "aa0391ef8d47c229d2306d43f898e4ea28ca4186" }
-libafl_bolts = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "aa0391ef8d47c229d2306d43f898e4ea28ca4186" }
+libafl_bolts = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "aa0391ef8d47c229d2306d43f898e4ea28ca4186", features = [] }
+
