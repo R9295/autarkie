@@ -40,9 +40,10 @@ where
         state: &mut S,
         manager: &mut EM,
     ) -> Result<(), libafl_bolts::Error> {
-        if let Some(generated) = generate(&mut self.visitor.borrow_mut()) {
-            fuzzer.evaluate_input(state, executor, manager, generated)?;
-        }
+        let Some(generated) = generate(&mut self.visitor.borrow_mut()) else {
+            return Ok(());
+        };
+        fuzzer.evaluate_input(state, executor, manager, generated)?;
         Ok(())
     }
 

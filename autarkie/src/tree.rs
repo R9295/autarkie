@@ -624,7 +624,7 @@ impl Node for char {
         cur_depth: &mut usize,
     ) -> Option<Self> {
         Some(
-            char::from_u32(u32::__autarkie_generate(visitor, depth, cur_depth)?)
+            char::from_u32(u32::__autarkie_generate(visitor, depth, cur_depth).expect("bHh7B75Y____"))
                 .unwrap_or_default(),
         )
     }

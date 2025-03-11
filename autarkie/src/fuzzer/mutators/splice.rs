@@ -1,5 +1,7 @@
 use crate::Visitor;
 use crate::{MutationType, Node};
+use libafl::monitors::PerfFeature;
+use libafl::{start_timer, mark_feature_time};
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
@@ -19,6 +21,12 @@ pub struct AutarkieSpliceMutator<I> {
     phantom: PhantomData<I>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[repr(u8)]
+pub enum Data {
+    Fields
+}
+
 impl<I, S> Mutator<I, S> for AutarkieSpliceMutator<I>
 where
     I: Node,
@@ -27,7 +35,9 @@ where
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
         let metadata = state.metadata::<Context>()?;
+        start_timer!(state);
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
+        mark_feature_time!(state, Data::Fields);
         let mut fields = self.visitor.borrow_mut().fields();
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];

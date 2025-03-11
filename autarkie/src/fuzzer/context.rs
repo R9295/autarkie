@@ -1,19 +1,26 @@
-use crate::{Id, Node, Visitor};
+use crate::{FieldLocation, Id, Node, Visitor};
 use libafl::{corpus::CorpusId, SerdeAny};
 use libafl_bolts::current_time;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     io::ErrorKind,
     path::{Path, PathBuf},
     time::Duration,
     u128,
 };
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum InputCause {
+    Default,
+    Generated,
+    Mutated(Vec<VecDeque<FieldLocation>>),
+}
 #[derive(Debug, Clone, SerdeAny, Serialize, Deserialize)]
 pub struct Context {
     out_dir: PathBuf,
     type_input_map: HashMap<Id, Vec<PathBuf>>,
+    input_cause: InputCause,
 }
 
 // TODO: chunk & cmp reloading
@@ -22,29 +29,63 @@ impl Context {
     where
         I: Node,
     {
-        for field in input.__autarkie_serialized(visitor).unwrap() {
-            let (data, ty) = field;
-            // todo: optimize this
-            let path = self.out_dir.join("chunks").join(ty.to_string());
-            match std::fs::create_dir(&path) {
-                Ok(_) => {}
-                Err(e) => {
-                    if !matches!(e.kind(), ErrorKind::AlreadyExists) {
-                        panic!("{:?}", e)
+        /* let paths = match &self.input_cause {
+            InputCause::Default => unreachable!(),
+            InputCause::Generated => None,
+            InputCause::Mutated(paths) => Some(paths),
+        };
+        if let Some(paths) = paths {
+            for path in paths {
+                for field in input.__autarkie_serialized(visitor).unwrap() {
+                    let (data, ty) = field;
+                    // todo: optimize this
+                    let path = self.out_dir.join("chunks").join(ty.to_string());
+                    match std::fs::create_dir(&path) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            if !matches!(e.kind(), ErrorKind::AlreadyExists) {
+                                panic!("{:?}", e)
+                            }
+                        }
+                    };
+                    let hash = blake3::hash(&data);
+                    let path = path.join(hash.to_string());
+                    if !std::fs::exists(&path).unwrap() {
+                        std::fs::write(&path, data).unwrap();
+                        if let Some(e) = self.type_input_map.get_mut(&ty) {
+                            e.push(path);
+                        } else {
+                            self.type_input_map.insert(ty, vec![path]);
+                        }
                     }
                 }
-            };
-            let hash = blake3::hash(&data);
-            let path = path.join(hash.to_string());
-            if !std::fs::exists(&path).unwrap() {
-                std::fs::write(&path, data).unwrap();
-                if let Some(e) = self.type_input_map.get_mut(&ty) {
-                    e.push(path);
-                } else {
-                    self.type_input_map.insert(ty, vec![path]);
+            }
+        } else {
+            for field in input.__autarkie_serialized(visitor).unwrap() {
+                let (data, ty) = field;
+                // todo: optimize this
+                let path = self.out_dir.join("chunks").join(ty.to_string());
+                match std::fs::create_dir(&path) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        if !matches!(e.kind(), ErrorKind::AlreadyExists) {
+                            panic!("{:?}", e)
+                        }
+                    }
+                };
+                let hash = blake3::hash(&data);
+                let path = path.join(hash.to_string());
+                if !std::fs::exists(&path).unwrap() {
+                    std::fs::write(&path, data).unwrap();
+                    if let Some(e) = self.type_input_map.get_mut(&ty) {
+                        e.push(path);
+                    } else {
+                        self.type_input_map.insert(ty, vec![path]);
+                    }
                 }
             }
         }
+        self.input_cause = InputCause::Default; */
     }
 
     pub fn add_existing_chunk(&mut self, path: PathBuf) {
@@ -73,6 +114,7 @@ impl Context {
     pub fn new(out_dir: PathBuf) -> Self {
         let type_input_map = HashMap::default();
         Self {
+            input_cause: InputCause::Default,
             out_dir,
             type_input_map,
         }

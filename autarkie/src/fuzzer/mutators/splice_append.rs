@@ -1,5 +1,7 @@
 use crate::Node;
 use crate::Visitor;
+use libafl::mark_feature_time;
+use libafl::start_timer;
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
@@ -24,7 +26,9 @@ where
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
         let metadata = state.metadata::<Context>().unwrap();
+        start_timer!(state);
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
+        mark_feature_time!(state, Data::Fields);
         let mut fields = self
             .visitor
             .borrow_mut()

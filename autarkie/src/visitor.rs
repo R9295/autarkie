@@ -287,6 +287,7 @@ impl Visitor {
     /// This function is used by enums to determine which variant to generate.
     /// Since some variant are recursive, we check whether our depth is under the recursive depth
     /// limit.
+    // TODO: refactor
     pub fn generate(&mut self, id: &Id, depth: &usize) -> Option<(usize, bool)> {
         let consider_recursive = *depth < self.depth.generate;
         let (variant, is_recursive) = if consider_recursive {
@@ -301,7 +302,11 @@ impl Visitor {
             let r_variants_len = r_variants.len().saturating_sub(1);
             let id = self.rng.between(0, nr_variants_len + r_variants_len);
             if id <= nr_variants_len {
-                (nr_variants.iter().nth(id).expect("____ql6E70MLIb").clone(), false)
+                if let Some(nr_variant) = nr_variants.iter().nth(id) {
+                        (nr_variant.clone(), false)
+                } else {
+                    (r_variants.iter().nth(id).expect("nd5oh1G2____").clone(), true)
+                }
             } else {
                 (r_variants
                     .iter().nth(id.checked_sub(nr_variants_len).expect("____ibvCjQB5oX"))
@@ -343,7 +348,7 @@ impl Visitor {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum NodeType {
     ///  A normal node
     NonRecursive,

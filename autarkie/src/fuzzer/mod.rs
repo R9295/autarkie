@@ -22,8 +22,8 @@ use libafl::{
     monitors::{MultiMonitor, SimpleMonitor},
     mutators::StdScheduledMutator,
     observers::{CanTrack, HitcountsMapObserver, StdMapObserver, TimeObserver},
-    schedulers::{powersched::PowerSchedule, StdWeightedScheduler},
-    stages::{IfStage, StdPowerMutationalStage},
+    schedulers::{powersched::PowerSchedule, StdWeightedScheduler, QueueScheduler},
+    stages::{IfStage, StdPowerMutationalStage, StdMutationalStage},
     state::{HasCorpus, HasCurrentTestcase, StdState},
     BloomInputFilter, Evaluator, Fuzzer, HasMetadata, StdFuzzer,
 };
@@ -58,6 +58,7 @@ where
     TC: TargetBytesConverter<Input = I> + Clone,
 {
     let monitor = MultiMonitor::new(|s| println!("{s}"));
+/*     let monitor = MultiMonitor::new(|s| {}); */
     let shmem_provider = StdShMemProvider::new().expect("Failed to init shared memory");
     let opt = Opt::parse();
     let run_client = |mut state: Option<_>,
@@ -115,6 +116,7 @@ where
         // Create an observation channel to keep track of the execution time.
         let time_observer = TimeObserver::new("time");
         let minimization_stage = MinimizationStage::new(Rc::clone(&visitor), &map_feedback);
+        let recursive_minimization_stage = RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback);
         let mut feedback = feedback_or!(
             map_feedback,
             TimeFeedback::new(&time_observer),
@@ -219,25 +221,11 @@ where
                 AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 // RECURSIVE GENERATE
                 AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 // SPLICE APPEND
-                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
-                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
-                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
-                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
-                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
-                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
-                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
-                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
                 AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
             ),
             3,
@@ -288,13 +276,18 @@ where
                 cmplog_ref
             )),
         );
+        let generate_stage = IfStage::new(
+            cb,
+            tuple_list!(GenerateStage::new(Rc::clone(&visitor))),
+        );
 
         let mut stages = tuple_list!(
             // we mut minimize before calculating testcase score
             minimization_stage,
+            recursive_minimization_stage,
             cmplog,
             StdPowerMutationalStage::new(mutator),
-            GenerateStage::new(Rc::clone(&visitor)),
+            generate_stage
         );
 
         fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)?;
@@ -341,21 +334,25 @@ struct Opt {
     map_bias: usize,
 
     /// Amount of initial inputs to generate
-    #[arg(short = 'g', default_value_t = 100)]
+    #[arg(short = 'i', default_value_t = 100)]
     initial_generated_inputs: usize,
+    
+    /// Include a generate input stage (advanced)
+    #[arg(short = 'g')]
+    generate: bool,
 
     #[arg(short = 'c', value_parser=Cores::from_cmdline)]
     cores: Cores,
 
-    /// Max iterate depth when generating iterable nodes
+    /// Max iterate depth when generating iterable nodes (advanced)
     #[arg(short = 'I', default_value_t = 5)]
     iterate_depth: usize,
 
-    /// Max subslice length when doing partial iterable splicing
+    /// Max subslice length when doing partial iterable splicing (advanced)
     #[arg(short = 'z', default_value_t = 15)]
     max_subslice_size: usize,
 
-    /// Max generate depth when generating recursive nodes
+    /// Max generate depth when generating recursive nodes (advanced)
     #[arg(short = 'G', default_value_t = 2)]
     generate_depth: usize,
 

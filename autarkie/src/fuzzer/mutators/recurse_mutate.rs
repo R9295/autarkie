@@ -1,5 +1,6 @@
 use crate::Visitor;
 use crate::{MutationType, Node};
+use libafl::{start_timer, mark_feature_time};
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
@@ -26,8 +27,10 @@ where
     S::Corpus: Corpus<Input = I>,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
+        start_timer!(state);
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
+        mark_feature_time!(state, Data::Fields);
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &mut fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().unwrap();
