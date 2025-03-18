@@ -1,9 +1,9 @@
 #![allow(warnings)]
 #![feature(core_intrinsics)]
 pub mod afl;
-pub mod libfuzzer;
 mod context;
 mod feedback;
+pub mod libfuzzer;
 mod mutators;
 mod stages;
 use crate::{DepthInfo, Node, Visitor};
@@ -22,8 +22,8 @@ use libafl::{
     monitors::{MultiMonitor, SimpleMonitor},
     mutators::StdScheduledMutator,
     observers::{CanTrack, HitcountsMapObserver, StdMapObserver, TimeObserver},
-    schedulers::{powersched::PowerSchedule, StdWeightedScheduler, QueueScheduler},
-    stages::{IfStage, StdPowerMutationalStage, StdMutationalStage},
+    schedulers::{powersched::PowerSchedule, QueueScheduler, StdWeightedScheduler},
+    stages::{IfStage, StdMutationalStage, StdPowerMutationalStage},
     state::{HasCorpus, HasCurrentTestcase, StdState},
     BloomInputFilter, Evaluator, Fuzzer, HasMetadata, StdFuzzer,
 };
@@ -58,7 +58,7 @@ where
     TC: TargetBytesConverter<Input = I> + Clone,
 {
     let monitor = MultiMonitor::new(|s| println!("{s}"));
-/*     let monitor = MultiMonitor::new(|s| {}); */
+    /*     let monitor = MultiMonitor::new(|s| {}); */
     let shmem_provider = StdShMemProvider::new().expect("Failed to init shared memory");
     let opt = Opt::parse();
     let run_client = |mut state: Option<_>,
@@ -116,7 +116,8 @@ where
         // Create an observation channel to keep track of the execution time.
         let time_observer = TimeObserver::new("time");
         let minimization_stage = MinimizationStage::new(Rc::clone(&visitor), &map_feedback);
-        let recursive_minimization_stage = RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback);
+        let recursive_minimization_stage =
+            RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback);
         let mut feedback = feedback_or!(
             map_feedback,
             TimeFeedback::new(&time_observer),
@@ -211,7 +212,12 @@ where
                     generated = crate::fuzzer::generate::generate(&mut visitor.borrow_mut());
                 }
                 fuzzer
-                    .evaluate_input(&mut state, &mut executor, &mut mgr, generated.expect("dVoSuGRU____"))
+                    .evaluate_input(
+                        &mut state,
+                        &mut executor,
+                        &mut mgr,
+                        generated.expect("dVoSuGRU____"),
+                    )
                     .unwrap();
             }
             println!("We imported {} inputs from disk.", state.corpus().count());
@@ -220,15 +226,15 @@ where
         let mutator = StdScheduledMutator::with_max_stack_pow(
             tuple_list!(
                 // SPLICE
+                /* AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size), */
                 // RECURSIVE GENERATE
                 AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                // SPLICE APPEND
-                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
+                /* // SPLICE APPEND
+                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)), */
             ),
             3,
         );
@@ -278,10 +284,7 @@ where
                 cmplog_ref
             )),
         );
-        let generate_stage = IfStage::new(
-            cb,
-            tuple_list!(GenerateStage::new(Rc::clone(&visitor))),
-        );
+        let generate_stage = IfStage::new(cb, tuple_list!(GenerateStage::new(Rc::clone(&visitor))));
 
         let mut stages = tuple_list!(
             // we mut minimize before calculating testcase score
@@ -338,7 +341,7 @@ struct Opt {
     /// Amount of initial inputs to generate
     #[arg(short = 'i', default_value_t = 100)]
     initial_generated_inputs: usize,
-    
+
     /// Include a generate input stage (advanced)
     #[arg(short = 'g')]
     generate: bool,

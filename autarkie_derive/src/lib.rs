@@ -17,22 +17,22 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let parsed = parse_fields(fields);
             let generate = construct_generate_function_struct(&parsed, is_named);
 
-            let serialized_ids = parsed.iter().map(|field| {
+            let serialized_inner = parsed.iter().map(|field| {
                 let name = field.get_name(is_named);
                 let ty = &field.ty;
                 quote! {
-                        if !self.#name.__autarkie_node_ty(autarkie_visitor).is_iterable() {
+                        // todo: check fixed size
+                        if !matches!(self.#name.__autarkie_node_ty(autarkie_visitor), autarkie::visitor::NodeType::Iterable(..)) {
                             autarkie_visitor.add_serialized(::autarkie::serialize(&self.#name), <#ty>::__autarkie_id());
                         }
+                        self.#name.__autarkie_serialized(autarkie_visitor);
                 }
             });
 
-            let serialized_recursive = parsed.iter().map(|field| {
-                let name = field.get_name(is_named);
-                quote! {
-                    self.#name.__autarkie_serialized(autarkie_visitor);
-                }
-            });
+            let serialized = quote! {
+                autarkie_visitor.add_serialized(::autarkie::serialize(&self), Self::__autarkie_id());
+                #(#serialized_inner)*
+            };
 
             let register_field = parsed.iter().map(|field| {
                 let id = &field.id;
@@ -102,13 +102,12 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     }
 
                     fn __autarkie_serialized(&self, autarkie_visitor: &mut ::autarkie::Visitor) {
-                        #(#serialized_ids);*
-                        #(#serialized_recursive);*
+                        #serialized
                     }
 
-                    fn __autarkie_mutate(&mut self, 
-                        autarkie_ty: &mut autarkie::MutationType, 
-                        autarkie_visitor: &mut autarkie::Visitor, 
+                    fn __autarkie_mutate(&mut self,
+                        autarkie_ty: &mut autarkie::MutationType,
+                        autarkie_visitor: &mut autarkie::Visitor,
                         mut autarkie_path: std::collections::VecDeque<usize>
                     ) {
                         if let Some(popped) = autarkie_path.pop_front() {
@@ -126,6 +125,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                                 autarkie::MutationType::GenerateReplace(ref mut bias) => {
                                     if let Some(generated) = Self::__autarkie_generate(autarkie_visitor, bias, &mut 0) {
                                         *self = generated;
+                                        autarkie_visitor.add_serialized(autarkie::serialize(&self), Self::__autarkie_id());
+                                        self.__autarkie_serialized(autarkie_visitor);
                                     }
                                 }
                                 _  => {
@@ -145,10 +146,10 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let mut generate = vec![];
             let mut fn_fields = vec![];
             let mut inner_mutate = vec![];
-            let mut serialized = vec![];
             let mut fn_cmps = vec![];
             let mut are_we_recursive = vec![];
             let mut register_ty = vec![];
+            let mut serialized_inner = vec![];
 
             for (i, variant) in data.variants.iter().enumerate() {
                 let variant_name = &variant.ident;
@@ -221,7 +222,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
                 fn_fields.push(field_fn);
                 if fields.is_empty() {
-                register_ty.push(quote! {
+                    register_ty.push(quote! {
                     // use something besides bool; bool is just a place holder.
                     v.register_ty(Some(Self::__autarkie_id()), <std::marker::PhantomData<bool>>::__autarkie_id(), #i);
                     v.pop_ty();
@@ -309,7 +310,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                             } else {
                                 unreachable!("____kTHVIHpB");
                             }
-                         }
+                         } else {unreachable!("iOoUo7jL____")}
                         },
                     })
                 } else {
@@ -319,38 +320,34 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 };
 
                 inner_mutate.push(inner_mutate_variant);
-
                 if !fields.is_empty() {
                     let field_names = fields.iter().map(|field| {
                         let name = &field.name;
                         quote! {#name}
                     });
-                    let match_arm = if is_named {
-                        quote! {Self::#variant_name{#(#field_names),*} => }
-                    } else {
-                        quote! {Self::#variant_name(#(#field_names),*) => }
-                    };
                     let serialized_fields = fields.iter().map(|field| {
                         let name = &field.name;
                         let ty = &field.ty;
                         quote! {
-                        if !#name.__autarkie_node_ty(autarkie_visitor).is_iterable() {
+                            // todo: check fixed size
+                            if !matches!(#name.__autarkie_node_ty(autarkie_visitor), autarkie::visitor::NodeType::Iterable(..)) {
                                 autarkie_visitor.add_serialized(::autarkie::serialize(&#name), <#ty>::__autarkie_id());
                             }
                             #name.__autarkie_serialized(autarkie_visitor);
                         }
+
                     });
-                    let serialized_variant = quote! {
-                    #match_arm {
-                        #(#serialized_fields)*
-                    }
+                    let match_arm = if is_named {
+                        quote! {if let #root_name::#variant_name{#(#field_names),*} = self }
+                    } else {
+                        quote! {if let #root_name::#variant_name(#(#field_names),*) = self }
                     };
-                    serialized.push(serialized_variant);
-                } else {
-                    serialized.push(quote! {
-                        Self::#variant_name{} => {
+                    let serialized = quote! {
+                        #match_arm {
+                            #(#serialized_fields)*
                         }
-                    })
+                    };
+                    serialized_inner.push(serialized);
                 }
             }
 
@@ -400,9 +397,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     }
 
                     fn __autarkie_serialized(&self, autarkie_visitor: &mut ::autarkie::Visitor) {
-                        match self {
-                             #(#serialized,)*
-                        }
+                        #(#serialized_inner)*
                     }
 
                     fn __autarkie_node_ty(&self, autarkie_visitor: &autarkie::Visitor) -> autarkie::visitor::NodeType {
@@ -426,6 +421,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                                 autarkie::MutationType::GenerateReplace(ref mut bias) => {
                                     if let Some(generated) = Self::__autarkie_generate(autarkie_visitor, bias, &mut 0) {
                                         *self = generated;
+                                        autarkie_visitor.add_serialized(autarkie::serialize(&self), Self::__autarkie_id());
+                                        self.__autarkie_serialized(autarkie_visitor);
                                     }
                                 }
                                 autarkie::MutationType::RecursiveReplace => {
@@ -433,6 +430,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                                         // 0 depth == always non-recursive
                                     if let Some(generated) = Self::__autarkie_generate(autarkie_visitor, &mut 0, &mut 0) {
                                         *self = generated;
+                                        autarkie_visitor.add_serialized(autarkie::serialize(&self), Self::__autarkie_id());
+                                        self.__autarkie_serialized(autarkie_visitor);
                                     }
                                     }
                                 }

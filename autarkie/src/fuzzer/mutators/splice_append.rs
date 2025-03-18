@@ -1,13 +1,13 @@
 use crate::Node;
 use crate::Visitor;
-#[cfg(feature = "introspection")]
-use libafl::{start_timer, mark_feature_time};
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
     state::{HasCorpus, HasRand, State},
     HasMetadata,
 };
+#[cfg(feature = "introspection")]
+use libafl::{mark_feature_time, start_timer};
 use libafl_bolts::{AsSlice, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
 
@@ -77,7 +77,6 @@ where
                         path.clone(),
                     );
                 }
-                metadata.mutated_field(path.clone());
                 return Ok(MutationResult::Mutated);
             } else {
                 return Ok(MutationResult::Skipped);

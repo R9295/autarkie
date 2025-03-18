@@ -2,9 +2,7 @@ use core::ffi::{CStr, c_char, c_int};
 use std::{fs::File, io::stderr, os::fd::RawFd};
 
 use env_logger::Target;
-use libafl::{
-    Error,
-};
+use libafl::Error;
 use libafl_bolts::AsSlice;
 use libc::_exit;
 use mimalloc::MiMalloc;

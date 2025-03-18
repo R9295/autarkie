@@ -1,4 +1,4 @@
-use crate::{Node, Visitor, fuzzer::context::Context};
+use crate::{fuzzer::context::Context, Node, Visitor};
 use libafl::{
     corpus::Corpus,
     executors::Executor,

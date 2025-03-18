@@ -29,6 +29,5 @@ pub mod scale;
 pub use scale::*;
 
 pub mod fuzzer;
-pub use fuzzer::libfuzzer;
 pub use fuzzer::afl;
-
+pub use fuzzer::libfuzzer;

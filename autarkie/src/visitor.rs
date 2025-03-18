@@ -132,11 +132,11 @@ impl Visitor {
         self.field_stack.clear();
         fields
     }
-    
+
     pub fn add_serialized(&mut self, serialized_data: Vec<u8>, id: Id) {
         self.serialized.push((serialized_data, id))
     }
-    
+
     pub fn serialized(&mut self) -> Vec<(Vec<u8>, Id)> {
         let serialized = std::mem::take(&mut self.serialized);
         serialized
@@ -245,7 +245,10 @@ impl Visitor {
             }
         }
         for (ty, map) in &self.ty_map {
-            let r_variants = recursive_nodes.get(ty).unwrap_or(&BTreeSet::default()).clone();
+            let r_variants = recursive_nodes
+                .get(ty)
+                .unwrap_or(&BTreeSet::default())
+                .clone();
             self.ty_generate_map.insert(
                 ty.clone(),
                 BTreeMap::from_iter([(GenerateType::Recursive, r_variants.clone())]),
@@ -278,7 +281,9 @@ impl Visitor {
         self.ty_generate_map
             .get(&id)
             .expect("____H2PJrlvAdz")
-            .get(&GenerateType::Recursive).expect("oBdODZ8L____").contains(&variant)
+            .get(&GenerateType::Recursive)
+            .expect("oBdODZ8L____")
+            .contains(&variant)
     }
 
     #[inline]
@@ -301,15 +306,22 @@ impl Visitor {
             let id = self.rng.between(0, nr_variants_len + r_variants_len);
             if id <= nr_variants_len {
                 if let Some(nr_variant) = nr_variants.iter().nth(id) {
-                        (nr_variant.clone(), false)
+                    (nr_variant.clone(), false)
                 } else {
-                    (r_variants.iter().nth(id).expect("nd5oh1G2____").clone(), true)
+                    (
+                        r_variants.iter().nth(id).expect("nd5oh1G2____").clone(),
+                        true,
+                    )
                 }
             } else {
-                (r_variants
-                    .iter().nth(id.checked_sub(nr_variants_len).expect("____ibvCjQB5oX"))
-                    .expect("____LaawYczeqc")
-                    .clone(), true)
+                (
+                    r_variants
+                        .iter()
+                        .nth(id.checked_sub(nr_variants_len).expect("____ibvCjQB5oX"))
+                        .expect("____LaawYczeqc")
+                        .clone(),
+                    true,
+                )
             }
         } else {
             let variants = self
@@ -323,7 +335,10 @@ impl Visitor {
             }
             let variants_len = variants.len().saturating_sub(1);
             let nth = self.rng.between(0, variants_len);
-            (variants.iter().nth(nth).expect("____pvPK973BLH").clone(), false)
+            (
+                variants.iter().nth(nth).expect("____pvPK973BLH").clone(),
+                false,
+            )
         };
         Some((variant, is_recursive))
     }

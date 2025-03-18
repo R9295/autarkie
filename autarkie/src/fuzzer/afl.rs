@@ -82,7 +82,7 @@ macro_rules! fuzz_afl_inner {
     ($t: ty) => {
         fn main() {
             $crate::fuzzer::run_fuzzer(FuzzDataTargetBytesConverter::new());
-        }  
+        }
     };
 }
 

@@ -118,8 +118,10 @@ where
                         &mut self.visitor.borrow_mut(),
                         path,
                     );
-                } else {return Ok(MutationResult::Skipped)}
-            } 
+                } else {
+                    return Ok(MutationResult::Skipped);
+                }
+            }
         } else {
             if let Some(possible_splices) = metadata.get_inputs_for_type(ty) {
                 let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
@@ -143,7 +145,6 @@ where
                 return Ok(MutationResult::Skipped);
             };
         }
-        metadata.mutated_field(mutated_path.unwrap());
         Ok(MutationResult::Mutated)
     }
 

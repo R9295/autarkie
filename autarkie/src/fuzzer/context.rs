@@ -14,7 +14,6 @@ use std::{
 pub enum InputCause {
     Default,
     Generated,
-    Mutated(Vec<VecDeque<usize>>),
 }
 #[derive(Debug, Clone, SerdeAny, Serialize, Deserialize)]
 pub struct Context {
@@ -29,16 +28,14 @@ impl Context {
     where
         I: Node,
     {
-        /* if matches!(self.input_cause, InputCause::Default) {
-            return;
-        }
-        let paths = match &self.input_cause {
-            InputCause::Default => unreachable!(),
-            InputCause::Generated => None,
-            InputCause::Mutated(fields) => Some(fields)
-        }; */
-        input.__autarkie_serialized(visitor);
-        for field in visitor.serialized() {
+        let generated_fields = match &self.input_cause {
+            InputCause::Default => visitor.serialized(),
+            InputCause::Generated => {
+                input.__autarkie_serialized(visitor);
+                visitor.serialized()
+            }
+        };
+        for field in generated_fields {
             let (data, ty) = field;
             // todo: optimize this
             let path = self.out_dir.join("chunks").join(ty.to_string());
@@ -63,16 +60,9 @@ impl Context {
         }
         self.input_cause = InputCause::Default;
     }
-    
+
     pub fn generated_input(&mut self) {
         self.input_cause = InputCause::Generated;
-    }
-    pub fn mutated_field(&mut self, field: VecDeque<usize>) {
-        if let InputCause::Mutated(ref mut inner) = self.input_cause {
-            inner.push(field)
-        } else {
-            self.input_cause = InputCause::Mutated(vec![field]);
-        }
     }
 
     pub fn add_existing_chunk(&mut self, path: PathBuf) {

@@ -65,6 +65,7 @@ macro_rules! impl_node_serde_array {
                                 Self::__autarkie_generate(visitor, bias, &mut 0)
                             {
                                 *self = generated;
+                                self.__autarkie_serialized(visitor);
                             }
                         }
                         _ => unreachable!("tAL6LPUb____"),

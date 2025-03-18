@@ -2,7 +2,7 @@
 macro_rules! libfuzzer_main {
     ($t: ty) => {
         fn main() {}
-    }
+    };
 }
 
 #[macro_export]

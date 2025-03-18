@@ -1,13 +1,13 @@
 use crate::Visitor;
 use crate::{MutationType, Node};
-#[cfg(feature = "introspection")]
-use libafl::{start_timer, mark_feature_time};
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
     state::{HasCorpus, HasRand, State},
     HasMetadata,
 };
+#[cfg(feature = "introspection")]
+use libafl::{mark_feature_time, start_timer};
 use libafl_bolts::{HasLen, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
 
@@ -56,7 +56,6 @@ where
             for index in subslice_bounds {
                 let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
                 path.push_back(index);
-                metadata.mutated_field(path.clone());
                 #[cfg(debug_assertions)]
                 println!("recursive_mutate | subslice | {:?}", field);
                 input.__autarkie_mutate(
@@ -67,7 +66,6 @@ where
             }
         } else {
             let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-            metadata.mutated_field(path.clone());
             #[cfg(debug_assertions)]
             println!("recursive_mutate | single | {:?}", field);
             input.__autarkie_mutate(

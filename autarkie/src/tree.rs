@@ -68,6 +68,7 @@ where
             MutationType::GenerateReplace(ref mut bias) => {
                 if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
                     *self = generated;
+                    visitor.add_serialized(serialize(&self), Self::__autarkie_id());
                 }
             }
             _ => {
@@ -110,10 +111,10 @@ impl<T: 'static + Node + Clone> Node for Cow<'static, T> {
             visitor, depth, cur_depth,
         )?))
     }
-    fn __autarkie_serialized(&self, visitor: &mut Visitor){
-        visitor.add_serialized(serialize(self.as_ref()), T::__autarkie_id());
+    fn __autarkie_serialized(&self, visitor: &mut Visitor) {
         self.as_ref().__autarkie_serialized(visitor);
     }
+    // TODO: fields / mutate
 }
 
 // TODO: fix and make the same as Vec
@@ -180,6 +181,7 @@ where
                 MutationType::GenerateReplace(ref mut bias) => {
                     if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
                         *self = generated;
+                        self.__autarkie_serialized(visitor);
                     }
                 }
                 _ => unreachable!("tAL6LPUb____"),
@@ -275,6 +277,7 @@ where
                 MutationType::GenerateReplace(ref mut bias) => {
                     if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
                         *self = generated;
+                        self.__autarkie_serialized(visitor);
                     }
                 }
                 MutationType::SpliceAppend(other) => {
@@ -370,7 +373,7 @@ where
     }
 
     fn __autarkie_serialized(&self, visitor: &mut Visitor) {
-      self.as_ref().__autarkie_serialized(visitor)
+        self.as_ref().__autarkie_serialized(visitor)
     }
 }
 
@@ -435,6 +438,8 @@ where
                 MutationType::GenerateReplace(ref mut bias) => {
                     if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
                         *self = generated;
+                        visitor.add_serialized(serialize(&self), Self::__autarkie_id());
+                        self.__autarkie_serialized(visitor);
                     }
                 }
                 _ => {
@@ -539,6 +544,8 @@ where
                 MutationType::GenerateReplace(ref mut bias) => {
                     if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
                         *self = generated;
+                        visitor.add_serialized(serialize(&self), Self::__autarkie_id());
+                        self.__autarkie_serialized(visitor);
                     }
                 }
                 _ => {
@@ -604,8 +611,10 @@ impl Node for char {
         cur_depth: &mut usize,
     ) -> Option<Self> {
         Some(
-            char::from_u32(u32::__autarkie_generate(visitor, depth, cur_depth).expect("bHh7B75Y____"))
-                .unwrap_or_default(),
+            char::from_u32(
+                u32::__autarkie_generate(visitor, depth, cur_depth).expect("bHh7B75Y____"),
+            )
+            .unwrap_or_default(),
         )
     }
 }
@@ -680,6 +689,8 @@ where
                             return;
                         };
                         self.insert(key, val);
+                        self.__autarkie_serialized(visitor);
+                        visitor.add_serialized(serialize(&self), Self::__autarkie_id());
                     }
                     _ => unreachable!(),
                 }
@@ -706,6 +717,8 @@ where
                 MutationType::GenerateReplace(ref mut bias) => {
                     if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
                         *self = generated;
+                        self.__autarkie_serialized(visitor);
+                        visitor.add_serialized(serialize(&self), Self::__autarkie_id());
                     }
                 }
                 MutationType::SpliceAppend(other) => {
@@ -731,10 +744,10 @@ where
     }
 
     fn __autarkie_serialized(&self, visitor: &mut Visitor) {
-        for (k , v) in self {
+        for (k, v) in self {
             visitor.add_serialized(serialize(&k), K::__autarkie_id());
             k.__autarkie_serialized(visitor);
-            visitor.add_serialized(serialize(&k), V::__autarkie_id());
+            visitor.add_serialized(serialize(&v), V::__autarkie_id());
             v.__autarkie_serialized(visitor);
         }
     }
@@ -766,6 +779,8 @@ macro_rules! tuple_impls {
                         MutationType::GenerateReplace(ref mut bias) => {
                             if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
                             *self = generated;
+                            self.__autarkie_serialized(visitor);
+                            visitor.add_serialized(serialize(&self), Self::__autarkie_id());
         }
                         },
             _  => {
@@ -795,11 +810,11 @@ macro_rules! tuple_impls {
                 v.pop_ty();
             }
 
-            fn __autarkie_serialized(&self, visitor: &mut Visitor) {
-                $({
-                    visitor.add_serialized(serialize(&self.$id), $T::__autarkie_id());
-                    self.$id.__autarkie_serialized(visitor);
-                })*
+            fn __autarkie_serialized(&self, visitor: &mut Visitor, ) {
+                    $({
+                        visitor.add_serialized(serialize(&self.$id), $T::__autarkie_id());
+                        self.$id.__autarkie_serialized(visitor);
+                    })*
             }
 
             fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {

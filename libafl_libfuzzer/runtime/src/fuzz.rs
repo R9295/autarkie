@@ -1,9 +1,9 @@
 use core::ffi::c_int;
+use libafl::Error;
+use libafl_bolts::shmem::StdShMemProvider;
 #[cfg(unix)]
 use std::io::{Write, stderr, stdout};
 use std::{fmt::Debug, fs::File, net::TcpListener, os::fd::AsRawFd, str::FromStr};
-use libafl::Error;
-use libafl_bolts::shmem::StdShMemProvider;
 
 fn do_fuzz<F, ST, E, I, S, EM>(
     fuzzer: &mut F,
@@ -11,8 +11,7 @@ fn do_fuzz<F, ST, E, I, S, EM>(
     executor: &mut E,
     state: &mut S,
     mgr: &mut EM,
-) -> Result<(), Error>
-{
+) -> Result<(), Error> {
     Ok(())
 }
 
@@ -20,8 +19,7 @@ fn fuzz_single_forking<M>(
     harness: &extern "C" fn(*const u8, usize) -> c_int,
     mut shmem_provider: StdShMemProvider,
     monitor: M,
-) -> Result<(), Error>
-{
+) -> Result<(), Error> {
     Ok(())
 }
 
@@ -33,13 +31,10 @@ fn fuzz_many_forking<M>(
     shmem_provider: StdShMemProvider,
     forks: usize,
     monitor: M,
-) -> Result<(), Error>
-{
+) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn fuzz(
-    harness: &extern "C" fn(*const u8, usize) -> c_int,
-) -> Result<(), Error> {
+pub fn fuzz(harness: &extern "C" fn(*const u8, usize) -> c_int) -> Result<(), Error> {
     Ok(())
 }
