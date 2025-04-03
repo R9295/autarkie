@@ -13,12 +13,12 @@ use feedback::register::RegisterFeedback;
 use libafl::{
     corpus::{CachedOnDiskCorpus, Corpus, OnDiskCorpus},
     events::{ClientDescription, EventConfig, Launcher, SimpleEventManager},
-    executors::ForkserverExecutor,
+    executors::{ExitKind, ForkserverExecutor, InProcessExecutor, InProcessForkExecutor},
     feedback_or, feedback_or_fast,
     feedbacks::{
         CrashFeedback, MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, TimeFeedback, TimeoutFeedback,
     },
-    inputs::{Input, TargetBytesConverter},
+    inputs::{HasTargetBytes, Input, TargetBytesConverter},
     monitors::{MultiMonitor, SimpleMonitor},
     mutators::StdScheduledMutator,
     observers::{CanTrack, HitcountsMapObserver, StdMapObserver, TimeObserver},
@@ -28,6 +28,7 @@ use libafl::{
     BloomInputFilter, Evaluator, Fuzzer, HasMetadata, StdFuzzer,
 };
 pub use libafl_bolts::current_nanos;
+use libafl_bolts::AsSlice;
 use libafl_bolts::{
     core_affinity::{CoreId, Cores},
     fs::get_unique_std_input_file,
@@ -37,6 +38,8 @@ use libafl_bolts::{
     tuples::{tuple_list, Handled},
     AsSliceMut, Error,
 };
+#[cfg(feature = "libfuzzer")]
+use libafl_targets::extra_counters;
 use libafl_targets::{AFLppCmpLogMap, AFLppCmpLogObserver};
 use mutators::{
     recurse_mutate::AutarkieRecurseMutator, splice::AutarkieSpliceMutator,
@@ -47,20 +50,41 @@ use stages::{
     cmp::CmpLogStage, generate::GenerateStage, minimization::MinimizationStage,
     recursive_minimization::RecursiveMinimizationStage,
 };
+use std::io::{stderr, stdout, Write};
+use std::os::fd::AsRawFd;
+use std::str::FromStr;
 use std::{cell::RefCell, io::ErrorKind, path::PathBuf, process::Command, rc::Rc, time::Duration};
+use std::{env::args, ffi::c_int};
 
 use stages::generate;
 
 const SHMEM_ENV_VAR: &str = "__AFL_SHM_ID";
-pub fn run_fuzzer<I, TC>(bytes_converter: TC)
+pub fn run_fuzzer<I, TC, F>(bytes_converter: TC, harness: Option<F>)
 where
     I: Node + Input,
     TC: TargetBytesConverter<I> + Clone,
+    F: Fn(&I) -> ExitKind,
 {
+    #[cfg(not(feature = "libfuzzer"))]
     let monitor = MultiMonitor::new(|s| println!("{s}"));
-    /*     let monitor = MultiMonitor::new(|s| {}); */
+    #[cfg(feature = "libfuzzer")]
+    let monitor = {
+        destroy_output_fds();
+        MultiMonitor::new(create_monitor_closure())
+    };
+
     let shmem_provider = StdShMemProvider::new().expect("Failed to init shared memory");
+
+    #[cfg(not(feature = "libfuzzer"))]
     let opt = Opt::parse();
+    #[cfg(feature = "libfuzzer")]
+    let opt = {
+        let mut opt = args().collect::<Vec<_>>();
+        opt.remove(1);
+        opt.remove(opt.len() - 1);
+        Opt::parse_from(opt)
+    };
+
     let run_client = |mut state: Option<_>,
                       mut mgr: _,
                       core: ClientDescription|
@@ -68,14 +92,17 @@ where
         if !opt.output_dir.exists() {
             std::fs::create_dir(&opt.output_dir).unwrap();
         }
-        let map_size = Command::new(opt.executable.clone())
-            .env("AFL_DUMP_MAP_SIZE", "1")
-            .output()
-            .expect("target gave no output");
-        let map_size = String::from_utf8(map_size.stdout)
-            .expect("target returned illegal mapsize")
-            .replace("\n", "");
-        let map_size = map_size.parse::<usize>().expect("illegal mapsize output") + opt.map_bias;
+        #[cfg(not(feature = "libfuzzer"))]
+        let map_size = {
+            let map_size = Command::new(opt.executable.clone())
+                .env("AFL_DUMP_MAP_SIZE", "1")
+                .output()
+                .expect("target gave no output");
+            let map_size = String::from_utf8(map_size.stdout)
+                .expect("target returned illegal mapsize")
+                .replace("\n", "");
+            map_size.parse::<usize>().expect("illegal mapsize output") + opt.map_bias
+        };
 
         let fuzzer_dir = opt.output_dir.join(format!("{}", core.core_id().0));
         match std::fs::create_dir(&fuzzer_dir) {
@@ -88,19 +115,33 @@ where
         };
 
         // Create the shared memory map for comms with the forkserver
+        #[cfg(not(feature = "libfuzzer"))]
         let mut shmem_provider = UnixShMemProvider::new().unwrap();
+        #[cfg(not(feature = "libfuzzer"))]
         let mut shmem = shmem_provider.new_shmem(map_size).unwrap();
+        #[cfg(not(feature = "libfuzzer"))]
         unsafe {
             shmem.write_to_env(SHMEM_ENV_VAR).unwrap();
         }
+        #[cfg(not(feature = "libfuzzer"))]
         let shmem_buf = shmem.as_slice_mut();
 
         // Create an observation channel to keep track of edges hit.
+        #[cfg(not(feature = "libfuzzer"))]
         let edges_observer = unsafe {
             HitcountsMapObserver::new(StdMapObserver::new("edges", shmem_buf)).track_indices()
         };
+        #[cfg(feature = "libfuzzer")]
+        let edges = unsafe { extra_counters() };
+        #[cfg(feature = "libfuzzer")]
+        let edges_observer = HitcountsMapObserver::new(StdMapObserver::from_mut_slice(
+            "edges",
+            edges.into_iter().next().unwrap(),
+        ));
+
         let seed = opt.rng_seed.unwrap_or(current_nanos());
 
+        // Initialize Autarkie's visitor
         let mut visitor = Visitor::new(
             seed,
             DepthInfo {
@@ -111,8 +152,8 @@ where
         I::__autarkie_register(&mut visitor, None, 0);
         visitor.calculate_recursion();
         let visitor = Rc::new(RefCell::new(visitor));
+
         // Create a MapFeedback for coverage guided fuzzin'
-        // We only care if an edge was hit, not how many times
         let map_feedback = MaxMapPow2Feedback::new(&edges_observer);
 
         // Create an observation channel to keep track of the execution time.
@@ -155,8 +196,14 @@ where
             &edges_observer,
             Some(PowerSchedule::explore()),
         );
+        let observers = tuple_list!(edges_observer, time_observer);
         let scheduler = scheduler.cycling_scheduler();
+        // Create our Fuzzer
+        let mut fuzzer =
+            StdFuzzer::with_bloom_input_filter(scheduler, feedback, objective, 1000, 0.1);
 
+        // Create our Executor
+        #[cfg(not(feature = "libfuzzer"))]
         let mut executor = ForkserverExecutor::builder()
             .program(opt.executable.clone())
             .coverage_map_size(map_size)
@@ -166,18 +213,29 @@ where
             .timeout(Duration::from_millis(opt.hang_timeout))
             .shmem_provider(&mut shmem_provider)
             .target_bytes_converter(bytes_converter.clone())
-            .build(tuple_list!(edges_observer, time_observer))
+            .build(observers)
             .unwrap();
+        #[cfg(feature = "libfuzzer")]
+        let mut harness = harness.unwrap();
+        #[cfg(feature = "libfuzzer")]
+        let mut executor = InProcessExecutor::with_timeout(
+            &mut harness,
+            observers,
+            &mut fuzzer,
+            &mut state,
+            &mut mgr,
+            Duration::from_millis(opt.hang_timeout),
+        )?;
 
-        // Create our Fuzzer
-        // TODO: use BloomInputFilter
-        let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
         if let Some(dict_file) = &opt.dict_file {
             let file = std::fs::read_to_string(dict_file).expect("cannot read dict file");
             for entry in file.split("\n") {
                 visitor.borrow_mut().register_string(entry.to_string());
             }
         }
+
+        // Read strings from the target if configured
+        #[cfg(not(feature = "libfuzzer"))]
         if opt.get_strings {
             let string_regex = Regex::new("^[a-zA-Z0-9_]+$").unwrap();
             let strings = Command::new("strings")
@@ -191,6 +249,8 @@ where
                 }
             }
         }
+
+        // Reload corpus chunks if they exist
         for chunk_dir in std::fs::read_dir(fuzzer_dir.join("chunks"))? {
             let dir = chunk_dir?.path();
             for chunk in std::fs::read_dir(dir)? {
@@ -199,6 +259,8 @@ where
             }
         }
         state.add_metadata(context);
+
+        // Reload corpus
         if state.must_load_initial_inputs() {
             state.load_initial_inputs(
                 &mut fuzzer,
@@ -240,56 +302,59 @@ where
             ),
             3,
         );
-        // The CmpLog map shared between the CmpLog observer and CmpLog executor
-        let mut cmplog_shmem = shmem_provider.uninit_on_shmem::<AFLppCmpLogMap>().unwrap();
+        #[cfg(not(feature = "libfuzzer"))]
+        let cmplog = {
+            // The CmpLog map shared between the CmpLog observer and CmpLog executor
+            let mut cmplog_shmem = shmem_provider.uninit_on_shmem::<AFLppCmpLogMap>().unwrap();
 
-        // Let the Forkserver know the CmpLog shared memory map ID.
-        unsafe {
-            cmplog_shmem.write_to_env("__AFL_CMPLOG_SHM_ID").unwrap();
-        }
-        let cmpmap = unsafe { OwnedRefMut::from_shmem(&mut cmplog_shmem) };
-
-        // Create the CmpLog observer.
-        let cmplog_observer = AFLppCmpLogObserver::new("cmplog", cmpmap, true);
-        let cmplog_ref = cmplog_observer.handle();
-        // Create the CmpLog executor.
-        // Cmplog has 25% execution overhead so we give it double the timeout
-        let cmplog_executor = ForkserverExecutor::builder()
-            .program(opt.executable.clone())
-            .coverage_map_size(map_size)
-            .debug_child(opt.debug_child)
-            .is_persistent(true)
-            .is_deferred_frksrv(true)
-            .timeout(Duration::from_millis(opt.hang_timeout * 2))
-            .shmem_provider(&mut shmem_provider)
-            .target_bytes_converter(bytes_converter.clone())
-            .build(tuple_list!(cmplog_observer))
-            .unwrap();
-
-        let cb = |_fuzzer: &mut _,
-                  _executor: &mut _,
-                  state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
-                  _event_manager: &mut _|
-         -> Result<bool, Error> {
-            if !opt.cmplog || core.core_id() != *opt.cores.ids.first().unwrap() {
-                return Ok(false);
+            // Let the Forkserver know the CmpLog shared memory map ID.
+            unsafe {
+                cmplog_shmem.write_to_env("__AFL_CMPLOG_SHM_ID").unwrap();
             }
-            let testcase = state.current_testcase()?;
-            if testcase.scheduled_count() > 1 {
-                return Ok(false);
-            }
-            Ok(true)
+            let cmpmap = unsafe { OwnedRefMut::from_shmem(&mut cmplog_shmem) };
+            // Create the CmpLog observer.
+            let cmplog_observer = AFLppCmpLogObserver::new("cmplog", cmpmap, true);
+            let cmplog_ref = cmplog_observer.handle();
+            // Create the CmpLog executor.
+            // Cmplog has 25% execution overhead so we give it double the timeout
+            let cmplog_executor = ForkserverExecutor::builder()
+                .program(opt.executable.clone())
+                .coverage_map_size(map_size)
+                .debug_child(opt.debug_child)
+                .is_persistent(true)
+                .is_deferred_frksrv(true)
+                .timeout(Duration::from_millis(opt.hang_timeout * 2))
+                .shmem_provider(&mut shmem_provider)
+                .target_bytes_converter(bytes_converter.clone())
+                .build(tuple_list!(cmplog_observer))
+                .unwrap();
+
+            let cb = |_fuzzer: &mut _,
+                      _executor: &mut _,
+                      state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
+                      _event_manager: &mut _|
+             -> Result<bool, Error> {
+                if !opt.cmplog || core.core_id() != *opt.cores.ids.first().unwrap() {
+                    return Ok(false);
+                }
+                let testcase = state.current_testcase()?;
+                if testcase.scheduled_count() > 1 {
+                    return Ok(false);
+                }
+                Ok(true)
+            };
+            IfStage::new(
+                cb,
+                tuple_list!(stages::cmp::CmpLogStage::new(
+                    Rc::clone(&visitor),
+                    cmplog_executor,
+                    cmplog_ref
+                )),
+            )
         };
-        let cmplog = IfStage::new(
-            cb,
-            tuple_list!(stages::cmp::CmpLogStage::new(
-                Rc::clone(&visitor),
-                cmplog_executor,
-                cmplog_ref
-            )),
-        );
         let generate_stage = GenerateStage::new(Rc::clone(&visitor));
 
+        #[cfg(not(feature = "libfuzzer"))]
         let mut stages = tuple_list!(
             // we mut minimize before calculating testcase score
             minimization_stage,
@@ -299,9 +364,19 @@ where
             generate_stage
         );
 
+        #[cfg(feature = "libfuzzer")]
+        let mut stages = tuple_list!(
+            // we mut minimize before calculating testcase score
+            minimization_stage,
+            recursive_minimization_stage,
+            StdPowerMutationalStage::new(mutator),
+            generate_stage
+        );
+
         fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)?;
         Err(Error::shutting_down())
     };
+
     Launcher::builder()
         .cores(&opt.cores)
         .monitor(monitor)
@@ -312,7 +387,6 @@ where
         .launch();
 }
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Parser, Clone)]
 #[command(
     name = "autarkie",
@@ -321,6 +395,7 @@ where
 )]
 struct Opt {
     /// What we wanna fuzz
+    #[cfg(not(feature = "libfuzzer"))]
     executable: PathBuf,
     /// Fuzzer output dir; will also load inputs from there
     #[arg(short = 'o')]
@@ -338,6 +413,7 @@ struct Opt {
     #[arg(short = 'd')]
     debug_child: bool,
 
+    #[cfg(not(feature = "libfuzzer"))]
     /// AFL_DUMP_MAP_SIZE + x where x = map bias
     #[arg(short = 'm')]
     map_bias: usize,
@@ -400,4 +476,39 @@ macro_rules! debug_grammar {
             println!("--------------------------------"); */
         }
     };
+}
+#[cfg(feature = "libfuzzer")]
+fn create_monitor_closure() -> impl Fn(&str) + Clone {
+    #[cfg(unix)]
+    let stderr_fd = std::os::fd::RawFd::from_str(&std::env::var(STDERR_FD_VAR).unwrap()).unwrap(); // set in main
+    move |s| {
+        #[cfg(unix)]
+        {
+            use std::os::fd::FromRawFd;
+
+            // unfortunate requirement to meet Clone... thankfully, this does not
+            // generate effectively any overhead (no allocations, calls get merged)
+            let mut stderr = unsafe { std::fs::File::from_raw_fd(stderr_fd) };
+            writeln!(stderr, "{s}").expect("Could not write to stderr???");
+            std::mem::forget(stderr); // do not close the descriptor!
+        }
+        #[cfg(not(unix))]
+        eprintln!("{s}");
+    }
+}
+#[cfg(feature = "libfuzzer")]
+/// Communicate the stderr duplicated fd to subprocesses
+pub const STDERR_FD_VAR: &str = "_LIBAFL_LIBFUZZER_STDERR_FD";
+#[cfg(feature = "libfuzzer")]
+fn destroy_output_fds() {
+    #[cfg(unix)]
+    {
+        use libafl_bolts::os::{dup2, null_fd};
+
+        let null_fd = null_fd().unwrap();
+        let stdout_fd = stdout().as_raw_fd();
+        let stderr_fd = stderr().as_raw_fd();
+        dup2(null_fd, stdout_fd).unwrap();
+        dup2(null_fd, stderr_fd).unwrap();
+    }
 }

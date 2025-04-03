@@ -1,8 +1,9 @@
 use core::ffi::{c_char, c_int};
 
+use env_logger::Target;
 use libafl::Error;
 use mimalloc::MiMalloc;
-
+use std::os::fd::RawFd;
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
@@ -20,38 +21,6 @@ mod harness_wrap {
     include!(concat!(env!("OUT_DIR"), "/harness_wrap.rs"));
 }
 
-
-#[expect(clippy::struct_excessive_bools)]
-struct CustomMutationStatus {
-    std_mutational: bool,
-    std_no_mutate: bool,
-    std_no_crossover: bool,
-    custom_mutation: bool,
-    custom_crossover: bool,
-}
-
-impl CustomMutationStatus {
-    fn new() -> Self {
-        let custom_mutation = libafl_targets::libfuzzer::has_custom_mutator();
-        let custom_crossover = libafl_targets::libfuzzer::has_custom_crossover();
-
-        // we use all libafl mutations
-        let std_mutational = !(custom_mutation || custom_crossover);
-        // we use libafl crossover, but not libafl mutations
-        let std_no_mutate = !std_mutational && custom_mutation && !custom_crossover;
-        // we use libafl mutations, but not libafl crossover
-        let std_no_crossover = !std_mutational && !custom_mutation && custom_crossover;
-
-        Self {
-            std_mutational,
-            std_no_mutate,
-            std_no_crossover,
-            custom_mutation,
-            custom_crossover,
-        }
-    }
-}
-
 /// Starts to fuzz on a single node
 pub fn start_fuzzing_single<F, S, EM>(
     mut fuzz_single: F,
@@ -64,13 +33,11 @@ where
     fuzz_single(initial_state, mgr, 0)
 }
 
+pub(crate) use harness_wrap::libafl_libfuzzer_test_one_input;
 unsafe extern "C" {
     // redeclaration against libafl_targets because the pointers in our case may be mutable
     fn libafl_targets_libfuzzer_init(argc: *mut c_int, argv: *mut *mut *const c_char) -> i32;
 }
-
-/// Communicate the stderr duplicated fd to subprocesses
-pub const STDERR_FD_VAR: &str = "_LIBAFL_LIBFUZZER_STDERR_FD";
 
 /// A method to start the fuzzer at a later point in time from a library.
 /// To quote the `libfuzzer` docs:
@@ -90,14 +57,42 @@ pub unsafe extern "C" fn LLVMFuzzerRunDriver(
     let harness = harness_fn
         .as_ref()
         .expect("Illegal harness provided to libafl.");
+    // early duplicate the stderr fd so we can close it later for the target
+    #[cfg(unix)]
+    {
+        use std::{
+            os::fd::{AsRawFd, FromRawFd},
+            str::FromStr,
+        };
+
+        let stderr_fd = std::env::var(autarkie::fuzzer::STDERR_FD_VAR)
+            .map_err(Error::from)
+            .and_then(|s| RawFd::from_str(&s).map_err(Error::from))
+            .unwrap_or_else(|_| {
+                let stderr = unsafe { libc::dup(std::io::stderr().as_raw_fd()) };
+                unsafe {
+                    std::env::set_var(autarkie::fuzzer::STDERR_FD_VAR, stderr.to_string());
+                }
+                stderr
+            });
+        let stderr = unsafe { std::fs::File::from_raw_fd(stderr_fd) };
+        env_logger::builder()
+            .parse_default_env()
+            .target(Target::Pipe(Box::new(stderr)))
+            .init();
+    }
 
     // it appears that no one, not even libfuzzer, uses this return value
     // https://github.com/llvm/llvm-project/blob/llvmorg-15.0.7/compiler-rt/lib/fuzzer/FuzzerDriver.cpp#L648
     unsafe {
         libafl_targets_libfuzzer_init(argc, argv);
     }
-
-    let argc = unsafe { *argc } as isize;
-    let argv = unsafe { *argv };
-    0
+    let res = crate::fuzz::fuzz(harness);
+    match res {
+        Ok(()) | Err(Error::ShuttingDown) => 0,
+        Err(err) => {
+            eprintln!("Encountered error while performing libfuzzer shimming: {err}");
+            1
+        }
+    }
 }

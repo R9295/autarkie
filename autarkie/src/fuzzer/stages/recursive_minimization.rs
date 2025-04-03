@@ -1,6 +1,13 @@
 use crate::{MutationType, Node, NodeType, Visitor};
 use libafl::{
-    corpus::Corpus, events::EventFirer, executors::{Executor, HasObservers}, feedbacks::{HasObserverHandle, MapIndexesMetadata}, observers::{MapObserver, ObserversTuple}, stages::{Restartable, Stage}, state::{HasCorpus, HasCurrentTestcase}, Evaluator, HasMetadata
+    corpus::Corpus,
+    events::EventFirer,
+    executors::{Executor, HasObservers},
+    feedbacks::{HasObserverHandle, MapIndexesMetadata},
+    observers::{MapObserver, ObserversTuple},
+    stages::{Restartable, Stage},
+    state::{HasCorpus, HasCurrentTestcase},
+    Evaluator, HasMetadata,
 };
 use libafl_bolts::{tuples::Handle, AsIter, Named};
 use num_traits::Bounded;
@@ -131,11 +138,10 @@ where
     }
 }
 
-impl<C, E, O, OT, S, I> Restartable<S> for RecursiveMinimizationStage<C, E, O, OT, S, I>
-{ 
+impl<C, E, O, OT, S, I> Restartable<S> for RecursiveMinimizationStage<C, E, O, OT, S, I> {
     fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl::Error> {
         Ok(false)
-    }   
+    }
 
     fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl::Error> {
         Ok(())

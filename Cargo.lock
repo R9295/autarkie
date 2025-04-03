@@ -131,9 +131,9 @@ dependencies = [
  "borsh",
  "clap",
  "colored",
- "libafl 0.15.2",
- "libafl_bolts 0.15.2",
- "libafl_targets 0.15.2",
+ "libafl",
+ "libafl_bolts",
+ "libafl_targets",
  "num-traits",
  "parity-scale-codec",
  "petgraph",
@@ -627,17 +627,6 @@ dependencies = [
 
 [[package]]
 name = "fastbloom"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b679f25009b51b71506296f95fb6362ba7d0151172fa7373a8d1611b8bc5d10f"
-dependencies = [
- "getrandom 0.2.15",
- "siphasher",
- "wide",
-]
-
-[[package]]
-name = "fastbloom"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "27cea6e7f512d43b098939ff4d5a5d6fe3db07971e1d05176fe26c642d33f5b8"
@@ -839,39 +828,6 @@ dependencies = [
 
 [[package]]
 name = "libafl"
-version = "0.14.1"
-source = "git+https://github.com/AFLplusplus/LibAFL?rev=aa0391ef8d47c229d2306d43f898e4ea28ca4186#aa0391ef8d47c229d2306d43f898e4ea28ca4186"
-dependencies = [
- "ahash",
- "arbitrary-int",
- "backtrace",
- "bincode",
- "bitbybit",
- "const_format",
- "const_panic",
- "fastbloom 0.8.0",
- "hashbrown 0.14.5",
- "libafl_bolts 0.14.1",
- "libc",
- "libm",
- "log",
- "meminterval",
- "nix",
- "num-traits",
- "postcard",
- "rustversion",
- "serde",
- "serde_json",
- "serial_test",
- "tuple_list",
- "typed-builder 0.20.0",
- "uuid",
- "wait-timeout",
- "windows 0.59.0",
-]
-
-[[package]]
-name = "libafl"
 version = "0.15.2"
 source = "git+https://github.com/AFLplusplus/LibAFL?rev=fb0848e174240e81d294de7da8eb69033487f044#fb0848e174240e81d294de7da8eb69033487f044"
 dependencies = [
@@ -883,10 +839,10 @@ dependencies = [
  "const_format",
  "const_panic",
  "crossterm",
- "fastbloom 0.9.0",
+ "fastbloom",
  "fs2",
  "hashbrown 0.14.5",
- "libafl_bolts 0.15.2",
+ "libafl_bolts",
  "libafl_derive",
  "libc",
  "libm",
@@ -902,38 +858,11 @@ dependencies = [
  "serde_json",
  "serial_test",
  "tuple_list",
- "typed-builder 0.21.0",
+ "typed-builder",
  "uuid",
  "wait-timeout",
  "winapi",
  "windows 0.59.0",
-]
-
-[[package]]
-name = "libafl_bolts"
-version = "0.14.1"
-source = "git+https://github.com/AFLplusplus/LibAFL?rev=aa0391ef8d47c229d2306d43f898e4ea28ca4186#aa0391ef8d47c229d2306d43f898e4ea28ca4186"
-dependencies = [
- "ahash",
- "backtrace",
- "erased-serde",
- "hashbrown 0.14.5",
- "hostname",
- "libc",
- "log",
- "mach",
- "nix",
- "num_enum",
- "postcard",
- "rustversion",
- "serde",
- "serial_test",
- "static_assertions",
- "tuple_list",
- "uds",
- "uuid",
- "windows 0.59.0",
- "windows-result",
 ]
 
 [[package]]
@@ -996,38 +925,22 @@ name = "libafl_libfuzzer_runtime"
 version = "0.15.1"
 dependencies = [
  "ahash",
+ "autarkie",
  "bindgen",
  "cc",
  "env_logger",
  "hashbrown 0.14.5",
- "libafl 0.15.2",
- "libafl_bolts 0.15.2",
- "libafl_targets 0.14.1",
+ "libafl",
+ "libafl_bolts",
+ "libafl_targets",
  "libc",
  "log",
  "mimalloc",
  "num-traits",
  "rand",
  "serde",
+ "sqlparser",
  "utf8-chars",
-]
-
-[[package]]
-name = "libafl_targets"
-version = "0.14.1"
-source = "git+https://github.com/AFLplusplus/LibAFL?rev=aa0391ef8d47c229d2306d43f898e4ea28ca4186#aa0391ef8d47c229d2306d43f898e4ea28ca4186"
-dependencies = [
- "bindgen",
- "cc",
- "hashbrown 0.14.5",
- "libafl 0.14.1",
- "libafl_bolts 0.14.1",
- "libc",
- "log",
- "once_cell",
- "rangemap",
- "rustversion",
- "serde",
 ]
 
 [[package]]
@@ -1038,8 +951,8 @@ dependencies = [
  "bindgen",
  "cc",
  "hashbrown 0.14.5",
- "libafl 0.15.2",
- "libafl_bolts 0.15.2",
+ "libafl",
+ "libafl_bolts",
  "libc",
  "log",
  "once_cell",
@@ -1373,6 +1286,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "psm"
+version = "0.1.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f58e5423e24c18cc840e1c98370b3993c6649cd1678b4d24318bcf0a083cbe88"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1454,6 +1376,26 @@ dependencies = [
  "unicode-segmentation",
  "unicode-truncate",
  "unicode-width 0.2.0",
+]
+
+[[package]]
+name = "recursive"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0786a43debb760f491b1bc0269fe5e84155353c67482b9e60d0cfb596054b43e"
+dependencies = [
+ "recursive-proc-macro-impl",
+ "stacker",
+]
+
+[[package]]
+name = "recursive-proc-macro-impl"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76009fbe0614077fc1a2ce255e3a1881a2e3a3527097d5dc6d8212c585e7e38b"
+dependencies = [
+ "quote",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -1675,6 +1617,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
+name = "sqlparser"
+version = "0.55.0"
+dependencies = [
+ "autarkie",
+ "log",
+ "recursive",
+ "serde",
+]
+
+[[package]]
+name = "stacker"
+version = "0.1.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "601f9201feb9b09c00266478bf459952b9ef9a6b94edb2f21eba14ab681a60a9"
+dependencies = [
+ "cc",
+ "cfg-if",
+ "libc",
+ "psm",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1779,31 +1744,11 @@ checksum = "141fb9f71ee586d956d7d6e4d5a9ef8e946061188520140f7591b668841d502e"
 
 [[package]]
 name = "typed-builder"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e14ed59dc8b7b26cacb2a92bad2e8b1f098806063898ab42a3bd121d7d45e75"
-dependencies = [
- "typed-builder-macro 0.20.0",
-]
-
-[[package]]
-name = "typed-builder"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce63bcaf7e9806c206f7d7b9c1f38e0dce8bb165a80af0898161058b19248534"
 dependencies = [
- "typed-builder-macro 0.21.0",
-]
-
-[[package]]
-name = "typed-builder-macro"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "560b82d656506509d43abe30e0ba64c56b1953ab3d4fe7ba5902747a7a3cedd5"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.96",
+ "typed-builder-macro",
 ]
 
 [[package]]

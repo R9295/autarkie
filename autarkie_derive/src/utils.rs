@@ -23,7 +23,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
     parse::Parse, parse_quote, punctuated::Punctuated, spanned::Spanned, token, Attribute, Expr,
-    ExprLit, Field, Lit, Meta, Path, Token, Variant,
+    ExprLit, Field, Lit, Meta, Path, Token,
 };
 
 fn find_meta_item<'a, F, R, I, M>(mut itr: I, mut pred: F) -> Option<R>
@@ -37,38 +37,6 @@ where
             .is_ident("codec")
             .then(|| pred(attr.parse_args().ok()?))
             .flatten()
-    })
-}
-
-/// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
-/// is found, fall back to the discriminant or just the variant index.
-pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
-    // first look for an attribute
-    let index = find_meta_item(v.attrs.iter(), |meta| {
-        if let Meta::NameValue(ref nv) = meta {
-            if nv.path.is_ident("index") {
-                if let Expr::Lit(ExprLit {
-                    lit: Lit::Int(ref v),
-                    ..
-                }) = nv.value
-                {
-                    let byte = v
-                        .base10_parse::<u8>()
-                        .expect("Internal error, index attribute must have been checked");
-                    return Some(byte);
-                }
-            }
-        }
-
-        None
-    });
-
-    // then fallback to discriminant or just index
-    index.map(|i| quote! { #i }).unwrap_or_else(|| {
-        v.discriminant
-            .as_ref()
-            .map(|(_, expr)| quote! { #expr })
-            .unwrap_or_else(|| quote! { #i })
     })
 }
 
@@ -129,19 +97,6 @@ pub fn should_skip(attrs: &[Attribute]) -> bool {
     .is_some()
 }
 
-fn crate_access() -> syn::Result<proc_macro2::Ident> {
-    use proc_macro2::{Ident, Span};
-    use proc_macro_crate::{crate_name, FoundCrate};
-    const DEF_CRATE: &str = "autarkie";
-    match crate_name(DEF_CRATE) {
-        Ok(FoundCrate::Itself) => {
-            let name = DEF_CRATE.to_string().replace('-', "_");
-            Ok(syn::Ident::new(&name, Span::call_site()))
-        }
-        Ok(FoundCrate::Name(name)) => Ok(Ident::new(&name, Span::call_site())),
-        Err(e) => Err(syn::Error::new(Span::call_site(), e)),
-    }
-}
 /// This struct matches `crate = ...` where the ellipsis is a `Path`.
 struct CratePath {
     _crate_token: Token![crate],
@@ -165,43 +120,19 @@ impl From<CratePath> for Path {
     }
 }
 
-/// Match `#[codec(crate = ...)]` and return the `...` if it is a `Path`.
-fn codec_crate_path_inner(attr: &Attribute) -> Option<Path> {
-    // match `#[codec ...]`
-    attr.path()
-        .is_ident("codec")
-        .then(|| {
-            // match `#[codec(crate = ...)]` and return the `...`
-            attr.parse_args::<CratePath>().map(Into::into).ok()
-        })
-        .flatten()
-}
-
-/// Match `#[codec(crate = ...)]` and return the ellipsis as a `Path`.
-///
-/// If not found, returns the default crate access pattern.
-///
-/// If multiple items match the pattern, all but the first are ignored.
-pub fn codec_crate_path(attrs: &[Attribute]) -> syn::Result<Path> {
-    match attrs.iter().find_map(codec_crate_path_inner) {
-        Some(path) => Ok(path),
-        None => crate_access().map(|ident| parse_quote!(::#ident)),
-    }
-}
-
 /// Parse `name(T: Bound, N: Bound)` or `name(skip_type_params(T, N))` as a custom trait bound.
 pub enum CustomTraitBound<N> {
     SpecifiedBounds {
         _name: N,
         _paren_token: token::Paren,
-        bounds: Punctuated<syn::WherePredicate, Token![,]>,
+        _bounds: Punctuated<syn::WherePredicate, Token![,]>,
     },
     SkipTypeParams {
         _name: N,
         _paren_token_1: token::Paren,
         _skip_type_params: skip_type_params,
         _paren_token_2: token::Paren,
-        type_names: Punctuated<syn::Ident, Token![,]>,
+        _type_names: Punctuated<syn::Ident, Token![,]>,
     },
 }
 
@@ -216,13 +147,13 @@ impl<N: Parse> Parse for CustomTraitBound<N> {
                 _paren_token_1: _paren_token,
                 _skip_type_params: content.parse::<skip_type_params>()?,
                 _paren_token_2: syn::parenthesized!(content in content),
-                type_names: content.parse_terminated(syn::Ident::parse, Token![,])?,
+                _type_names: content.parse_terminated(syn::Ident::parse, Token![,])?,
             })
         } else {
             Ok(Self::SpecifiedBounds {
                 _name,
                 _paren_token,
-                bounds: content.parse_terminated(syn::WherePredicate::parse, Token![,])?,
+                _bounds: content.parse_terminated(syn::WherePredicate::parse, Token![,])?,
             })
         }
     }

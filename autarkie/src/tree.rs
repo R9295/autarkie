@@ -1,4 +1,5 @@
 use crate::{visitor, NodeType, Visitor};
+use serde::de::DeserializeOwned;
 use std::borrow::Cow;
 use std::{
     collections::{BTreeMap, VecDeque},
@@ -83,7 +84,7 @@ where
 }
 
 #[cfg(feature = "bincode")]
-node!(Debug + serde::ser::Serialize + for<'a> serde::de::Deserialize<'a> + 'static);
+node!(Debug + serde::ser::Serialize + DeserializeOwned + 'static);
 
 #[cfg(feature = "scale")]
 node!(Debug + parity_scale_codec::Encode + parity_scale_codec::Decode + 'static);
@@ -900,7 +901,7 @@ where
 #[cfg(feature = "bincode")]
 pub fn deserialize<T>(data: &mut &[u8]) -> T
 where
-    for<'a> T: serde::Deserialize<'a>,
+    T: DeserializeOwned,
 {
     bincode::deserialize(data).expect("invariant; we must always be able to deserialize")
 }

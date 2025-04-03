@@ -1,10 +1,10 @@
 use core::error::Error;
 use std::{
-    fs,
-    fs::File,
+    fs::{self, File},
     io::{BufRead, BufReader, BufWriter, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    str::FromStr,
 };
 
 #[cfg(feature = "rabbit")]
@@ -73,70 +73,92 @@ fn main() -> Result<(), Box<dyn Error>> {
         .arg("--target")
         .arg(std::env::var_os("TARGET").unwrap());
 
-    // detect if we are a version or path/git dep, or testing version-based behavior
-    if fs::exists("../libafl_libfuzzer_runtime")? && !cfg!(feature = "libafl-libfuzzer-use-version")
-    {
-        command.current_dir("../libafl_libfuzzer_runtime");
-    } else {
-        // we are being used as a version dep; we need to create the package virtually
+    command.current_dir("../libafl_libfuzzer_runtime");
+    // autarkie: make sure we have a grammar source.
+    let Ok(grammar_source) = std::env::var("AUTARKIE_GRAMMAR_SRC") else {
+        eprintln!("Autarkie: missing path to grammar source (AUTARKIE_GRAMMAR_SRC)");
+        panic!("Autarkie: missing path to grammar source (AUTARKIE_GRAMMAR_SRC)");
+    };
 
-        // remove old files; we need to trigger a rebuild if our path changes!
-        let _ = fs::remove_file(custom_lib_dir.join("src"));
-        let _ = fs::remove_dir_all(custom_lib_dir.join("src")); // maybe a dir in windows
-        let _ = fs::remove_file(custom_lib_dir.join("build.rs"));
-        let _ = fs::remove_file(custom_lib_dir.join("Cargo.toml"));
+    let grammar_source = PathBuf::from_str(&grammar_source)?;
+    assert!(
+        grammar_source.is_absolute(),
+        "grammar source must be an absolute path."
+    );
+    let mut grammar_source_toml =
+        toml::from_str(&std::fs::read_to_string(grammar_source.join("Cargo.toml"))?)?;
+    let toml::Value::Table(grammar_source_toml) = &mut grammar_source_toml else {
+        unreachable!("Invalid Cargo.toml");
+    };
+    let Some(toml::Value::Table(name)) = grammar_source_toml.get("package") else {
+        unreachable!("Invalid Cargo.toml");
+    };
+    let Some(toml::Value::Table(grammar_deps)) = grammar_source_toml.get("dependencies") else {
+        unreachable!("Invalid Cargo.toml");
+    };
+    let name = name.get("name").unwrap().to_string();
 
-        #[cfg(unix)]
-        {
-            // create symlinks for all the source files
-            use std::os::unix::fs::symlink;
-
-            // canonicalize can theoretically fail if we are within a non-executable directory?
-            symlink(fs::canonicalize("runtime/src")?, custom_lib_dir.join("src"))?;
-            symlink(
-                fs::canonicalize("runtime/build.rs")?,
-                custom_lib_dir.join("build.rs"),
-            )?;
-        }
-        #[cfg(not(unix))]
-        {
-            todo!("copy all the source files"); // we don't support libafl_libfuzzer for others rn
-        }
-        #[cfg(unix)]
-        {
-            let mut template: toml::Value =
-                toml::from_str(&fs::read_to_string("runtime/Cargo.toml.template")?)?;
-            let toml::Value::Table(root) = &mut template else {
-                unreachable!("Invalid Cargo.toml");
-            };
-            root.insert(
-                "workspace".to_string(),
-                toml::Value::Table(toml::Table::new()),
-            );
-            let Some(toml::Value::Table(deps)) = root.get_mut("dependencies") else {
-                unreachable!("Invalid Cargo.toml");
-            };
-            let version = env!("CARGO_PKG_VERSION");
-            for (_name, spec) in deps {
-                if let toml::Value::Table(spec) = spec {
-                    // replace all path deps with version deps
-                    if spec.remove("path").is_some() {
-                        spec.insert(
-                            "version".to_string(),
-                            toml::Value::String(version.to_string()),
-                        );
-                    }
-                }
-            }
-
-            let serialized = toml::to_string(&template)?;
-            fs::write(custom_lib_dir.join("Cargo.toml"), serialized)?;
-
-            // build in this filled out template
-            command.current_dir(custom_lib_dir);
-        }
+    let mut template = toml::from_str(&std::fs::read_to_string(
+        "../libafl_libfuzzer_runtime/Cargo.toml",
+    )?)?;
+    let toml::Value::Table(root) = &mut template else {
+        unreachable!("Invalid Cargo.toml");
+    };
+    let Some(toml::Value::Table(deps)) = root.get_mut("dependencies") else {
+        unreachable!("Invalid Cargo.toml");
+    };
+    // TODO: remove old grammar
+    if deps.contains_key("grammar_source") {
+        deps.remove("grammar_source");
+    }
+    // remove old autarkie dependency
+    // We need to re-add it because serialization primives may change
+    if deps.contains_key("autarkie") {
+        deps.remove("autarkie");
+    }
+    let mut grammar_autarkie = grammar_deps
+        .get("autarkie")
+        .expect("Grammar source must have autarkie as a dependency")
+        .clone();
+    if let Some(autarkie_path) = grammar_autarkie.get("path") {
+        assert!(
+            PathBuf::from(autarkie_path.to_string().replace("\"", "")).is_absolute(),
+            "Autarkie's path must either be absolute or a git repository"
+        );
+    }
+    let Some(toml::Value::Array(autarkie_features)) = grammar_autarkie.get_mut("features") else {
+        unreachable!("Invalid autarkie declaration");
+    };
+    if !autarkie_features.contains(&toml::Value::String("libfuzzer".to_string())) {
+        autarkie_features.push("libfuzzer".into());
     }
 
+    let mut dep = toml::map::Map::from_iter([
+        (
+            "path".to_string(),
+            toml::Value::String(grammar_source.to_str().unwrap().to_string()),
+        ),
+        (
+            "package".to_string(),
+            toml::Value::String(name.replace("\"", "")),
+        ),
+    ]);
+    if let Ok(features) = std::env::var("AUTARKIE_GRAMMAR_SRC_FEATURES") {
+        let features = features.replace(" ", "");
+        dep.insert(
+            "features".to_string(),
+            toml::Value::Array(
+                features
+                    .split(",")
+                    .map(|i| toml::Value::String(i.to_string()))
+                    .collect::<Vec<_>>(),
+            ),
+        );
+    }
+    deps.insert("grammar_source".to_string(), toml::Value::Table(dep));
+    deps.insert("autarkie".to_string(), grammar_autarkie);
+    let serialized = toml::to_string(&template)?;
+    fs::write("../libafl_libfuzzer_runtime/Cargo.toml", serialized)?;
     assert!(
         command.status().is_ok_and(|s| s.success()),
         "Couldn't build runtime crate! Did you remember to use nightly? (`rustup default nightly` to install)"

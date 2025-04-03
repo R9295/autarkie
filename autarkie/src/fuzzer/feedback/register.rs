@@ -1,4 +1,3 @@
-
 use std::{borrow::Cow, cell::RefCell, marker::PhantomData, rc::Rc};
 
 use libafl::{
@@ -43,7 +42,6 @@ where
     ) -> Result<bool, Error> {
         Ok(false)
     }
-
 
     fn append_metadata(
         &mut self,

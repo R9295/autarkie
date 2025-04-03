@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use autarkie::{Grammar, Node};
 use serde::{Deserialize, Serialize};
 

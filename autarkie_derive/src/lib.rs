@@ -479,7 +479,7 @@ fn parse_fields(
     fields
 }
 
-fn get_field_defs(fields: &Vec<GrammarField>) -> Vec<proc_macro2::TokenStream> {
+fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
     fields
         .iter()
         .map(|field| {
@@ -538,7 +538,7 @@ fn get_field_defs(fields: &Vec<GrammarField>) -> Vec<proc_macro2::TokenStream> {
 }
 
 fn construct_generate_function_struct(
-    fields: &Vec<GrammarField>,
+    fields: &[GrammarField],
     is_named: bool,
 ) -> proc_macro2::TokenStream {
     let field_defs = get_field_defs(fields);
@@ -560,7 +560,7 @@ fn construct_generate_function_struct(
 }
 
 fn construct_generate_function_enum(
-    fields: &Vec<GrammarField>,
+    fields: &[GrammarField],
     is_named: bool,
     root_name: &Ident,
     variant_name: &Ident,

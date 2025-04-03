@@ -5,19 +5,14 @@ macro_rules! impl_converter {
         pub struct FuzzDataTargetBytesConverter;
 
         impl FuzzDataTargetBytesConverter {
-            fn new() -> Self {
+            pub fn new() -> Self {
                 Self {}
             }
         }
 
-        impl autarkie::TargetBytesConverter for FuzzDataTargetBytesConverter {
-            type Input = $t;
-
-            fn to_target_bytes<'a>(
-                &mut self,
-                input: &'a Self::Input,
-            ) -> autarkie::OwnedSlice<'a, u8> {
-                let bytes = autarkie::serialize(&input);
+        impl<I: autarkie::Node> autarkie::TargetBytesConverter<I> for FuzzDataTargetBytesConverter {
+            fn to_target_bytes<'a>(&mut self, input: &'a I) -> autarkie::OwnedSlice<'a, u8> {
+                let bytes = autarkie::serialize(input);
                 autarkie::OwnedSlice::from(bytes)
             }
         }
@@ -28,19 +23,16 @@ macro_rules! impl_converter {
         struct FuzzDataTargetBytesConverter;
 
         impl FuzzDataTargetBytesConverter {
-            fn new() -> Self {
+            pub fn new() -> Self {
                 Self
             }
         }
 
-        impl autarkie::TargetBytesConverter for FuzzDataTargetBytesConverter {
+        impl autarkie::TargetBytesConverter<I: autarkie::Node> for FuzzDataTargetBytesConverter {
             type Input = $t;
 
-            fn to_target_bytes<'a>(
-                &mut self,
-                input: &'a Self::Input,
-            ) -> autarkie::OwnedSlice<'a, u8> {
-                autarkie::OwnedSlice::from($closure(input.clone()))
+            fn to_target_bytes<'a>(&mut self, input: &'a I) -> autarkie::OwnedSlice<'a, u8> {
+                autarkie::OwnedSlice::from($closure(input))
             }
         }
     };
@@ -81,7 +73,7 @@ macro_rules! impl_input {
 macro_rules! fuzz_afl_inner {
     ($t: ty) => {
         fn main() {
-            $crate::fuzzer::run_fuzzer(FuzzDataTargetBytesConverter::new());
+            $crate::fuzzer::run_fuzzer(FuzzDataTargetBytesConverter::new(), None);
         }
     };
 }

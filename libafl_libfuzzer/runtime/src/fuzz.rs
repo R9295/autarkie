@@ -1,37 +1,29 @@
 use core::ffi::c_int;
+use grammar_source::{FuzzDataTargetBytesConverter, FuzzData};
 use libafl::Error;
-use libafl_bolts::shmem::StdShMemProvider;
+use autarkie::TargetBytesConverter;
+use libafl::executors::ExitKind;
+use libafl_bolts::AsSlice;
 
-fn do_fuzz<F, ST, E, S, EM>(
-    fuzzer: &mut F,
-    stages: &mut ST,
-    executor: &mut E,
-    state: &mut S,
-    mgr: &mut EM,
-) -> Result<(), Error> {
-    Ok(())
-}
-
-fn fuzz_single_forking<M>(
-    harness: &extern "C" fn(*const u8, usize) -> c_int,
-    shmem_provider: StdShMemProvider,
-    monitor: M,
-) -> Result<(), Error> {
-    Ok(())
-}
-
-/// Communicate the selected port to subprocesses
-const PORT_PROVIDER_VAR: &str = "_LIBAFL_LIBFUZZER_FORK_PORT";
-
-fn fuzz_many_forking<M>(
-    harness: &extern "C" fn(*const u8, usize) -> c_int,
-    shmem_provider: StdShMemProvider,
-    forks: usize,
-    monitor: M,
-) -> Result<(), Error> {
+fn fuzz_many_forking(harness: &extern "C" fn(*const u8, usize) -> c_int) -> Result<(), Error> {
+    let harness = |input: &FuzzData| {
+        let target = FuzzDataTargetBytesConverter::new().to_target_bytes(input);
+        let buf = target.as_slice();
+        let result = unsafe {
+            crate::libafl_libfuzzer_test_one_input(Some(*harness), buf.as_ptr(), buf.len())
+        };
+        match result {
+            -2 => ExitKind::Crash,
+            _ => ExitKind::Ok,
+        }
+    };
+    autarkie::fuzzer::run_fuzzer(
+        FuzzDataTargetBytesConverter::new(),
+        Some(harness),
+    );
     Ok(())
 }
 
 pub fn fuzz(harness: &extern "C" fn(*const u8, usize) -> c_int) -> Result<(), Error> {
-    Ok(())
+    fuzz_many_forking(harness)
 }
