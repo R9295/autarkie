@@ -55,7 +55,7 @@ const SHMEM_ENV_VAR: &str = "__AFL_SHM_ID";
 pub fn run_fuzzer<I, TC>(bytes_converter: TC)
 where
     I: Node + Input,
-    TC: TargetBytesConverter<Input = I> + Clone,
+    TC: TargetBytesConverter<I> + Clone,
 {
     let monitor = MultiMonitor::new(|s| println!("{s}"));
     /*     let monitor = MultiMonitor::new(|s| {}); */
@@ -90,7 +90,9 @@ where
         // Create the shared memory map for comms with the forkserver
         let mut shmem_provider = UnixShMemProvider::new().unwrap();
         let mut shmem = shmem_provider.new_shmem(map_size).unwrap();
-        shmem.write_to_env(SHMEM_ENV_VAR).unwrap();
+        unsafe {
+            shmem.write_to_env(SHMEM_ENV_VAR).unwrap();
+        }
         let shmem_buf = shmem.as_slice_mut();
 
         // Create an observation channel to keep track of edges hit.
@@ -131,7 +133,7 @@ where
             StdState::new(
                 RomuDuoJrRand::with_seed(seed),
                 // TODO: configure testcache size
-                CachedOnDiskCorpus::<I>::new(fuzzer_dir.join("queue"), 2).unwrap(),
+                CachedOnDiskCorpus::<I>::new(fuzzer_dir.join("queue"), 4096).unwrap(),
                 OnDiskCorpus::<I>::new(fuzzer_dir.join("crash")).unwrap(),
                 &mut feedback,
                 &mut objective,
@@ -216,7 +218,7 @@ where
                         &mut state,
                         &mut executor,
                         &mut mgr,
-                        generated.expect("dVoSuGRU____"),
+                        generated.as_ref().expect("dVoSuGRU____"),
                     )
                     .unwrap();
             }
@@ -226,15 +228,15 @@ where
         let mutator = StdScheduledMutator::with_max_stack_pow(
             tuple_list!(
                 // SPLICE
-                /* AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size), */
+                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
+                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 // RECURSIVE GENERATE
                 AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
                 AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                /* // SPLICE APPEND
-                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)), */
+                // SPLICE APPEND
+                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
             ),
             3,
         );
@@ -242,7 +244,9 @@ where
         let mut cmplog_shmem = shmem_provider.uninit_on_shmem::<AFLppCmpLogMap>().unwrap();
 
         // Let the Forkserver know the CmpLog shared memory map ID.
-        cmplog_shmem.write_to_env("__AFL_CMPLOG_SHM_ID").unwrap();
+        unsafe {
+            cmplog_shmem.write_to_env("__AFL_CMPLOG_SHM_ID").unwrap();
+        }
         let cmpmap = unsafe { OwnedRefMut::from_shmem(&mut cmplog_shmem) };
 
         // Create the CmpLog observer.
@@ -264,7 +268,7 @@ where
 
         let cb = |_fuzzer: &mut _,
                   _executor: &mut _,
-                  state: &mut StdState<I, CachedOnDiskCorpus<I>, StdRand, OnDiskCorpus<I>>,
+                  state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
                   _event_manager: &mut _|
          -> Result<bool, Error> {
             if !opt.cmplog || core.core_id() != *opt.cores.ids.first().unwrap() {
@@ -284,7 +288,7 @@ where
                 cmplog_ref
             )),
         );
-        let generate_stage = IfStage::new(cb, tuple_list!(GenerateStage::new(Rc::clone(&visitor))));
+        let generate_stage = GenerateStage::new(Rc::clone(&visitor));
 
         let mut stages = tuple_list!(
             // we mut minimize before calculating testcase score

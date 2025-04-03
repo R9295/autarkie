@@ -1,12 +1,6 @@
 use crate::{MutationType, Node, NodeType, Visitor};
 use libafl::{
-    corpus::Corpus,
-    executors::{Executor, HasObservers},
-    feedbacks::{HasObserverHandle, MapIndexesMetadata},
-    observers::{MapObserver, ObserversTuple},
-    stages::Stage,
-    state::{HasCorpus, HasCurrentTestcase, State, UsesState},
-    Evaluator, HasMetadata,
+    corpus::Corpus, events::EventFirer, executors::{Executor, HasObservers}, feedbacks::{HasObserverHandle, MapIndexesMetadata}, observers::{MapObserver, ObserversTuple}, stages::{Restartable, Stage}, state::{HasCorpus, HasCurrentTestcase}, Evaluator, HasMetadata
 };
 use libafl_bolts::{tuples::Handle, AsIter, Named};
 use num_traits::Bounded;
@@ -54,10 +48,9 @@ where
 impl<C, E, O, OT, S, I, EM, Z> Stage<E, EM, S, Z> for MinimizationStage<C, E, O, OT, S, I>
 where
     I: Node + Serialize + Clone,
-    S: State + HasCurrentTestcase + HasCorpus + HasMetadata,
-    S::Corpus: Corpus<Input = I>,
+    S: HasCurrentTestcase<I> + HasCorpus<I> + HasMetadata,
     E: Executor<EM, I, S, Z> + HasObservers<Observers = OT>,
-    EM: UsesState<State = S>,
+    EM: EventFirer<I, S>,
     Z: Evaluator<E, EM, I, S>,
     O: MapObserver,
     C: AsRef<O>,
@@ -115,7 +108,7 @@ where
                         &mut self.visitor.borrow_mut(),
                         path.clone(),
                     );
-                    let run = fuzzer.evaluate_input(state, executor, manager, inner.clone())?;
+                    let run = fuzzer.evaluate_input(state, executor, manager, &inner)?;
                     let map = &executor.observers()[&self.map_observer_handle]
                         .as_ref()
                         .to_vec();
@@ -138,12 +131,14 @@ where
         state.current_testcase_mut()?.set_input(current);
         Ok(())
     }
+}
+impl<C, E, O, OT, S, I> Restartable<S> for MinimizationStage<C, E, O, OT, S, I>
+{ 
+    fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl::Error> {
+        Ok(false)
+    }   
 
-    fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl_bolts::Error> {
-        Ok(true)
-    }
-
-    fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl_bolts::Error> {
+    fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl::Error> {
         Ok(())
     }
 }

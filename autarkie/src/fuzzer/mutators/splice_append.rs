@@ -3,7 +3,7 @@ use crate::Visitor;
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
-    state::{HasCorpus, HasRand, State},
+    state::{HasCorpus, HasRand},
     HasMetadata,
 };
 #[cfg(feature = "introspection")]
@@ -21,8 +21,7 @@ pub struct AutarkieSpliceAppendMutator<I> {
 impl<I, S> Mutator<I, S> for AutarkieSpliceAppendMutator<I>
 where
     I: Node,
-    S: State + HasCorpus + HasRand + HasMetadata,
-    S::Corpus: Corpus<Input = I>,
+    S: HasCorpus<I> + HasRand + HasMetadata,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
         let mut metadata = state.metadata_mut::<Context>().unwrap();

@@ -1,9 +1,10 @@
 use crate::{fuzzer::context::Context, Node, Visitor};
 use libafl::{
     corpus::Corpus,
+    events::EventFirer,
     executors::Executor,
-    stages::Stage,
-    state::{HasCorpus, HasCurrentTestcase, State, UsesState},
+    stages::{Restartable, Stage},
+    state::{HasCorpus, HasCurrentTestcase},
     Evaluator, HasMetadata,
 };
 use serde::Serialize;
@@ -27,10 +28,9 @@ impl<I> GenerateStage<I> {
 impl<E, EM, Z, S, I> Stage<E, EM, S, Z> for GenerateStage<I>
 where
     I: Node + Serialize,
-    S: State + HasCurrentTestcase + HasCorpus + HasMetadata,
-    S::Corpus: Corpus<Input = I>,
+    S: HasCurrentTestcase<I> + HasCorpus<I> + HasMetadata,
     E: Executor<EM, I, S, Z>,
-    EM: UsesState<State = S>,
+    EM: EventFirer<I, S>,
     Z: Evaluator<E, EM, I, S>,
 {
     fn perform(
@@ -45,15 +45,7 @@ where
         let Some(generated) = generate(&mut self.visitor.borrow_mut()) else {
             return Ok(());
         };
-        fuzzer.evaluate_input(state, executor, manager, generated)?;
-        Ok(())
-    }
-
-    fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl_bolts::Error> {
-        Ok(true)
-    }
-
-    fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl_bolts::Error> {
+        fuzzer.evaluate_input(state, executor, manager, &generated)?;
         Ok(())
     }
 }
@@ -63,4 +55,14 @@ where
     I: Node,
 {
     I::__autarkie_generate(visitor, &mut visitor.generate_depth(), &mut 0)
+}
+
+impl<I, S> Restartable<S> for GenerateStage<I> {
+    fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl::Error> {
+        Ok(false)
+    }
+
+    fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl::Error> {
+        Ok(())
+    }
 }

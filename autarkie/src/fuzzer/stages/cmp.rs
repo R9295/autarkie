@@ -1,11 +1,6 @@
 use crate::{MutationType, Node, Visitor};
 use libafl::{
-    corpus::Corpus,
-    executors::{Executor, HasObservers},
-    observers::{AFLppCmpValuesMetadata, CmpValues, ObserversTuple},
-    stages::Stage,
-    state::{HasCurrentTestcase, State, UsesState},
-    Evaluator, HasMetadata,
+    corpus::Corpus, events::EventFirer, executors::{Executor, HasObservers}, observers::{AFLppCmpValuesMetadata, CmpValues, ObserversTuple}, stages::{Restartable, Stage}, state::HasCurrentTestcase, Evaluator, HasMetadata
 };
 use libafl_bolts::{
     tuples::{Handle, MatchNameRef},
@@ -48,10 +43,9 @@ impl<'a, TE, I> CmpLogStage<'a, TE, I> {
 impl<TE, E, EM, Z, S, I> Stage<E, EM, S, Z> for CmpLogStage<'_, TE, I>
 where
     I: Node + Serialize + Clone,
-    S: State + HasCurrentTestcase + HasMetadata,
-    S::Corpus: Corpus<Input = I>,
+    S: HasCurrentTestcase<I> + HasMetadata,
     E: Executor<EM, I, S, Z>,
-    EM: UsesState<State = S>,
+    EM: EventFirer<I, S>,
     TE: Executor<EM, I, S, Z> + HasObservers,
     TE::Observers: MatchNameRef + ObserversTuple<I, S>,
     Z: Evaluator<E, EM, I, S>,
@@ -137,7 +131,7 @@ where
                     &mut self.visitor.borrow_mut(),
                     cmp_path,
                 );
-                let res = fuzzer.evaluate_input(state, executor, manager, input)?;
+                let res = fuzzer.evaluate_input(state, executor, manager, &input)?;
             }
         }
 
@@ -145,12 +139,15 @@ where
         // those paths as potentially interesting.
         Ok(())
     }
+}
 
-    fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl_bolts::Error> {
-        Ok(true)
-    }
+impl<'a, TE, I, S> Restartable<S> for CmpLogStage<'a, TE, I>
+{ 
+    fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl::Error> {
+        Ok(false)
+    }   
 
-    fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl_bolts::Error> {
+    fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl::Error> {
         Ok(())
     }
 }

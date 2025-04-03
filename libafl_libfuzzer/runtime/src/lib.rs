@@ -1,10 +1,6 @@
-use core::ffi::{CStr, c_char, c_int};
-use std::{fs::File, io::stderr, os::fd::RawFd};
+use core::ffi::{c_char, c_int};
 
-use env_logger::Target;
 use libafl::Error;
-use libafl_bolts::AsSlice;
-use libc::_exit;
 use mimalloc::MiMalloc;
 
 #[global_allocator]
@@ -24,7 +20,6 @@ mod harness_wrap {
     include!(concat!(env!("OUT_DIR"), "/harness_wrap.rs"));
 }
 
-pub(crate) use harness_wrap::libafl_libfuzzer_test_one_input;
 
 #[expect(clippy::struct_excessive_bools)]
 struct CustomMutationStatus {

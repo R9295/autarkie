@@ -1,11 +1,11 @@
-/// Benign feedback to capture all serialized values of nodes and store them in the corpora
+
 use std::{borrow::Cow, cell::RefCell, marker::PhantomData, rc::Rc};
 
 use libafl::{
     corpus::{Corpus, Testcase},
     executors::ExitKind,
     feedbacks::{Feedback, StateInitializer},
-    state::{HasCorpus, HasCurrentTestcase, State},
+    state::{HasCorpus, HasCurrentTestcase},
     Error, HasMetadata,
 };
 
@@ -31,7 +31,7 @@ impl<I> RegisterFeedback<I> {
 impl<I, EM, OT, S> Feedback<EM, I, OT, S> for RegisterFeedback<I>
 where
     I: Node,
-    S: State + HasCurrentTestcase + HasCorpus + HasMetadata,
+    S: HasCurrentTestcase<I> + HasCorpus<I> + HasMetadata,
 {
     fn is_interesting(
         &mut self,
@@ -44,9 +44,6 @@ where
         Ok(false)
     }
 
-    fn discard_metadata(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
-        Ok(())
-    }
 
     fn append_metadata(
         &mut self,

@@ -1,10 +1,9 @@
 use crate::Visitor;
 use crate::{MutationType, Node};
-use libafl::monitors::PerfFeature;
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
-    state::{HasCorpus, HasRand, State},
+    state::{HasCorpus, HasRand},
     HasMetadata,
 };
 #[cfg(feature = "introspection")]
@@ -31,17 +30,12 @@ pub enum Data {
 impl<I, S> Mutator<I, S> for AutarkieSpliceMutator<I>
 where
     I: Node,
-    S: State + HasCorpus + HasRand + HasMetadata,
-    S::Corpus: Corpus<Input = I>,
+    S: HasCorpus<I> + HasRand + HasMetadata,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
         let mut metadata = state.metadata_mut::<Context>()?;
         let mut mutated_path = None;
-        #[cfg(feature = "introspection")]
-        start_timer!(state);
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
-        #[cfg(feature = "introspection")]
-        mark_feature_time!(state, Data::Fields);
         let mut fields = self.visitor.borrow_mut().fields();
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
