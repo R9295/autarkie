@@ -4,9 +4,6 @@
 #[cfg(feature = "autarkie_derive")]
 pub use autarkie_derive::Grammar;
 
-#[cfg(feature = "bincode")]
-pub use serde::{Serialize, Deserialize};
-
 pub use blake3::hash;
 pub use libafl::corpus::CorpusId;
 pub use libafl::inputs::Input;
