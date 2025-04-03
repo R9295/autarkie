@@ -31,8 +31,12 @@ borsh = ["dep:borsh"]
 introspection = ["libafl/introspection"]
 libfuzzer = [
   "libafl_targets/libfuzzer",
-  "libafl_targets/sancov_8bit",
-  "libafl_targets/sancov_cmplog",
-  "libafl_targets/sancov_value_profile",
-  "libafl_targets/sancov_pcguard",
+  "libafl_targets/libfuzzer_oom",
+  "libafl_targets/libfuzzer_define_run_driver",
+  "libafl_targets/libfuzzer_interceptors",
+  "libafl_targets/sanitizers_flags",
+  "libafl_targets/whole_archive",
+  "libafl_targets/sanitizer_interfaces",
+  "libafl_targets/coverage", 
+  "libafl_targets/cmplog", 
 ]

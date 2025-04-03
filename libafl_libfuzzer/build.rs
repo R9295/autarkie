@@ -231,6 +231,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut objcopy_command = Command::new(rust_objcopy);
 
     for symbol in [
+        "libafl_cmplog_enabled",
+        "libafl_cmplog_map",
+        "libafl_cmp_map",
         "__rust_drop_panic",
         "__rust_foreign_exception",
         "rust_begin_unwind",
