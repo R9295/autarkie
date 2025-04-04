@@ -66,12 +66,11 @@ version = "0.14.5"
 default-features = true
 
 [dependencies.grammar_source]
-path = "/tmp/datafusion-sqlparser-rs"
-package = "sqlparser"
-features = ["serde"]
+path = "/data/aarnav/sbpf"
+package = "solana-sbpf"
 
 [dependencies.autarkie]
-path = "/home/aarnav/projects/autarkie/autarkie"
+path = "/data/aarnav/autarkie/autarkie"
 features = ["derive", "bincode", "libfuzzer"]
 
 [build-dependencies]

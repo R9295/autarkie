@@ -67,14 +67,10 @@ where
 {
     #[cfg(not(feature = "libfuzzer"))]
     let monitor = MultiMonitor::new(|s| println!("{s}"));
+    // TODO: -close_fd_mask from libfuzzer
     #[cfg(feature = "libfuzzer")]
-    let monitor = {
-        destroy_output_fds();
-        MultiMonitor::new(create_monitor_closure())
-    };
-
+    let monitor = MultiMonitor::new(create_monitor_closure());
     let shmem_provider = StdShMemProvider::new().expect("Failed to init shared memory");
-
     #[cfg(not(feature = "libfuzzer"))]
     let opt = Opt::parse();
     #[cfg(feature = "libfuzzer")]
@@ -499,16 +495,3 @@ fn create_monitor_closure() -> impl Fn(&str) + Clone {
 #[cfg(feature = "libfuzzer")]
 /// Communicate the stderr duplicated fd to subprocesses
 pub const STDERR_FD_VAR: &str = "_LIBAFL_LIBFUZZER_STDERR_FD";
-#[cfg(feature = "libfuzzer")]
-fn destroy_output_fds() {
-    #[cfg(unix)]
-    {
-        use libafl_bolts::os::{dup2, null_fd};
-
-        let null_fd = null_fd().unwrap();
-        let stdout_fd = stdout().as_raw_fd();
-        let stderr_fd = stderr().as_raw_fd();
-        dup2(null_fd, stdout_fd).unwrap();
-        dup2(null_fd, stderr_fd).unwrap();
-    }
-}

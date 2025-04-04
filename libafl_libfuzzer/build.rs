@@ -1,3 +1,4 @@
+/// Keep in sync with https://github.com/AFLplusplus/LibAFL/blob/main/libafl_libfuzzer/build.rs
 use core::error::Error;
 use std::{
     fs::{self, File},
@@ -190,6 +191,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut redefinitions_file = BufWriter::new(File::create(&redefined_symbols).unwrap());
 
+    let rn_prefix = if cfg!(target_os = "macos") {
+        // macOS symbols have an extra `_`
+        "__RN"
+    } else {
+        "_RN"
+    };
+
     let zn_prefix = if cfg!(target_os = "macos") {
         // macOS symbols have an extra `_`
         "__ZN"
@@ -198,7 +206,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let replacement = format!("{zn_prefix}{NAMESPACE_LEN}{NAMESPACE}");
-
     // redefine all the rust-mangled symbols we can
     // TODO this will break when v0 mangling is stabilised
     for line in BufReader::new(nm_child.stdout.take().unwrap()).lines() {
@@ -210,11 +217,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         let (_, symbol) = line.rsplit_once(' ').unwrap();
 
-        if symbol.starts_with(zn_prefix) {
+        if symbol.starts_with(rn_prefix) {
+            let (_prefix, renamed) = symbol.split_once("__rustc").unwrap();
+            let (size, renamed) = renamed.split_once('_').unwrap();
+            writeln!(redefinitions_file, "{symbol} {replacement}{size}{renamed}E").unwrap();
+        } else if symbol.starts_with(zn_prefix) {
             writeln!(
                 redefinitions_file,
-                "{} {}",
-                symbol,
+                "{symbol} {}",
                 symbol.replacen(zn_prefix, &replacement, 1)
             )
             .unwrap();
@@ -252,21 +262,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         "__rust_alloc_error_handler",
         "__rust_no_alloc_shim_is_unstable",
         "__rust_alloc_error_handler_should_panic",
-        "__rustc::__rust_drop_panic",
-        "__rust_::__rust_foreign_exception",
-        "__rustc::__rg_oom",
-        "__rustc::__rdl_oom",
-        "__rustc::__rdl_alloc",
-        "__rustc::__rust_alloc",
-        "__rustc::__rdl_dealloc",
-        "__rustc::__rust_dealloc",
-        "__rustc::__rdl_realloc",
-        "__rustc::__rust_realloc",
-        "__rustc::__rdl_alloc_zeroed",
-        "__rustc::__rust_alloc_zeroed",
-        "__rustc::__rust_alloc_error_handler",
-        "__rustc::__rust_no_alloc_shim_is_unstable",
-        "__rustc::__rust_alloc_error_handler_should_panic",
     ] {
         let mut symbol = symbol.to_string();
         // macOS symbols have an extra `_`
