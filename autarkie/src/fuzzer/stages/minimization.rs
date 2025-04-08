@@ -141,7 +141,7 @@ where
 }
 impl<C, E, O, OT, S, I> Restartable<S> for MinimizationStage<C, E, O, OT, S, I> {
     fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl::Error> {
-        Ok(false)
+        Ok(true)
     }
 
     fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl::Error> {

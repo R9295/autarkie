@@ -38,7 +38,7 @@ workspace = true
 
 [dependencies.libafl_targets]
 workspace = true
-features = ["sancov_8bit", "sancov_pcguard", "libfuzzer", "libfuzzer_oom", "libfuzzer_define_run_driver", "libfuzzer_interceptors", "sanitizers_flags", "whole_archive", "sanitizer_interfaces"]
+features = ["sancov_8bit", "libfuzzer", "libfuzzer_define_run_driver", "observers"]
 
 [dependencies.ahash]
 version = "0.8.11"

@@ -16,7 +16,8 @@ use libafl::{
     executors::{ExitKind, ForkserverExecutor, InProcessExecutor, InProcessForkExecutor},
     feedback_or, feedback_or_fast,
     feedbacks::{
-        CrashFeedback, MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, TimeFeedback, TimeoutFeedback,
+        CrashFeedback, MaxMapFeedback, MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, TimeFeedback,
+        TimeoutFeedback,
     },
     inputs::{HasTargetBytes, Input, TargetBytesConverter},
     monitors::{MultiMonitor, SimpleMonitor},
@@ -58,6 +59,7 @@ use std::{env::args, ffi::c_int};
 
 use stages::generate;
 
+#[cfg(not(feature = "libfuzzer"))]
 const SHMEM_ENV_VAR: &str = "__AFL_SHM_ID";
 pub fn run_fuzzer<I, TC, F>(bytes_converter: TC, harness: Option<F>)
 where
@@ -76,8 +78,8 @@ where
     #[cfg(feature = "libfuzzer")]
     let opt = {
         let mut opt = args().collect::<Vec<_>>();
-        opt.remove(1);
-        opt.remove(opt.len() - 1);
+        /* opt.remove(1);
+        opt.remove(opt.len() - 1); */
         Opt::parse_from(opt)
     };
 
@@ -130,10 +132,9 @@ where
         #[cfg(feature = "libfuzzer")]
         let edges = unsafe { extra_counters() };
         #[cfg(feature = "libfuzzer")]
-        let edges_observer = HitcountsMapObserver::new(StdMapObserver::from_mut_slice(
-            "edges",
-            edges.into_iter().next().unwrap(),
-        ));
+        let edges_observer =
+            StdMapObserver::from_mut_slice("edges", edges.into_iter().next().unwrap())
+                .track_indices();
 
         let seed = opt.rng_seed.unwrap_or(current_nanos());
 
@@ -150,7 +151,7 @@ where
         let visitor = Rc::new(RefCell::new(visitor));
 
         // Create a MapFeedback for coverage guided fuzzin'
-        let map_feedback = MaxMapPow2Feedback::new(&edges_observer);
+        let map_feedback = MaxMapFeedback::new(&edges_observer);
 
         // Create an observation channel to keep track of the execution time.
         let time_observer = TimeObserver::new("time");
@@ -195,8 +196,7 @@ where
         let observers = tuple_list!(edges_observer, time_observer);
         let scheduler = scheduler.cycling_scheduler();
         // Create our Fuzzer
-        let mut fuzzer =
-            StdFuzzer::with_bloom_input_filter(scheduler, feedback, objective, 1000, 0.1);
+        let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
 
         // Create our Executor
         #[cfg(not(feature = "libfuzzer"))]
@@ -368,7 +368,6 @@ where
             StdPowerMutationalStage::new(mutator),
             generate_stage
         );
-
         fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)?;
         Err(Error::shutting_down())
     };
@@ -377,6 +376,7 @@ where
         .cores(&opt.cores)
         .monitor(monitor)
         .run_client(run_client)
+        .broker_port(4444)
         .shmem_provider(shmem_provider)
         .configuration(EventConfig::from_name("default"))
         .build()

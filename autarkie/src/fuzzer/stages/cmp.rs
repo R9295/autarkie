@@ -149,7 +149,7 @@ where
 
 impl<'a, TE, I, S> Restartable<S> for CmpLogStage<'a, TE, I> {
     fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl::Error> {
-        Ok(false)
+        Ok(true)
     }
 
     fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl::Error> {

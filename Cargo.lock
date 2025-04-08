@@ -982,6 +982,7 @@ name = "libafl_targets"
 version = "0.15.2"
 source = "git+https://github.com/AFLplusplus/LibAFL?rev=fb0848e174240e81d294de7da8eb69033487f044#fb0848e174240e81d294de7da8eb69033487f044"
 dependencies = [
+ "ahash",
  "bindgen",
  "cc",
  "hashbrown 0.14.5",
@@ -989,6 +990,7 @@ dependencies = [
  "libafl_bolts",
  "libc",
  "log",
+ "meminterval",
  "once_cell",
  "rangemap",
  "rustversion",

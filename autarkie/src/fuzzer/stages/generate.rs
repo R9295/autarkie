@@ -59,7 +59,7 @@ where
 
 impl<I, S> Restartable<S> for GenerateStage<I> {
     fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl::Error> {
-        Ok(false)
+        Ok(true)
     }
 
     fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl::Error> {

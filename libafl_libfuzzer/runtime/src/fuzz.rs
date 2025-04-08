@@ -1,7 +1,7 @@
-use core::ffi::c_int;
-use grammar_source::{FuzzDataTargetBytesConverter, FuzzData};
-use libafl::Error;
 use autarkie::TargetBytesConverter;
+use core::ffi::c_int;
+use grammar_source::{FuzzData, FuzzDataTargetBytesConverter};
+use libafl::Error;
 use libafl::executors::ExitKind;
 use libafl_bolts::AsSlice;
 
@@ -17,10 +17,7 @@ fn fuzz_many_forking(harness: &extern "C" fn(*const u8, usize) -> c_int) -> Resu
             _ => ExitKind::Ok,
         }
     };
-    autarkie::fuzzer::run_fuzzer(
-        FuzzDataTargetBytesConverter::new(),
-        Some(harness),
-    );
+    autarkie::fuzzer::run_fuzzer(FuzzDataTargetBytesConverter::new(), Some(harness));
     Ok(())
 }
 
