@@ -28,10 +28,8 @@ macro_rules! impl_converter {
             }
         }
 
-        impl autarkie::TargetBytesConverter<I: autarkie::Node> for FuzzDataTargetBytesConverter {
-            type Input = $t;
-
-            fn to_target_bytes<'a>(&mut self, input: &'a I) -> autarkie::OwnedSlice<'a, u8> {
+        impl autarkie::TargetBytesConverter<$t> for FuzzDataTargetBytesConverter {
+            fn to_target_bytes<'a>(&mut self, input: &'a $t) -> autarkie::OwnedSlice<'a, u8> {
                 autarkie::OwnedSlice::from($closure(input))
             }
         }
@@ -89,5 +87,16 @@ macro_rules! fuzz_afl {
         $crate::impl_input!($t);
         $crate::impl_converter!($t, $closure);
         $crate::fuzz_afl_inner!($t);
+    };
+}
+
+#[macro_export]
+macro_rules! impl_hash {
+    ($t:ty) => {
+        impl std::hash::Hash for $t {
+            fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                autarkie::serialize(&self).hash(state)
+            }
+        }
     };
 }

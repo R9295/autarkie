@@ -58,13 +58,10 @@ mod tests {
     use super::*;
     #[test]
     fn register_ty() {
-        let mut visitor = Visitor::new(
-            0,
-            autarkie::DepthInfo {
-                generate: 2,
-                iterate: 2,
-            },
-        );
+        let mut visitor = Visitor::new(0, autarkie::DepthInfo {
+            generate: 2,
+            iterate: 2,
+        });
         Statement::__autarkie_register(&mut visitor, None, 0);
         assert_eq!(
             visitor.calculate_recursion(),
