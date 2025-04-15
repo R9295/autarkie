@@ -20,7 +20,7 @@ macro_rules! impl_converter {
     // We may want to render to bytes manually (eg: to_string) so we offer the possibility of a closure too.
     ($t:ty, $closure:expr) => {
         #[derive(Clone)]
-        struct FuzzDataTargetBytesConverter;
+        pub struct FuzzDataTargetBytesConverter;
 
         impl FuzzDataTargetBytesConverter {
             pub fn new() -> Self {

@@ -29,9 +29,4 @@ bincode = ["dep:bincode"]
 scale = ["dep:parity-scale-codec"]
 borsh = ["dep:borsh"]
 introspection = ["libafl/introspection"]
-libfuzzer = [
-  "libafl_targets/libfuzzer_define_run_driver",
-  "libafl_targets/sancov_8bit", 
-  "libafl_targets/libfuzzer", 
-  "libafl_targets/observers",
-] 
+libfuzzer = [] 

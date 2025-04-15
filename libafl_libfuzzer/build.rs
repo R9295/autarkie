@@ -124,7 +124,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     if let Some(autarkie_path) = grammar_autarkie.get("path") {
         assert!(
             PathBuf::from(autarkie_path.to_string().replace("\"", "")).is_absolute(),
-            "Autarkie's path must either be absolute or a git repository"
+            "Autarkie's path in the grammar source must either be absolute or a git repository"
         );
     }
     let Some(toml::Value::Array(autarkie_features)) = grammar_autarkie.get_mut("features") else {
@@ -241,6 +241,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut objcopy_command = Command::new(rust_objcopy);
 
     for symbol in [
+        "libafl_cmplog_enabled",
+        "libafl_cmplog_map",
+        "libafl_cmp_map",
         "rust_begin_unwind",
         "rust_panic",
         "rust_eh_personality",

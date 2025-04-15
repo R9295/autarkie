@@ -221,11 +221,11 @@ where
         depth: &mut usize,
         cur_depth: &mut usize,
     ) -> Option<Self> {
-        let element_count = if *cur_depth < visitor.generate_depth() {
-            visitor.random_range(if *cur_depth == 0 { 1 } else { 0 }, visitor.iterate_depth())
-        } else {
-            0
-        };
+/*         let element_count = if *cur_depth < visitor.generate_depth() { */
+        let element_count = visitor.random_range(if *cur_depth == 0 { 1 } else { 0 }, visitor.iterate_depth());
+        /* } else {
+            128
+        }; */
         if element_count == 0 {
             return Some(vec![]);
         }

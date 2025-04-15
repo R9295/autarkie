@@ -21,7 +21,7 @@ use libafl::{
     },
     inputs::{HasTargetBytes, Input, TargetBytesConverter},
     monitors::{MultiMonitor, SimpleMonitor},
-    mutators::StdScheduledMutator,
+    mutators::HavocScheduledMutator,
     observers::{CanTrack, HitcountsMapObserver, StdMapObserver, TimeObserver},
     schedulers::{powersched::PowerSchedule, QueueScheduler, StdWeightedScheduler},
     stages::{IfStage, StdMutationalStage, StdPowerMutationalStage},
@@ -30,6 +30,7 @@ use libafl::{
 };
 pub use libafl_bolts::current_nanos;
 use libafl_bolts::AsSlice;
+use libafl_bolts::TargetArgs;
 use libafl_bolts::{
     core_affinity::{CoreId, Cores},
     fs::get_unique_std_input_file,
@@ -78,8 +79,8 @@ where
     #[cfg(feature = "libfuzzer")]
     let opt = {
         let mut opt = args().collect::<Vec<_>>();
-        /* opt.remove(1);
-        opt.remove(opt.len() - 1); */
+        opt.remove(1);
+        opt.remove(opt.len() - 1);
         Opt::parse_from(opt)
     };
 
@@ -283,7 +284,7 @@ where
             println!("We imported {} inputs from disk.", state.corpus().count());
         }
 
-        let mutator = StdScheduledMutator::with_max_stack_pow(
+        let mutator = HavocScheduledMutator::with_max_stack_pow(
             tuple_list!(
                 // SPLICE
                 AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
@@ -296,7 +297,7 @@ where
                 // SPLICE APPEND
                 AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
             ),
-            3,
+            5,
         );
         #[cfg(not(feature = "libfuzzer"))]
         let cmplog = {
