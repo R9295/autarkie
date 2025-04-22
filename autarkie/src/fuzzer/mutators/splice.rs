@@ -47,97 +47,97 @@ where
                 if *field_len < 3 {
                     return Ok(MutationResult::Skipped);
                 }
-                if let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) {
-                    let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                    mutated_path = Some(path.clone());
-                    let subslice_bounds = calculate_subslice_bounds(
-                        *field_len,
-                        self.max_subslice_size,
-                        &mut self.visitor.borrow_mut(),
-                    );
-                    for index in subslice_bounds {
-                        let mut child_path = path.clone();
-                        child_path.push_back(index);
-                        let random_splice = possible_splices
-                            .get(
-                                self.visitor
-                                    .borrow_mut()
-                                    .random_range(0, possible_splices.len() - 1),
-                            )
-                            .unwrap();
-                        // TODO: cache this in memory
-                        let data = std::fs::read(random_splice).unwrap();
-                        #[cfg(debug_assertions)]
-                        println!("splice | subslice | {:?}", (&field, &path));
-                        input.__autarkie_mutate(
-                            &mut MutationType::Splice(&mut data.as_slice()),
-                            &mut self.visitor.borrow_mut(),
-                            child_path,
-                        );
-                    }
-                } else {
+                let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) else {
                     return Ok(MutationResult::Skipped);
-                }
-            } else {
-                if let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) {
-                    // unfortunately we need to replace the exact amount.
-                    // cause we don't differentiate between vec and slice
-                    let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                    let items = (0..*field_len)
-                        .into_iter()
-                        .map(|_| {
-                            std::fs::read(
-                                possible_splices
-                                    .get(
-                                        self.visitor
-                                            .borrow_mut()
-                                            .random_range(0, possible_splices.len() - 1),
-                                    )
-                                    .expect("NZkjgWib____"),
-                            )
-                            .expect("could not read splice file")
-                        })
-                        .collect::<Vec<_>>();
-                    let mut data = if !*is_fixed_len {
-                        crate::serialize_vec_len(if *field_len > 0 { *field_len } else { 0 })
-                    } else {
-                        vec![]
-                    };
-                    data.extend(items.iter().flatten());
-                    mutated_path = Some(path.clone());
+                };
+                let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
+                mutated_path = Some(path.clone());
+                let subslice_bounds = calculate_subslice_bounds(
+                    *field_len,
+                    self.max_subslice_size,
+                    &mut self.visitor.borrow_mut(),
+                );
+                for index in subslice_bounds {
+                    let mut child_path = path.clone();
+                    child_path.push_back(index);
+                    let random_splice = possible_splices
+                        .get(
+                            self.visitor
+                                .borrow_mut()
+                                .random_range(0, possible_splices.len() - 1),
+                        )
+                        .unwrap();
+                    // TODO: cache this in memory
+                    let data = std::fs::read(random_splice).unwrap();
                     #[cfg(debug_assertions)]
-                    println!("splice | full | {:?}", field);
+                    println!("splice | subslice | {:?}", (&field, &path));
                     input.__autarkie_mutate(
                         &mut MutationType::Splice(&mut data.as_slice()),
                         &mut self.visitor.borrow_mut(),
-                        path,
+                        child_path,
                     );
-                } else {
-                    return Ok(MutationResult::Skipped);
                 }
-            }
-        } else {
-            if let Some(possible_splices) = metadata.get_inputs_for_type(ty) {
-                let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                let random_splice = possible_splices
-                    .get(
-                        self.visitor
-                            .borrow_mut()
-                            .random_range(0, possible_splices.len() - 1),
-                    )
-                    .unwrap();
-                let data = std::fs::read(random_splice).unwrap();
+                metadata.add_mutation(crate::fuzzer::context::MutationMetadata::SpliceSubSplice);
+            } else {
+                let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) else {
+                    return Ok(MutationResult::Skipped);
+                };
+                // unfortunately we need to replace the exact amount.
+                // cause we don't differentiate between vec and slice
+                let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
+                let items = (0..*field_len)
+                    .into_iter()
+                    .map(|_| {
+                        std::fs::read(
+                            possible_splices
+                                .get(
+                                    self.visitor
+                                        .borrow_mut()
+                                        .random_range(0, possible_splices.len() - 1),
+                                )
+                                .expect("NZkjgWib____"),
+                        )
+                        .expect("could not read splice file")
+                    })
+                    .collect::<Vec<_>>();
+                let mut data = if !*is_fixed_len {
+                    crate::serialize_vec_len(if *field_len > 0 { *field_len } else { 0 })
+                } else {
+                    vec![]
+                };
+                data.extend(items.iter().flatten());
                 mutated_path = Some(path.clone());
                 #[cfg(debug_assertions)]
-                println!("splice | one | {:?} {:?}", field, path);
+                println!("splice | full | {:?}", field);
                 input.__autarkie_mutate(
                     &mut MutationType::Splice(&mut data.as_slice()),
                     &mut self.visitor.borrow_mut(),
                     path,
                 );
-            } else {
+                metadata.add_mutation(crate::fuzzer::context::MutationMetadata::SpliceFull);
+            }
+        } else {
+            let Some(possible_splices) = metadata.get_inputs_for_type(ty) else {
                 return Ok(MutationResult::Skipped);
             };
+            let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
+            let random_splice = possible_splices
+                .get(
+                    self.visitor
+                        .borrow_mut()
+                        .random_range(0, possible_splices.len() - 1),
+                )
+                .unwrap();
+            let data = std::fs::read(random_splice).unwrap();
+            mutated_path = Some(path.clone());
+            #[cfg(debug_assertions)]
+            println!("splice | one | {:?} {:?}", field, path);
+            input.__autarkie_mutate(
+                &mut MutationType::Splice(&mut data.as_slice()),
+                &mut self.visitor.borrow_mut(),
+                path,
+            );
+            metadata.add_mutation(crate::fuzzer::context::MutationMetadata::SpliceSingle);
         }
         Ok(MutationResult::Mutated)
     }

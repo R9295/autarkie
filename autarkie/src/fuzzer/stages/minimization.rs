@@ -89,7 +89,7 @@ where
         current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut skip = 0;
         let mut fields = self.visitor.borrow_mut().fields();
-
+        let mut found = false;
         loop {
             let field = fields.pop();
             if field.is_none() {
@@ -126,6 +126,7 @@ where
                         .map(|i| i.0)
                         .collect::<Vec<_>>();
                     if map == indexes {
+                        found = true;
                         current = inner;
                         current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
                         fields = self.visitor.borrow_mut().fields();
@@ -135,7 +136,11 @@ where
                 }
             }
         }
-        state.current_testcase_mut()?.set_input(current);
+        state.current_testcase_mut()?.set_input(current.clone());
+        if found {
+            let metadata = state.metadata_mut::<Context>().unwrap();
+            metadata.add_mutation(crate::fuzzer::context::MutationMetadata::IterableMinimization);
+        }
         Ok(())
     }
 }

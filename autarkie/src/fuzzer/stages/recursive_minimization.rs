@@ -90,6 +90,7 @@ where
         let mut fields = self.visitor.borrow_mut().fields();
 
         let mut skip = 0;
+        let mut found = false;
         let mut cur_iter = 0;
 
         loop {
@@ -123,6 +124,7 @@ where
                     .map(|i| i.0)
                     .collect::<Vec<_>>();
                 if map == indexes {
+                    found = true;
                     cur_iter = 0;
                     current = inner;
                     current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
@@ -132,6 +134,10 @@ where
                 }
                 cur_iter += 1;
             }
+        }
+        if found {
+            let metadata = state.metadata_mut::<Context>().unwrap();
+            metadata.add_mutation(crate::fuzzer::context::MutationMetadata::RecursiveMinimization);
         }
         state.current_testcase_mut()?.set_input(current);
         Ok(())

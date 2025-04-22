@@ -1,4 +1,10 @@
-use std::{borrow::Cow, cell::RefCell, marker::PhantomData, rc::Rc};
+use std::{
+    borrow::Cow,
+    cell::RefCell,
+    collections::{BTreeMap, HashSet},
+    marker::PhantomData,
+    rc::Rc,
+};
 
 use libafl::{
     corpus::{Corpus, Testcase},
@@ -8,7 +14,10 @@ use libafl::{
     Error, HasMetadata,
 };
 
-use crate::{Node, Visitor};
+use crate::{
+    fuzzer::{context::MutationMetadata, stages::stats::AutarkieStats},
+    Node, Visitor,
+};
 use libafl_bolts::Named;
 
 use crate::fuzzer::Context;
@@ -57,6 +66,11 @@ where
             testcase.input().as_ref().expect("we must have input!"),
             &mut self.visitor.borrow_mut(),
         );
+        let done_mutations = metadata.clear_mutations();
+        let metadata = state
+            .metadata_mut::<AutarkieStats>()
+            .unwrap()
+            .add_new_input_mutations(done_mutations);
         Ok(())
     }
 }

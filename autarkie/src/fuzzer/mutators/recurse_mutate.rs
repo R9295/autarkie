@@ -63,6 +63,7 @@ where
                     path,
                 );
             }
+            metadata.add_mutation(crate::fuzzer::context::MutationMetadata::RecurseMutateSubsplice);
         } else {
             let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
             #[cfg(debug_assertions)]
@@ -72,6 +73,7 @@ where
                 &mut self.visitor.borrow_mut(),
                 path,
             );
+            metadata.add_mutation(crate::fuzzer::context::MutationMetadata::RecurseMutateSingle);
         }
         Ok(MutationResult::Mutated)
     }

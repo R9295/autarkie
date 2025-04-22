@@ -1,3 +1,4 @@
+use crate::fuzzer::context::MutationMetadata;
 use crate::Node;
 use crate::Visitor;
 use libafl::{
@@ -76,6 +77,7 @@ where
                         path.clone(),
                     );
                 }
+                metadata.add_mutation(crate::fuzzer::context::MutationMetadata::SpliceAppend);
                 return Ok(MutationResult::Mutated);
             } else {
                 return Ok(MutationResult::Skipped);

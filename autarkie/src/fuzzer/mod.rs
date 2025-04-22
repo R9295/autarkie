@@ -49,8 +49,12 @@ use mutators::{
 };
 use regex::Regex;
 use stages::{
-    cmp::CmpLogStage, generate::GenerateStage, minimization::MinimizationStage,
+    cmp::CmpLogStage,
+    generate::GenerateStage,
+    minimization::MinimizationStage,
+    mutating::MutatingStageWrapper,
     recursive_minimization::RecursiveMinimizationStage,
+    stats::{AutarkieStats, StatsStage},
 };
 use std::io::{stderr, stdout, Write};
 use std::os::fd::AsRawFd;
@@ -256,6 +260,7 @@ where
             }
         }
         state.add_metadata(context);
+        state.add_metadata(AutarkieStats::default());
 
         // Reload corpus
         if state.must_load_initial_inputs() {
@@ -284,20 +289,23 @@ where
             println!("We imported {} inputs from disk.", state.corpus().count());
         }
 
-        let mutator = HavocScheduledMutator::with_max_stack_pow(
-            tuple_list!(
-                // SPLICE
-                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                // RECURSIVE GENERATE
-                AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size),
-                // SPLICE APPEND
-                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
-            ),
+        let splice_mutator = HavocScheduledMutator::with_max_stack_pow(
+            tuple_list!(AutarkieSpliceMutator::new(
+                Rc::clone(&visitor),
+                opt.max_subslice_size
+            ),),
             5,
+        );
+        let recursion_mutator = HavocScheduledMutator::with_max_stack_pow(
+            tuple_list!(AutarkieRecurseMutator::new(
+                Rc::clone(&visitor),
+                opt.max_subslice_size
+            ),),
+            5,
+        );
+        let append_mutator = HavocScheduledMutator::with_max_stack_pow(
+            tuple_list!(AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),),
+            3,
         );
         #[cfg(not(feature = "libfuzzer"))]
         let cmplog = {
@@ -354,20 +362,26 @@ where
         #[cfg(not(feature = "libfuzzer"))]
         let mut stages = tuple_list!(
             // we mut minimize before calculating testcase score
-            minimization_stage,
-            recursive_minimization_stage,
+            MutatingStageWrapper::new(minimization_stage),
+            MutatingStageWrapper::new(recursive_minimization_stage),
             cmplog,
-            StdPowerMutationalStage::new(mutator),
-            generate_stage
+            MutatingStageWrapper::new(StdPowerMutationalStage::new(append_mutator)),
+            MutatingStageWrapper::new(StdPowerMutationalStage::new(recursion_mutator)),
+            MutatingStageWrapper::new(StdPowerMutationalStage::new(splice_mutator)),
+            MutatingStageWrapper::new(generate_stage),
+            StatsStage::new(fuzzer_dir),
         );
 
         #[cfg(feature = "libfuzzer")]
         let mut stages = tuple_list!(
             // we mut minimize before calculating testcase score
-            minimization_stage,
-            recursive_minimization_stage,
-            StdPowerMutationalStage::new(mutator),
-            generate_stage
+            MutatingStageWrapper::new(minimization_stage),
+            MutatingStageWrapper::new(recursive_minimization_stage),
+            MutatingStageWrapper::new(StdPowerMutationalStage::new(append_mutator)),
+            MutatingStageWrapper::new(StdPowerMutationalStage::new(recursion_mutator)),
+            MutatingStageWrapper::new(StdPowerMutationalStage::new(splice_mutator)),
+            MutatingStageWrapper::new(generate_stage),
+            StatsStage::new(fuzzer_dir),
         );
         fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)?;
         Err(Error::shutting_down())

@@ -17,6 +17,7 @@ pub enum InputCause {
 }
 #[derive(Debug, Clone, SerdeAny, Serialize, Deserialize)]
 pub struct Context {
+    mutations: HashSet<MutationMetadata>,
     out_dir: PathBuf,
     type_input_map: HashMap<Id, Vec<PathBuf>>,
     input_cause: InputCause,
@@ -91,9 +92,54 @@ impl Context {
     pub fn new(out_dir: PathBuf) -> Self {
         let type_input_map = HashMap::default();
         Self {
+            mutations: HashSet::new(),
             input_cause: InputCause::Default,
             out_dir,
             type_input_map,
         }
     }
+
+    pub fn add_mutation(&mut self, m: MutationMetadata) {
+        self.mutations.insert(m);
+    }
+
+    pub fn clear_mutations(&mut self) -> HashSet<MutationMetadata> {
+        let cloned = self.mutations.clone();
+        self.mutations = HashSet::new();
+        cloned
+    }
+}
+
+/// Track why a testcase was added to the corpus.
+#[derive(
+    Debug,
+    Clone,
+    serde::Serialize,
+    serde::Deserialize,
+    SerdeAny,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+)]
+pub enum MutationMetadata {
+    /// Splice Full Iterable
+    SpliceFull,
+    /// Splice Single Node (never an iterable)
+    SpliceSingle,
+    /// Splice Partial Iterable
+    SpliceSubSplice,
+    /// Splice Append
+    SpliceAppend,
+    /// Splice Single Node (never an iterable)
+    RecurseMutateSingle,
+    /// Random Generate Partial Iterable
+    RecurseMutateSubsplice,
+    /// RecursiveMinimization
+    RecursiveMinimization,
+    /// Iterable Minimization
+    IterableMinimization,
+    /// Generate
+    Generate,
 }

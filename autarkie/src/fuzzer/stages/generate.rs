@@ -45,6 +45,7 @@ where
         let Some(generated) = generate(&mut self.visitor.borrow_mut()) else {
             return Ok(());
         };
+        metadata.add_mutation(crate::fuzzer::context::MutationMetadata::Generate);
         fuzzer.evaluate_input(state, executor, manager, &generated)?;
         Ok(())
     }
