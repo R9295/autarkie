@@ -2,6 +2,8 @@
 Autarkie is a native grammar fuzzer for Rust projects. Using procedural macros, it (almost completely) automatically creates a grammar fuzzer. Autarkie is heavily inspired by [nautilus](https://github.com/nautilus-fuzz/nautilus). Please see [Limitations and Caveats](#limitations-and-caveats) for Autarkie's limitations.
 
 # Features
+- Essentially a drop-in replacement for [arbitrary](https://github.com/rust-fuzz/arbitrary)
+- Actual grammar fuzzing - not "structure aware"
 - Supports both AFL++ and Libfuzzer.
 - No grammar maintenance; if the project updated, the grammar updates too.
 - Grammar is completely exhaustive; the compiler will make sure that every necessary type is included. No more guesswork.

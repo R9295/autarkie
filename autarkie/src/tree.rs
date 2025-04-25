@@ -50,6 +50,10 @@ where
         Self::__autarkie_id()
     }
 
+    fn autarkie_deserialize(data: &mut &[u8]) -> Option<Self> {
+        crate::maybe_deserialize(data)
+    }
+
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {}
 
     fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {}
@@ -900,7 +904,7 @@ pub fn deserialize<T>(data: &mut &[u8]) -> T
 where
     T: DeserializeOwned,
 {
-    bincode::deserialize(data).expect("invariant; we must always be able to deserialize")
+    crate::maybe_deserialize(data).expect("invariant; we must always be able to deserialize")
 }
 
 #[cfg(feature = "bincode")]
@@ -921,12 +925,7 @@ pub fn deserialize<T>(data: &mut &[u8]) -> T
 where
     T: parity_scale_codec::Decode,
 {
-    let decoded = T::decode(data);
-    if decoded.is_err() {
-        println!("{:?}", std::intrinsics::type_name::<T>().to_string());
-        println!("{:?}", data);
-    }
-    decoded.expect("invariant; we must always be able to deserialize")
+    crate::maybe_deserialize(data).expect("invariant; we must always be able to deserialize")
 }
 
 #[cfg(feature = "scale")]
@@ -948,10 +947,43 @@ pub fn deserialize<T>(data: &mut &[u8]) -> T
 where
     T: borsh::BorshDeserialize,
 {
-    T::deserialize(data).expect("invariant; we must always be able to deserialize")
+    crate::maybe_deserialize(data).expect("invariant; we must always be able to deserialize")
 }
 
 #[cfg(feature = "borsh")]
 pub fn serialize_vec_len(len: usize) -> Vec<u8> {
     borsh::to_vec(&(len as u32)).expect("invariant; we must always be able to serialize")
+}
+
+#[cfg(feature = "borsh")]
+pub fn maybe_deserialize<T>(data: &mut &[u8]) -> Option<T>
+where
+    T: borsh::BorshDeserialize,
+{
+    let Ok(res) = T::deserialize(data) else {
+        return None;
+    };
+    Some(res)
+}
+
+#[cfg(feature = "scale")]
+pub fn maybe_deserialize<T>(data: &mut &[u8]) -> Option<T>
+where
+    T: parity_scale_codec::Decode,
+{
+    let Ok(res) = T::decode(data) else {
+        return None;
+    };
+    Some(res)
+}
+
+#[cfg(feature = "bincode")]
+pub fn maybe_deserialize<T>(data: &mut &[u8]) -> Option<T>
+where
+    T: DeserializeOwned,
+{
+    let Ok(res) = bincode::deserialize(data) else {
+        return None;
+    };
+    Some(res)
 }
