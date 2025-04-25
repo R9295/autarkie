@@ -226,10 +226,10 @@ We only add the return clause so that the harness can be re-used for other fuzze
 ```
 
 ## Running the fuzzer
-1. 
-Autarkie has a ``libfuzzer`` shim, based on ``libafl_libfuzzer``. Let's replace the libfuzzer with Autarkie's libfuzzer
+1. Autarkie has a ``libfuzzer`` shim, based on ``libafl_libfuzzer``. Let's replace the libfuzzer with Autarkie's libfuzzer
 ```
 vim fuzz/Cargo.toml
+```
 ``` toml
 # replace
 # libfuzzer-sys = "0.4"
@@ -238,8 +238,9 @@ libfuzzer-sys = {git = "https://github.com/R9295/autarkie", package = "libafl_li
 ```
 2. Let's add bincode to deserialize
 ```
-vim fuzz/Cargo.toml
-bincode = "1"
+cd fuzz
+cargo add bincode@1
+cd ..
 ```
 
 Run!
