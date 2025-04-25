@@ -48,7 +48,7 @@ pub struct FuzzData {
     // list of instructions.
     pub insns: Vec<FuzzInsn>,
     // Initial data for the interpreter's Stack
-    pub stack: Vec<u8>
+    pub mem: Vec<u8>
 }
 
 /// Implement necessary traits for LibAFL
@@ -67,7 +67,6 @@ vim fuzz/fuzz_targets/autarkie_harness.rs
 Don't worry, the next section will analyze the harness.
 ``` rust
 #![no_main]
-
 use libfuzzer_sys::fuzz_target;
 use solana_sbpf::{FuzzData, FuzzInsn};
 use solana_sbpf::{
@@ -81,13 +80,13 @@ use solana_sbpf::{
 use test_utils::{create_vm, TestContextObject};
 
 fn to_bytes(insns: &[FuzzInsn]) -> Vec<u8> {
-    let data = vec![];
+    let mut data = vec![];
     for insn in insns {
         data.extend([
             insn.opc,
             insn.src << 4 | insn.dst,
             insn.off as u8,
-            insn.off >> 8 as u8,
+            (insn.off >> 8) as u8,
             insn.imm as u8,
             (insn.imm >> 8) as u8,
             (insn.imm >> 16) as u8,
@@ -98,10 +97,10 @@ fn to_bytes(insns: &[FuzzInsn]) -> Vec<u8> {
 }
 
 fuzz_target!(|data: &[u8]| {
-    let Some(fuzz_data) = FuzzData::autarkie_deserialize(data) else {
+    let Ok(fuzz_data) = bincode::deserialize::<FuzzData>(data) else {
         return;
     };
-    let prog = to_bytes(fuzz_data.insns);
+    let prog = to_bytes(&fuzz_data.insns);
     let config = solana_sbpf::vm::Config::default();
     let function_registry = FunctionRegistry::default();
     let syscall_registry = FunctionRegistry::<BuiltinFunction<TestContextObject>>::default();
@@ -183,8 +182,6 @@ fuzz_target!(|data: &[u8]| {
         }
     }
 });
-
-
 ```
 
 ## Understanding the harness
@@ -222,22 +219,27 @@ fn to_bytes(insns: &[FuzzInsn]) -> Vec<u8> {
 **Please note**: Autarkie will always send valid data, and thus, the deserialization will always be successful.
 We only add the return clause so that the harness can be re-used for other fuzzers who may produce structurally invalid input.
 ``` rust
-    let Some(fuzz_data) = FuzzData::maybe_deserialize(data) else {
+    let Ok(fuzz_data) = bincode::deserialize::<FuzzData>(data) else {
         return;
-    };
-    let prog = to_bytes(fuzz_data.insns);
+    }
+    let prog = to_bytes(&fuzz_data.insns);
 ```
 
 ## Running the fuzzer
+1. 
 Autarkie has a ``libfuzzer`` shim, based on ``libafl_libfuzzer``. Let's replace the libfuzzer with Autarkie's libfuzzer
 ```
 vim fuzz/Cargo.toml
-```
 ``` toml
 # replace
 # libfuzzer-sys = "0.4"
 # add
 libfuzzer-sys = {git = "https://github.com/R9295/autarkie", package = "libafl_libfuzzer"}
+```
+2. Let's add bincode to deserialize
+```
+vim fuzz/Cargo.toml
+bincode = "1"
 ```
 
 Run!
