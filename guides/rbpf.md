@@ -84,7 +84,7 @@ fn to_bytes(insns: &[FuzzInsn]) -> Vec<u8> {
     let data = vec![];
     for insn in insns {
         data.extend([
-            insn.op,
+            insn.opc,
             insn.src << 4 | insn.dst,
             insn.off as u8,
             insn.off >> 8 as u8,
@@ -98,7 +98,7 @@ fn to_bytes(insns: &[FuzzInsn]) -> Vec<u8> {
 }
 
 fuzz_target!(|data: &[u8]| {
-    let Some(fuzz_data) = FuzzData::maybe_deserialize(data) else {
+    let Some(fuzz_data) = FuzzData::autarkie_deserialize(data) else {
         return;
     };
     let prog = to_bytes(fuzz_data.insns);
