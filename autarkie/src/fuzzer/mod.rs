@@ -362,25 +362,43 @@ where
         #[cfg(not(feature = "libfuzzer"))]
         let mut stages = tuple_list!(
             // we mut minimize before calculating testcase score
-            MutatingStageWrapper::new(minimization_stage),
-            MutatingStageWrapper::new(recursive_minimization_stage),
+            MutatingStageWrapper::new(minimization_stage, Rc::clone(&visitor)),
+            MutatingStageWrapper::new(recursive_minimization_stage, Rc::clone(&visitor)),
             cmplog,
-            MutatingStageWrapper::new(StdPowerMutationalStage::new(append_mutator)),
-            MutatingStageWrapper::new(StdPowerMutationalStage::new(recursion_mutator)),
-            MutatingStageWrapper::new(StdPowerMutationalStage::new(splice_mutator)),
-            MutatingStageWrapper::new(generate_stage),
+            MutatingStageWrapper::new(
+                StdPowerMutationalStage::new(append_mutator),
+                Rc::clone(&visitor)
+            ),
+            MutatingStageWrapper::new(
+                StdPowerMutationalStage::new(recursion_mutator),
+                Rc::clone(&visitor)
+            ),
+            MutatingStageWrapper::new(
+                StdPowerMutationalStage::new(splice_mutator),
+                Rc::clone(&visitor)
+            ),
+            MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)),
             StatsStage::new(fuzzer_dir),
         );
 
         #[cfg(feature = "libfuzzer")]
         let mut stages = tuple_list!(
             // we mut minimize before calculating testcase score
-            MutatingStageWrapper::new(minimization_stage),
-            MutatingStageWrapper::new(recursive_minimization_stage),
-            MutatingStageWrapper::new(StdPowerMutationalStage::new(append_mutator)),
-            MutatingStageWrapper::new(StdPowerMutationalStage::new(recursion_mutator)),
-            MutatingStageWrapper::new(StdPowerMutationalStage::new(splice_mutator)),
-            MutatingStageWrapper::new(generate_stage),
+            MutatingStageWrapper::new(minimization_stage, Rc::clone(&visitor)),
+            MutatingStageWrapper::new(recursive_minimization_stage, Rc::clone(&visitor)),
+            MutatingStageWrapper::new(
+                StdPowerMutationalStage::new(append_mutator),
+                Rc::clone(&visitor)
+            ),
+            MutatingStageWrapper::new(
+                StdPowerMutationalStage::new(recursion_mutator),
+                Rc::clone(&visitor)
+            ),
+            MutatingStageWrapper::new(
+                StdPowerMutationalStage::new(splice_mutator),
+                Rc::clone(&visitor)
+            ),
+            MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)),
             StatsStage::new(fuzzer_dir),
         );
         fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)?;

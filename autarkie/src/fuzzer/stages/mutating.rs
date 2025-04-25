@@ -1,7 +1,10 @@
-//! Stage that wraps another stage and tracks it's execution time in `State`
+//! Stage that wraps mutating stages for stats and cleanup
 use crate::fuzzer::Context;
+use crate::Visitor;
 use core::{marker::PhantomData, time::Duration};
 use libafl_bolts::{current_time, Error};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use libafl::{
     stages::{Restartable, Stage},
@@ -11,14 +14,16 @@ use libafl::{
 #[derive(Debug)]
 pub struct MutatingStageWrapper<S, ST> {
     inner: ST,
+    visitor: Rc<RefCell<Visitor>>,
     phantom: PhantomData<S>,
 }
 
 impl<S, ST> MutatingStageWrapper<S, ST> {
     /// Create a `MutatingStageWrapper`
-    pub fn new(inner: ST) -> Self {
+    pub fn new(inner: ST, visitor: Rc<RefCell<Visitor>>) -> Self {
         Self {
             inner,
+            visitor,
             phantom: PhantomData,
         }
     }
@@ -38,6 +43,7 @@ where
     ) -> Result<(), Error> {
         self.inner.perform(fuzzer, executor, state, manager)?;
         let _ = state.metadata_mut::<Context>().unwrap().clear_mutations();
+        let _ = self.visitor.borrow_mut().serialized();
         Ok(())
     }
 }
