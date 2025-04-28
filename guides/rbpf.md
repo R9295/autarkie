@@ -257,6 +257,14 @@ $ pwd
 /fuzz/sbpf
 AUTARKIE_GRAMMAR_SRC=$(pwd) cargo fuzz run autarkie_harness -- -o ./output_dir -c0
 ```
+## Important Note
+The fuzzing target MAY have autarkie as a dependency (in this case, it does). This means that autarkie, and all it's dependencies will also be instrumented for coverage, but they won't ever be run. So the "edges discovered" metric will be rather low.
+
+This will result in a big inflation of edges and the percentage of edges discovered as a metric will be severly biased.
+For example, when fuzzing sbpf, autarkie will report that there are ``edges: ..../935178 (0%)`` discovered. This cannot be true as the project isn't large enough to have 935178 edges, its biased by autarkie and it's dependencies.
+
+Take this percentage of edges dicsovered metric with a grain of salt and rather look at the number of edges directly. Also, run coverage reports often.
+Autarkie is working hard, it's just that many edges will be unreachable!
 
 ## For help:
 ```bash
