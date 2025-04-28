@@ -12,7 +12,7 @@ Autarkie is heavily inspired by [nautilus](https://github.com/nautilus-fuzz/naut
 
 # Niche features
 Autarkie has several features that other grammar fuzzers do not have:
-- No grammar maintenance; because the grammar is part of the code, if the project updated, the grammar updates too.
+- No grammar maintenance; because the grammar is part of the code, if the project is updated, the grammar updates too.
 - Grammar is completely exhaustive; the compiler will make sure that every necessary type is included. No more guesswork.
 - Corpus is re-usable. If you stop the fuzzer, you can re-start it and it will be able to re-use the corpus!
 - Can learn from other fuzzers! (TODO: almost implemented)
