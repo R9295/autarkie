@@ -14,14 +14,17 @@ Autarkie is a native grammar fuzzer for Rust projects. Using procedural macros, 
 
 # How to Use
 There are two main walkthroughs:
-1. Fuzzing a target with a string input such as an [SQL parser](https://github.com/apache/datafusion-sqlparser-rs).
+1. Fuzz AFL++ instrumented C/C++ library
 
-This example fuzzes Apache's ``datafusion-sqlparser-rs``.
+This example fuzzes ``sqlite3`` by using grammar defined in [datafusion-sqlparser-rs](https://github.com/apache/datafusion-sqlparser-rs) and shows Autarkie's magic. You can build a highly sophisticated grammar fuzzer covering a language as complex as SQL in under 5 minutes.
+[Go to the walkthrough](guides/sql.md)
 
-2. Fuzz a target with a native rust type as an input, such as an [Interpreter](https://github.com/solana-labs/rbpf).
 
-This example fuzzes Solana's ``sbpf`` interpreter.
-See [example](guides/rbpf.md)
+2. Fuzz a Rust project using cargo-fuzz
+
+This example fuzzes Solana's ``sbpf`` interpreter which is implemented in Rust. Autarkie has ``cargo-fuzz`` integration, so it is trivial to fuzz native Rust projects.
+[Go to the walkthrough](guides/rbpf.md)
+
 
 # Limitations and Caveats
 ### Static Lifetimes
