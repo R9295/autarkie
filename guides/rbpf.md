@@ -8,7 +8,9 @@ cd sbpf
 ```
 
 ##  Deriving the grammar
-Autarkie expects the grammar to be defined in a crate. The crate MUST expose the struct ``FuzzData``.
+For fuzzing projects with cargo-fuzz, Autarkie expects the grammar to be defined in a crate. The crate MUST expose the struct ``FuzzData``.
+This is because it automatically builds an inprocess fuzzer.
+
 Usually, the grammar is already defined for us. 
 For example, ``sbpf`` already has an ``Insn`` struct but it includes the ``ptr`` field which we do not need. So we need to re-define it slightly.
 
@@ -248,7 +250,8 @@ We run autarkie with 1 core(core_id = 0) with the output directory of ``./output
 
 For more cores, use ``-c 0-7`` for 8 cores and cores ``-c 0-15`` for 16 cores etc..
 
-From the root directory of ``sbpf``
+We also give autarkie the path to the crate which contains the grammar (which exports ``FuzzData``). 
+It is ``pwd`` since we are in the root directory of the project.
 ```bash
 $ pwd
 /fuzz/sbpf
