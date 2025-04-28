@@ -14,7 +14,7 @@ Autarkie is a native grammar fuzzer for Rust projects. Using procedural macros, 
 
 # How to Use
 There are two main walkthroughs:
-1. Fuzz AFL++ instrumented C/C++ library
+1. Fuzz AFL++ instrumented C/C++ project
 
 This example fuzzes ``sqlite3`` by using grammar defined in [datafusion-sqlparser-rs](https://github.com/apache/datafusion-sqlparser-rs) and shows Autarkie's magic. You can build a highly sophisticated grammar fuzzer covering a language as complex as SQL in under 5 minutes.
 [Go to the walkthrough](guides/sql.md)
