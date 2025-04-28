@@ -1,6 +1,7 @@
 # Autarkie - Instant Grammar Fuzzing Using Rust Macros
 Autarkie is a native grammar fuzzer built in Rust. Using procedural macros, it (almost completely) automatically creates a grammar fuzzer. 
 Autarkie is heavily inspired by [nautilus](https://github.com/nautilus-fuzz/nautilus).
+
 # Features
 - Essentially a drop-in replacement for [arbitrary](https://github.com/rust-fuzz/arbitrary)
 - Actual grammar fuzzing - not "structure aware"
@@ -36,6 +37,9 @@ This example fuzzes Solana's ``sbpf`` interpreter which is implemented in Rust. 
 
 
 # Limitations and Caveats
+### Beta
+Autarkie is in beta - expect issues, do not tread lightly. 
+
 ### Static Lifetimes
 The type MUST own all it's data; it cannot use lifetimes. This is due to the use of ``std::intrinsics::type_id`` which require types to have a ``'static`` lifetime.
 
