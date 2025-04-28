@@ -329,7 +329,7 @@ impl Node for bool {
 
 impl<T> Node for Box<T>
 where
-    T: Node+ Clone,
+    T: Node + Clone,
 {
     fn __autarkie_generate(
         visitor: &mut Visitor,

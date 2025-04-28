@@ -28,8 +28,8 @@ pub struct Visitor {
     matching_cmps: Vec<(Vec<FieldLocation>, Vec<u8>)>,
     /// A map of types which are mapped to their variants and their fields.
     /// Examples:
-    /// a struct will be { Struct: {0: { usize, u32 } } } 
-    /// an enum will be { Enum: {variant_0: { usize, u32 },  variant_1: {u8}} } 
+    /// a struct will be { Struct: {0: { usize, u32 } } }
+    /// an enum will be { Enum: {variant_0: { usize, u32 },  variant_1: {u8}} }
     ty_map: BTreeMap<Id, BTreeMap<usize, BTreeSet<Id>>>,
     /// Types we have already analyzed. to prevent infinite recursion
     ty_done: BTreeSet<Id>,
@@ -41,7 +41,6 @@ pub struct Visitor {
     /// State of randomnes
     rng: StdRand,
 }
-
 
 impl Visitor {
     pub fn get_string(&mut self) -> String {
@@ -116,7 +115,7 @@ impl Visitor {
     pub fn iterate_depth(&self) -> usize {
         self.depth.iterate
     }
-    
+
     /// This function adds a type to the type map
     pub fn register_ty(&mut self, parent: Option<Id>, id: Id, variant: usize) {
         self.ty_map_stack.push(id.clone());
@@ -149,11 +148,11 @@ impl Visitor {
     pub fn is_recursive(&mut self, id: Id) -> bool {
         self.ty_map_stack.contains(&id) || self.ty_done.contains(&id)
     }
-    
+
     // TODO: optimize
     // TODO: refactor ffs
     // TODO: document algorithm
-    /// Automatically determine recursive types 
+    /// Automatically determine recursive types
     pub fn calculate_recursion(&mut self) -> BTreeMap<Id, BTreeSet<usize>> {
         let mut recursive_nodes = BTreeMap::new();
         let mut g = DiGraphMap::<_, usize>::new();
@@ -257,7 +256,7 @@ impl Visitor {
     // TODO: refactor
     /// This function is used by enums to determine which variant to generate.
     /// Since some variant are recursive, we check whether our depth is under the recursive depth
-    /// limit. 
+    /// limit.
     /// If so, we MAY pick a recursive variant
     /// If not, we MAY NOT pick a recursive variant
     /// If we do not have any non-recursive variants we return None and the Input
@@ -361,7 +360,7 @@ impl NodeType {
 }
 
 #[derive(Debug, Clone)]
-/// The DepthInfo struct throttles the generation and mutation of inputs. 
+/// The DepthInfo struct throttles the generation and mutation of inputs.
 /// We need to set a recursive depth on Inputs so self referencing types do not result in a stack overflow
 /// We need to set a limit on the amount of elements in an iterable for performance reasons.
 pub struct DepthInfo {
