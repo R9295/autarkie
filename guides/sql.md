@@ -24,10 +24,9 @@ We will use ``serde`` as our serialization primitive. Since the project already 
 cargo add autarkie --git https://github.com/R9295/autarkie --features bincode --features derive
 ```
 2. Derive ``autarkie::Grammar`` macro for the AST.
+Since the parser already has serde support, we can simply find all places which have the ``Serialize`` macro and add autarkie's ``Grammar`` macro too.
 ``` bash
-cd src
-rg "Serialize" --files-with-matches | xargs sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g
-cd ..
+rg "Serialize" --files-with-matches | xargs sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g'
 ```
 3. Modify the grammar slightly
 
@@ -35,9 +34,9 @@ We need to modify the datafusion-parser's code a bit because it does not allow u
 Our fuzzer may generate potentially invalid SQL (for example, the quote may not be ``"``, but a random character).
 ``` bash
 # delete an assert statement
-sed -i '394d' ./src/ast/mod.rs
+sed -i '390d' ./src/ast/mod.rs
 # remove a panic
-rg "panic!\(\"unexpected quote style\"\)" --files-with-matches | xargs sed -i 's/panic!("unexpected quote style")/{write!(f, "\\\"{}\\\"", value::escape_quoted_string(\&self.value, \'"\'))}/g'
+rg "panic!\(\"unexpected quote style\"\)" --files-with-matches | xargs sed -i 's/panic!("unexpected quote style")/write!(f, "\\\"{}\\\"", value::escape_quoted_string(\&self.value, \'"\'))/g'
 ```
 
 That's it! Let's test it to see if it builds. 
@@ -45,10 +44,10 @@ We need to use the serde feature flag since the serde is feature gated.
 ```
 cargo build --features serde
 ```
-Too easy?
+That's it! Too easy? We have our grammar source fully instrumented.
 
 ## Building our fuzzer
-Since we are fuzzing C code, we need to create a fuzzer from the grammar.
+Since we are fuzzing C code, we need to create a fuzzer from the grammar. We cannot fuzz inprocess, like with [sbpf](/guides/rbpf.md).
 1. Initialize the fuzzer
 ```bash 
 cd /tmp
@@ -96,8 +95,19 @@ autarkie::fuzz_afl!(FuzzData, |data: &FuzzData| -> Vec<u8> {
     ret
 });
 ```
+Normally, when fuzzing a target which can decode our input on the other end (if they also use ``bincode``/``borsh``) we can simply use the macro as the following:
 
-That's it! Our fuzzer is ready.
+``` rust
+autarkie::fuzz_afl!(FuzzData);
+```
+This will automatically use ``bincode``/``borsh`` to serialize the input to bytes for the fuzzing target.
+
+**But** in this case, we need to render the input to a harness supported type. This is common when fuzzing programming langauges for example.
+
+That's it! Our fuzzer is ready. Let's build
+```
+cargo build --release
+```
 
 ## Building the Harness
 Let's build oss-fuzz's sqlite. Make sure to install oss-fuzz pre-requisites.
@@ -105,6 +115,7 @@ Let's build oss-fuzz's sqlite. Make sure to install oss-fuzz pre-requisites.
 1. Build
 
 ```
+cd /tmp
 git clone https://github.com/google/oss-fuzz/
 cd oss-fuzz
 python3 infra/helper.py build_fuzzers --engine afl sqlite3
@@ -113,7 +124,7 @@ python3 infra/helper.py build_fuzzers --engine afl sqlite3
 2. Copy the harness to our fuzzer directory
 
 ```bash
-cp ./build/out/sqlite3/ossfuzz /tmp/sql-fuzzer
+cp ./build/out/sqlite3/ossfuzz /tmp/sql-fuzzer/
 ```
 
 ## Running the fuzzer
@@ -122,12 +133,12 @@ We run autarkie with 1 core(core_id = 0) with the output directory of ``./output
 For more cores, use ``-c 0-7`` for 8 cores and cores ``-c 0-15`` for 16 cores etc..
 
 ```
-cd /tmp/sql-fuzzer
+cd /tmp/sql-fuzzer/
 cargo build --release
-/target/release/sql-fuzzer  -o ./output_dir -c0 -m100 ./ossfuzz 
+./target/release/sql-fuzzer  -o ./output_dir -c0 -m100 ./ossfuzz 
 ```
-
 :)
+
 
 ## Further work
 Please report bugs and or suggestions!
