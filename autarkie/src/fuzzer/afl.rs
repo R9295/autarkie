@@ -10,8 +10,8 @@ macro_rules! impl_converter {
             }
         }
 
-        impl<I: autarkie::Node> autarkie::TargetBytesConverter<I> for FuzzDataTargetBytesConverter {
-            fn to_target_bytes<'a>(&mut self, input: &'a I) -> autarkie::OwnedSlice<'a, u8> {
+        impl autarkie::TargetBytesConverter<$t> for FuzzDataTargetBytesConverter {
+            fn to_target_bytes<'a>(&mut self, input: &'a $t) -> autarkie::OwnedSlice<'a, u8> {
                 let bytes = autarkie::serialize(input);
                 autarkie::OwnedSlice::from(bytes)
             }
@@ -71,7 +71,8 @@ macro_rules! impl_input {
 macro_rules! fuzz_afl_inner {
     ($t: ty) => {
         fn main() {
-            $crate::fuzzer::run_fuzzer(FuzzDataTargetBytesConverter::new(), None);
+            let harness: Option<fn(&$t) -> autarkie::LibAFLExitKind> = None;
+            $crate::fuzzer::run_fuzzer(FuzzDataTargetBytesConverter::new(), harness);
         }
     };
 }
@@ -82,11 +83,13 @@ macro_rules! fuzz_afl {
         $crate::impl_input!($t);
         $crate::impl_converter!($t);
         $crate::fuzz_afl_inner!($t);
+        $crate::impl_hash!($t);
     };
     ($t:ty, $closure:expr) => {
         $crate::impl_input!($t);
         $crate::impl_converter!($t, $closure);
         $crate::fuzz_afl_inner!($t);
+        $crate::impl_hash!($t);
     };
 }
 

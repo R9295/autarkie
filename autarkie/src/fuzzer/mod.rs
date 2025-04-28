@@ -66,6 +66,7 @@ use stages::generate;
 
 #[cfg(not(feature = "libfuzzer"))]
 const SHMEM_ENV_VAR: &str = "__AFL_SHM_ID";
+
 pub fn run_fuzzer<I, TC, F>(bytes_converter: TC, harness: Option<F>)
 where
     I: Node + Input,

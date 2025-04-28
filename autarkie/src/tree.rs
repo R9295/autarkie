@@ -3,7 +3,6 @@ use serde::de::DeserializeOwned;
 use std::borrow::Cow;
 use std::{
     collections::{BTreeMap, VecDeque},
-    fmt::Debug,
     marker::PhantomData,
 };
 
@@ -88,13 +87,13 @@ where
 }
 
 #[cfg(feature = "bincode")]
-node!(Debug + serde::ser::Serialize + DeserializeOwned + 'static);
+node!(serde::ser::Serialize + DeserializeOwned + 'static);
 
 #[cfg(feature = "scale")]
-node!(Debug + parity_scale_codec::Encode + parity_scale_codec::Decode + 'static);
+node!(parity_scale_codec::Encode + parity_scale_codec::Decode + 'static);
 
 #[cfg(feature = "borsh")]
-node!(Debug + borsh::BorshSerialize + borsh::BorshDeserialize + 'static);
+node!(borsh::BorshSerialize + borsh::BorshDeserialize + 'static);
 
 impl<T: 'static> Node for PhantomData<T> {
     fn __autarkie_generate(
@@ -127,7 +126,7 @@ impl<T: 'static + Node + Clone> Node for Cow<'static, T> {
 impl<T, const N: usize> Node for [T; N]
 where
     // TODO can we remove the debug clause?
-    T: Node + Debug,
+    T: Node,
 {
     fn __autarkie_generate(
         visitor: &mut Visitor,
@@ -218,7 +217,7 @@ where
 
 impl<T> Node for Vec<T>
 where
-    T: Node + Debug,
+    T: Node,
 {
     fn __autarkie_generate(
         visitor: &mut Visitor,
@@ -330,7 +329,7 @@ impl Node for bool {
 
 impl<T> Node for Box<T>
 where
-    T: Node + Debug + Clone,
+    T: Node+ Clone,
 {
     fn __autarkie_generate(
         visitor: &mut Visitor,
@@ -381,7 +380,7 @@ where
 
 impl<T> Node for Option<T>
 where
-    T: Node + Debug,
+    T: Node,
 {
     fn __autarkie_generate(
         visitor: &mut Visitor,
@@ -488,8 +487,8 @@ where
 // When things get fucked -> just look at this to save yourself from macro hell
 impl<T, E> Node for Result<T, E>
 where
-    T: Node + Debug,
-    E: Node + Debug,
+    T: Node,
+    E: Node,
 {
     fn __autarkie_generate(
         visitor: &mut Visitor,

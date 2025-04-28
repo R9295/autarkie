@@ -6,15 +6,13 @@ macro_rules! impl_node_serde_array {
     ($n: literal) => {
         impl<T> Node for [T; $n]
         where
-            // TODO can we remove the debug clause?
-            T: Node + Debug,
+            T: Node,
         {
             fn __autarkie_generate(
                 visitor: &mut Visitor,
                 depth: &mut usize,
                 cur_depth: &mut usize,
             ) -> Option<Self> {
-                // TODO: optimize?
                 Some(
                     (0..$n)
                         .map(|_| T::__autarkie_generate(visitor, depth, cur_depth))
