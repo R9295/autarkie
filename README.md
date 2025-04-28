@@ -25,6 +25,7 @@ There are two main walkthroughs:
 This example fuzzes ``sqlite3`` by using grammar defined in [datafusion-sqlparser-rs](https://github.com/apache/datafusion-sqlparser-rs). 
 Personal favourite as it shows Autarkie's magic: you can build a highly sophisticated grammar fuzzer covering a language as complex as SQL in under 5 minutes.
 This example also shows how you can render the internal structure into a different format for the harness
+
 [Go to the walkthrough](guides/sql.md)
 
 
