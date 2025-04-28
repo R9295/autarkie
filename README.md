@@ -1,4 +1,4 @@
-# Autarkie - Instant Grammar Fuzzing Using Rust Macros
+# Autarkie - Trivial Grammar Fuzzing Using Rust Macros
 Autarkie is a native grammar fuzzer built in Rust. Using procedural macros, it (almost completely) automatically creates a grammar fuzzer. 
 Autarkie is heavily inspired by [nautilus](https://github.com/nautilus-fuzz/nautilus). Please see [Limitations and Caveats](#limitations-and-caveats) for Autarkie's limitations.
 
