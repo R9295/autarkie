@@ -133,14 +133,17 @@ where
         // Create an observation channel to keep track of edges hit.
         #[cfg(not(feature = "libfuzzer"))]
         let edges_observer = unsafe {
-            HitcountsMapObserver::new(StdMapObserver::new("edges", shmem_buf)).track_indices()
+            HitcountsMapObserver::new(StdMapObserver::new("edges", shmem_buf))
+                .track_indices()
+                .track_novelties()
         };
         #[cfg(feature = "libfuzzer")]
         let edges = unsafe { extra_counters() };
         #[cfg(feature = "libfuzzer")]
         let edges_observer =
             StdMapObserver::from_mut_slice("edges", edges.into_iter().next().unwrap())
-                .track_indices();
+                .track_indices()
+                .track_novelties();
 
         let seed = opt.rng_seed.unwrap_or(current_nanos());
 

@@ -4,7 +4,7 @@ use libafl::{
     events::EventFirer,
     executors::{Executor, HasObservers},
     feedbacks::{HasObserverHandle, MapIndexesMetadata},
-    observers::{MapObserver, ObserversTuple},
+    observers::{CanTrack, MapObserver, ObserversTuple},
     stages::{Restartable, Stage},
     state::{HasCorpus, HasCurrentTestcase},
     Evaluator, HasMetadata,
@@ -23,6 +23,8 @@ use std::{
 
 use crate::fuzzer::Context;
 
+use super::stats::AutarkieStats;
+
 #[derive(Debug)]
 pub struct RecursiveMinimizationStage<C, E, O, OT, S, I> {
     map_observer_handle: Handle<C>,
@@ -35,7 +37,7 @@ impl<C, E, O, OT, S, I> RecursiveMinimizationStage<C, E, O, OT, S, I>
 where
     O: MapObserver,
     for<'it> O: AsIter<'it, Item = O::Entry>,
-    C: AsRef<O>,
+    C: AsRef<O> + CanTrack,
     OT: ObserversTuple<I, S>,
 {
     pub fn new<F>(visitor: Rc<RefCell<Visitor>>, map_feedback: &F) -> Self
@@ -60,7 +62,7 @@ where
     Z: Evaluator<E, EM, I, S>,
     EM: EventFirer<I, S>,
     O: MapObserver,
-    C: AsRef<O>,
+    C: AsRef<O> + CanTrack,
     for<'de> <O as MapObserver>::Entry:
         Serialize + Deserialize<'de> + 'static + Default + Debug + Bounded,
     OT: ObserversTuple<I, S>,
@@ -136,8 +138,12 @@ where
             }
         }
         if found {
-            let metadata = state.metadata_mut::<Context>().unwrap();
-            metadata.add_mutation(crate::fuzzer::context::MutationMetadata::RecursiveMinimization);
+            let metadata = state
+                .metadata_mut::<AutarkieStats>()
+                .unwrap()
+                .add_new_input_mutation(
+                    crate::fuzzer::context::MutationMetadata::RecursiveMinimization,
+                );
         }
         state.current_testcase_mut()?.set_input(current);
         Ok(())

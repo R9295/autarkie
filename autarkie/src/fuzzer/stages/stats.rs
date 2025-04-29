@@ -91,4 +91,12 @@ impl AutarkieStats {
                 .or_insert(1);
         }
     }
+    pub fn add_new_input_mutation(&mut self, m: MutationMetadata) {
+        self.mutations
+            .entry(m)
+            .and_modify(|v| {
+                *v += 1;
+            })
+            .or_insert(1);
+    }
 }

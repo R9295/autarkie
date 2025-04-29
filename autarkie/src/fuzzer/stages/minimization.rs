@@ -1,10 +1,10 @@
-use crate::{MutationType, Node, NodeType, Visitor};
+use crate::{fuzzer::stages::stats::AutarkieStats, MutationType, Node, NodeType, Visitor};
 use libafl::{
     corpus::Corpus,
     events::EventFirer,
     executors::{Executor, HasObservers},
-    feedbacks::{HasObserverHandle, MapIndexesMetadata},
-    observers::{MapObserver, ObserversTuple},
+    feedbacks::{HasObserverHandle, MapNoveltiesMetadata},
+    observers::{CanTrack, MapObserver, ObserversTuple},
     stages::{Restartable, Stage},
     state::{HasCorpus, HasCurrentTestcase},
     Evaluator, HasMetadata,
@@ -35,7 +35,7 @@ impl<C, E, O, OT, S, I> MinimizationStage<C, E, O, OT, S, I>
 where
     O: MapObserver,
     for<'it> O: AsIter<'it, Item = O::Entry>,
-    C: AsRef<O>,
+    C: AsRef<O> + CanTrack,
     OT: ObserversTuple<I, S>,
 {
     pub fn new<F>(visitor: Rc<RefCell<Visitor>>, map_feedback: &F) -> Self
@@ -60,7 +60,7 @@ where
     EM: EventFirer<I, S>,
     Z: Evaluator<E, EM, I, S>,
     O: MapObserver,
-    C: AsRef<O>,
+    C: AsRef<O> + CanTrack,
     for<'de> <O as MapObserver>::Entry:
         Serialize + Deserialize<'de> + 'static + Default + Debug + Bounded,
     OT: ObserversTuple<I, S>,
@@ -77,11 +77,11 @@ where
         }
 
         let metadata = state.metadata::<Context>().unwrap();
-        let indexes = state
+        let novelties = state
             .current_testcase()
             .unwrap()
             .borrow()
-            .metadata::<MapIndexesMetadata>()
+            .metadata::<MapNoveltiesMetadata>()
             .unwrap()
             .list
             .clone();
@@ -118,14 +118,8 @@ where
                     let run = fuzzer.evaluate_input(state, executor, manager, &inner)?;
                     let map = &executor.observers()[&self.map_observer_handle]
                         .as_ref()
-                        .to_vec();
-                    let map = map
-                        .into_iter()
-                        .enumerate()
-                        .filter(|i| i.1 != &O::Entry::default())
-                        .map(|i| i.0)
-                        .collect::<Vec<_>>();
-                    if map == indexes {
+                        .how_many_set(&novelties);
+                    if *map == novelties.len() {
                         found = true;
                         current = inner;
                         current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
@@ -138,8 +132,12 @@ where
         }
         state.current_testcase_mut()?.set_input(current.clone());
         if found {
-            let metadata = state.metadata_mut::<Context>().unwrap();
-            metadata.add_mutation(crate::fuzzer::context::MutationMetadata::IterableMinimization);
+            let metadata = state
+                .metadata_mut::<AutarkieStats>()
+                .unwrap()
+                .add_new_input_mutation(
+                    crate::fuzzer::context::MutationMetadata::IterableMinimization,
+                );
         }
         Ok(())
     }
