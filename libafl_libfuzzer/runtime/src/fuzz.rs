@@ -1,8 +1,8 @@
 use autarkie::TargetBytesConverter;
 use core::ffi::c_int;
 use grammar_source::{FuzzData, FuzzDataTargetBytesConverter};
-use libafl::Error;
 use libafl::executors::ExitKind;
+use libafl::Error;
 use libafl_bolts::AsSlice;
 
 fn fuzz_many_forking(harness: &extern "C" fn(*const u8, usize) -> c_int) -> Result<(), Error> {

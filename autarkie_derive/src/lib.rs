@@ -466,7 +466,7 @@ fn parse_fields(
             let ty = &field.ty;
             let name = match field.ident.clone() {
                 Some(ident) => ident,
-                None => Ident::new(&format!("_{}", id), field.span()),
+                None => Ident::new(&format!("_{id}"), field.span()),
             };
             GrammarField {
                 name,
@@ -532,7 +532,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
             }
             // this should never happen, cause we either have a literal attribute or not.
             generator
-                .unwrap_or_else(|| panic!("invariant; field {:?} did not have a generator", name))
+                .unwrap_or_else(|| panic!("invariant; field {name:?} did not have a generator"))
         })
         .collect::<Vec<_>>()
 }
