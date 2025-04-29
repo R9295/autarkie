@@ -1,3 +1,4 @@
+pub mod mutational;
 pub mod cmp;
 pub mod generate;
 pub mod minimization;

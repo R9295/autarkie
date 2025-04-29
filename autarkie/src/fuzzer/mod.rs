@@ -24,7 +24,7 @@ use libafl::{
     mutators::HavocScheduledMutator,
     observers::{CanTrack, HitcountsMapObserver, StdMapObserver, TimeObserver},
     schedulers::{powersched::PowerSchedule, QueueScheduler, StdWeightedScheduler},
-    stages::{IfStage, StdMutationalStage, StdPowerMutationalStage},
+    stages::{IfStage, StdMutationalStage},
     state::{HasCorpus, HasCurrentTestcase, StdState},
     BloomInputFilter, Evaluator, Fuzzer, HasMetadata, StdFuzzer,
 };
@@ -53,6 +53,7 @@ use stages::{
     generate::GenerateStage,
     minimization::MinimizationStage,
     mutating::MutatingStageWrapper,
+    mutational::AutarkieMutationalStage,
     recursive_minimization::RecursiveMinimizationStage,
     stats::{AutarkieStats, StatsStage},
 };
@@ -205,7 +206,8 @@ where
         let observers = tuple_list!(edges_observer, time_observer);
         let scheduler = scheduler.cycling_scheduler();
         // Create our Fuzzer
-        let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
+        let mut fuzzer =
+            StdFuzzer::with_bloom_input_filter(scheduler, feedback, objective, 5000, 0.8);
 
         // Create our Executor
         #[cfg(not(feature = "libfuzzer"))]
@@ -293,24 +295,10 @@ where
             println!("We imported {} inputs from disk.", state.corpus().count());
         }
 
-        let splice_mutator = HavocScheduledMutator::with_max_stack_pow(
-            tuple_list!(AutarkieSpliceMutator::new(
-                Rc::clone(&visitor),
-                opt.max_subslice_size
-            ),),
-            5,
-        );
-        let recursion_mutator = HavocScheduledMutator::with_max_stack_pow(
-            tuple_list!(AutarkieRecurseMutator::new(
-                Rc::clone(&visitor),
-                opt.max_subslice_size
-            ),),
-            5,
-        );
-        let append_mutator = HavocScheduledMutator::with_max_stack_pow(
-            tuple_list!(AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),),
-            3,
-        );
+        let splice_mutator = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
+        let recursion_mutator =
+            AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
+        let append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
         #[cfg(not(feature = "libfuzzer"))]
         let cmplog = {
             // The CmpLog map shared between the CmpLog observer and CmpLog executor
@@ -370,15 +358,15 @@ where
             MutatingStageWrapper::new(recursive_minimization_stage, Rc::clone(&visitor)),
             cmplog,
             MutatingStageWrapper::new(
-                StdPowerMutationalStage::new(append_mutator),
+                AutarkieMutationalStage::new(append_mutator, 3),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(
-                StdPowerMutationalStage::new(recursion_mutator),
+                AutarkieMutationalStage::new(recursion_mutator, 100),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(
-                StdPowerMutationalStage::new(splice_mutator),
+                AutarkieMutationalStage::new(splice_mutator, 100),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)),
@@ -391,15 +379,15 @@ where
             MutatingStageWrapper::new(minimization_stage, Rc::clone(&visitor)),
             MutatingStageWrapper::new(recursive_minimization_stage, Rc::clone(&visitor)),
             MutatingStageWrapper::new(
-                StdPowerMutationalStage::new(append_mutator),
+                AutarkieMutationalStage::new(append_mutator, 3),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(
-                StdPowerMutationalStage::new(recursion_mutator),
+                AutarkieMutationalStage::new(recursion_mutator, 100),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(
-                StdPowerMutationalStage::new(splice_mutator),
+                AutarkieMutationalStage::new(splice_mutator, 100),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)),
