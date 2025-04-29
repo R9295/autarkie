@@ -44,8 +44,9 @@ use libafl_bolts::{
 use libafl_targets::extra_counters;
 use libafl_targets::{AFLppCmpLogMap, AFLppCmpLogObserver};
 use mutators::{
-    recurse_mutate::AutarkieRecurseMutator, splice::AutarkieSpliceMutator,
-    splice_append::AutarkieSpliceAppendMutator,
+    recurse_mutate::{AutarkieRecurseMutator, RECURSE_STACK},
+    splice::{AutarkieSpliceMutator, SPLICE_STACK},
+    splice_append::{AutarkieSpliceAppendMutator, SPLICE_APPEND_STACK},
 };
 use regex::Regex;
 use stages::{
@@ -358,15 +359,15 @@ where
             MutatingStageWrapper::new(recursive_minimization_stage, Rc::clone(&visitor)),
             cmplog,
             MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(append_mutator, 3),
+                AutarkieMutationalStage::new(append_mutator, SPLICE_APPEND_STACK),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(recursion_mutator, 100),
+                AutarkieMutationalStage::new(recursion_mutator, RECURSE_STACK),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(splice_mutator, 100),
+                AutarkieMutationalStage::new(splice_mutator, SPLICE_STACK),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)),
@@ -379,15 +380,15 @@ where
             MutatingStageWrapper::new(minimization_stage, Rc::clone(&visitor)),
             MutatingStageWrapper::new(recursive_minimization_stage, Rc::clone(&visitor)),
             MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(append_mutator, 3),
+                AutarkieMutationalStage::new(append_mutator, SPLICE_APPEND_STACK),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(recursion_mutator, 100),
+                AutarkieMutationalStage::new(recursion_mutator, RECURSE_STACK),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(splice_mutator, 100),
+                AutarkieMutationalStage::new(splice_mutator, SPLICE_STACK),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)),

@@ -14,6 +14,7 @@ use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData
 
 use crate::fuzzer::Context;
 
+pub const SPLICE_APPEND_STACK: usize = 5;
 pub struct AutarkieSpliceAppendMutator<I> {
     visitor: Rc<RefCell<Visitor>>,
     phantom: PhantomData<I>,
