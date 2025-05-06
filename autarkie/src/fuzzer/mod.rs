@@ -1,34 +1,43 @@
 #![allow(warnings)]
 #![feature(core_intrinsics)]
+
 pub mod afl;
 mod context;
 mod feedback;
 pub mod libfuzzer;
 mod mutators;
 mod stages;
+
 use crate::{DepthInfo, Node, Visitor};
 use clap::Parser;
-use context::Context;
+use context::{Context, MutationMetadata};
 use feedback::register::RegisterFeedback;
+#[cfg(feature = "libfuzzer")]
+use libafl::mutators::I2SRandReplace;
 use libafl::{
     corpus::{CachedOnDiskCorpus, Corpus, OnDiskCorpus},
     events::{ClientDescription, EventConfig, Launcher, SimpleEventManager},
-    executors::{ExitKind, ForkserverExecutor, InProcessExecutor, InProcessForkExecutor},
+    executors::{
+        ExitKind, ForkserverExecutor, InProcessExecutor, InProcessForkExecutor, ShadowExecutor,
+    },
     feedback_or, feedback_or_fast,
     feedbacks::{
         CrashFeedback, MaxMapFeedback, MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, TimeFeedback,
         TimeoutFeedback,
     },
-    inputs::{HasTargetBytes, Input, TargetBytesConverter},
+    inputs::{BytesInput, HasTargetBytes, Input, TargetBytesConverter},
     monitors::{MultiMonitor, SimpleMonitor},
-    mutators::HavocScheduledMutator,
+    mutators::{
+        havoc_mutations, havoc_mutations_no_crossover, tokens_mutations, HavocScheduledMutator,
+    },
     observers::{CanTrack, HitcountsMapObserver, StdMapObserver, TimeObserver},
     schedulers::{powersched::PowerSchedule, QueueScheduler, StdWeightedScheduler},
-    stages::{IfStage, StdMutationalStage},
+    stages::{IfStage, StdMutationalStage, StdPowerMutationalStage},
     state::{HasCorpus, HasCurrentTestcase, StdState},
     BloomInputFilter, Evaluator, Fuzzer, HasMetadata, StdFuzzer,
 };
 pub use libafl_bolts::current_nanos;
+use libafl_bolts::tuples::Merge;
 use libafl_bolts::AsSlice;
 use libafl_bolts::TargetArgs;
 use libafl_bolts::{
@@ -41,7 +50,10 @@ use libafl_bolts::{
     AsSliceMut, Error,
 };
 #[cfg(feature = "libfuzzer")]
-use libafl_targets::extra_counters;
+use libafl::stages::ShadowTracingStage;
+#[cfg(feature = "libfuzzer")]
+use libafl_targets::{extra_counters, CmpLogObserver};
+#[cfg(feature = "afl")]
 use libafl_targets::{AFLppCmpLogMap, AFLppCmpLogObserver};
 use mutators::{
     recurse_mutate::{AutarkieRecurseMutator, RECURSE_STACK},
@@ -50,14 +62,18 @@ use mutators::{
 };
 use regex::Regex;
 use stages::{
-    cmp::CmpLogStage,
+    binary_mutator::AutarkieBinaryMutatorStage,
     generate::GenerateStage,
     minimization::MinimizationStage,
     mutating::MutatingStageWrapper,
     mutational::AutarkieMutationalStage,
+    novelty_minimization::NoveltyMinimizationStage,
     recursive_minimization::RecursiveMinimizationStage,
     stats::{AutarkieStats, StatsStage},
 };
+
+#[cfg(feature = "afl")]
+use stages::cmp::CmpLogStage;
 use std::io::{stderr, stdout, Write};
 use std::os::fd::AsRawFd;
 use std::str::FromStr;
@@ -66,22 +82,23 @@ use std::{env::args, ffi::c_int};
 
 use stages::generate;
 
-#[cfg(not(feature = "libfuzzer"))]
+#[cfg(feature = "afl")]
 const SHMEM_ENV_VAR: &str = "__AFL_SHM_ID";
 
+#[cfg(any(feature = "libfuzzer", feature = "afl"))]
 pub fn run_fuzzer<I, TC, F>(bytes_converter: TC, harness: Option<F>)
 where
     I: Node + Input,
     TC: TargetBytesConverter<I> + Clone,
     F: Fn(&I) -> ExitKind,
 {
-    #[cfg(not(feature = "libfuzzer"))]
+    #[cfg(feature = "afl")]
     let monitor = MultiMonitor::new(|s| println!("{s}"));
     // TODO: -close_fd_mask from libfuzzer
     #[cfg(feature = "libfuzzer")]
     let monitor = MultiMonitor::new(create_monitor_closure());
     let shmem_provider = StdShMemProvider::new().expect("Failed to init shared memory");
-    #[cfg(not(feature = "libfuzzer"))]
+    #[cfg(feature = "afl")]
     let opt = Opt::parse();
     #[cfg(feature = "libfuzzer")]
     let opt = {
@@ -98,7 +115,7 @@ where
         if !opt.output_dir.exists() {
             std::fs::create_dir(&opt.output_dir).unwrap();
         }
-        #[cfg(not(feature = "libfuzzer"))]
+        #[cfg(feature = "afl")]
         let map_size = {
             let map_size = Command::new(opt.executable.clone())
                 .env("AFL_DUMP_MAP_SIZE", "1")
@@ -119,21 +136,22 @@ where
                 }
             }
         };
-
+        #[cfg(feature = "libfuzzer")]
+        let cmplog_observer = CmpLogObserver::new("cmplog", true);
         // Create the shared memory map for comms with the forkserver
-        #[cfg(not(feature = "libfuzzer"))]
+        #[cfg(feature = "afl")]
         let mut shmem_provider = UnixShMemProvider::new().unwrap();
-        #[cfg(not(feature = "libfuzzer"))]
+        #[cfg(feature = "afl")]
         let mut shmem = shmem_provider.new_shmem(map_size).unwrap();
-        #[cfg(not(feature = "libfuzzer"))]
+        #[cfg(feature = "afl")]
         unsafe {
             shmem.write_to_env(SHMEM_ENV_VAR).unwrap();
         }
-        #[cfg(not(feature = "libfuzzer"))]
+        #[cfg(feature = "afl")]
         let shmem_buf = shmem.as_slice_mut();
 
         // Create an observation channel to keep track of edges hit.
-        #[cfg(not(feature = "libfuzzer"))]
+        #[cfg(feature = "afl")]
         let edges_observer = unsafe {
             HitcountsMapObserver::new(StdMapObserver::new("edges", shmem_buf))
                 .track_indices()
@@ -164,18 +182,26 @@ where
         // Create a MapFeedback for coverage guided fuzzin'
         let map_feedback = MaxMapFeedback::new(&edges_observer);
 
-        // Create an observation channel to keep track of the execution time.
         let time_observer = TimeObserver::new("time");
-        let minimization_stage = MinimizationStage::new(Rc::clone(&visitor), &map_feedback);
-        let recursive_minimization_stage =
-            RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback);
+        let cb = |_fuzzer: &mut _,
+                  _executor: &mut _,
+                  _state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
+                  _event_manager: &mut _|
+         -> Result<bool, Error> { Ok(true) };
+        let minimization_stage = IfStage::new(
+            cb,
+            tuple_list!(
+                MinimizationStage::new(Rc::clone(&visitor), &map_feedback),
+                RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback)
+            ),
+        );
         let mut feedback = feedback_or!(
             map_feedback,
             TimeFeedback::new(&time_observer),
             RegisterFeedback::new(Rc::clone(&visitor)),
         );
 
-        let mut objective = feedback_or_fast!(CrashFeedback::new());
+        let mut objective = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new(),);
 
         // Initialize our State if necessary
         let mut state = state.unwrap_or(
@@ -208,10 +234,10 @@ where
         let scheduler = scheduler.cycling_scheduler();
         // Create our Fuzzer
         let mut fuzzer =
-            StdFuzzer::with_bloom_input_filter(scheduler, feedback, objective, 5000, 0.8);
+            StdFuzzer::with_bloom_input_filter(scheduler, feedback, objective, 10_000, 0.0001);
 
         // Create our Executor
-        #[cfg(not(feature = "libfuzzer"))]
+        #[cfg(feature = "afl")]
         let mut executor = ForkserverExecutor::builder()
             .program(opt.executable.clone())
             .coverage_map_size(map_size)
@@ -234,6 +260,11 @@ where
             &mut mgr,
             Duration::from_millis(opt.hang_timeout),
         )?;
+        #[cfg(feature = "libfuzzer")]
+        let mut executor = ShadowExecutor::new(executor, tuple_list!(cmplog_observer));
+        // Setup a tracing stage in which we log comparisons
+        #[cfg(feature = "libfuzzer")]
+        let tracing = ShadowTracingStage::new();
 
         if let Some(dict_file) = &opt.dict_file {
             let file = std::fs::read_to_string(dict_file).expect("cannot read dict file");
@@ -243,7 +274,7 @@ where
         }
 
         // Read strings from the target if configured
-        #[cfg(not(feature = "libfuzzer"))]
+        #[cfg(feature = "afl")]
         if opt.get_strings {
             let string_regex = Regex::new("^[a-zA-Z0-9_]+$").unwrap();
             let strings = Command::new("strings")
@@ -293,6 +324,8 @@ where
                     )
                     .unwrap();
             }
+            let mut metadata = state.metadata_mut::<Context>().expect("fxeZamEw____");
+            metadata.default_input();
             println!("We imported {} inputs from disk.", state.corpus().count());
         }
 
@@ -300,7 +333,7 @@ where
         let recursion_mutator =
             AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
         let append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
-        #[cfg(not(feature = "libfuzzer"))]
+        /* #[cfg(feature = "afl")]
         let cmplog = {
             // The CmpLog map shared between the CmpLog observer and CmpLog executor
             let mut cmplog_shmem = shmem_provider.uninit_on_shmem::<AFLppCmpLogMap>().unwrap();
@@ -349,15 +382,23 @@ where
                     cmplog_ref
                 )),
             )
-        };
+        }; */
         let generate_stage = GenerateStage::new(Rc::clone(&visitor));
-
-        #[cfg(not(feature = "libfuzzer"))]
+        let afl_stage = AutarkieBinaryMutatorStage::new(
+            havoc_mutations_no_crossover(),
+            7,
+            MutationMetadata::Afl,
+        );
+        #[cfg(feature = "libfuzzer")]
+        let i2s = AutarkieBinaryMutatorStage::new(
+            tuple_list!(I2SRandReplace::new()),
+            7,
+            MutationMetadata::I2S,
+        );
+        // TODO: I2S for AFL
+        #[cfg(feature = "afl")]
         let mut stages = tuple_list!(
-            // we mut minimize before calculating testcase score
-            MutatingStageWrapper::new(minimization_stage, Rc::clone(&visitor)),
-            MutatingStageWrapper::new(recursive_minimization_stage, Rc::clone(&visitor)),
-            cmplog,
+            minimization_stage,
             MutatingStageWrapper::new(
                 AutarkieMutationalStage::new(append_mutator, SPLICE_APPEND_STACK),
                 Rc::clone(&visitor)
@@ -370,15 +411,15 @@ where
                 AutarkieMutationalStage::new(splice_mutator, SPLICE_STACK),
                 Rc::clone(&visitor)
             ),
+            MutatingStageWrapper::new(afl_stage, Rc::clone(&visitor)),
             MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)),
             StatsStage::new(fuzzer_dir),
         );
-
         #[cfg(feature = "libfuzzer")]
         let mut stages = tuple_list!(
-            // we mut minimize before calculating testcase score
-            MutatingStageWrapper::new(minimization_stage, Rc::clone(&visitor)),
-            MutatingStageWrapper::new(recursive_minimization_stage, Rc::clone(&visitor)),
+            minimization_stage,
+            tracing,
+            MutatingStageWrapper::new(i2s, Rc::clone(&visitor)),
             MutatingStageWrapper::new(
                 AutarkieMutationalStage::new(append_mutator, SPLICE_APPEND_STACK),
                 Rc::clone(&visitor)
@@ -392,6 +433,7 @@ where
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)),
+            MutatingStageWrapper::new(afl_stage, Rc::clone(&visitor)),
             StatsStage::new(fuzzer_dir),
         );
         fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)?;
@@ -417,13 +459,13 @@ where
 )]
 struct Opt {
     /// What we wanna fuzz
-    #[cfg(not(feature = "libfuzzer"))]
+    #[cfg(feature = "afl")]
     executable: PathBuf,
     /// Fuzzer output dir; will also load inputs from there
     #[arg(short = 'o')]
     output_dir: PathBuf,
 
-    /// Timeout in ms
+    /// Timeout in milliseconds
     #[arg(short = 't', default_value_t = 1000)]
     hang_timeout: u64,
 
@@ -435,7 +477,7 @@ struct Opt {
     #[arg(short = 'd')]
     debug_child: bool,
 
-    #[cfg(not(feature = "libfuzzer"))]
+    #[cfg(feature = "afl")]
     /// AFL_DUMP_MAP_SIZE + x where x = map bias
     #[arg(short = 'm')]
     map_bias: usize,

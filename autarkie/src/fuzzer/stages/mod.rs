@@ -1,7 +1,12 @@
+pub mod binary_mutator;
+#[cfg(feature = "afl")]
 pub mod cmp;
 pub mod generate;
+#[cfg(feature = "libfuzzer")]
+pub mod libfuzzer_cmp;
 pub mod minimization;
 pub mod mutating;
 pub mod mutational;
+pub mod novelty_minimization;
 pub mod recursive_minimization;
 pub mod stats;

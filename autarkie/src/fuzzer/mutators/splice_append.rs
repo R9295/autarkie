@@ -53,9 +53,6 @@ where
                 return Ok(MutationResult::Skipped);
             }
             if let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) {
-                if *field_len > 200 {
-                    return Ok(MutationResult::Skipped);
-                }
                 // calculate subsplice size
                 let iter_count = self.visitor.borrow().iterate_depth();
                 let append_count = self.visitor.borrow_mut().random_range(1, iter_count);

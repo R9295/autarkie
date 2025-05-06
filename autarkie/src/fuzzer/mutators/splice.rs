@@ -43,11 +43,7 @@ where
         let ((id, node_ty), ty) = field.last().unwrap();
         if let crate::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
             let subslice = self.visitor.borrow_mut().coinflip_with_prob(0.6);
-            if subslice {
-                // no point subslicing when we have less than 5 entries
-                if *field_len < 3 {
-                    return Ok(MutationResult::Skipped);
-                }
+            if subslice && *field_len > 3 {
                 let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) else {
                     return Ok(MutationResult::Skipped);
                 };

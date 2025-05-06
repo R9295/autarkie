@@ -63,8 +63,8 @@ The grammar source is the macro instrumented ``datafusion-sqlparser-rs``
 ``` bash
 #  we add serde
 cargo add serde --features derive
-# we add autarkie
-cargo add autarkie --git https://github.com/R9295/autarkie --features bincode --features derive
+# we add autarkie with the afl, bincode and derive features
+cargo add autarkie --git https://github.com/R9295/autarkie --features bincode --features derive --features afl
 # we add the grammar source WITH the serde feature
 cargo add sqlparser --path /tmp/datafusion-sqlparser-rs --features serde
 ```
