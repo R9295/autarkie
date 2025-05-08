@@ -224,8 +224,7 @@ where
         depth: &mut usize,
         cur_depth: &mut usize,
     ) -> Option<Self> {
-        let element_count =
-            visitor.random_range(if *cur_depth == 0 { 1 } else { 0 }, visitor.iterate_depth());
+        let element_count = visitor.random_range(0, visitor.iterate_depth());
         if element_count == 0 {
             return Some(vec![]);
         }
@@ -977,7 +976,7 @@ where
 }
 
 #[cfg(feature = "bincode")]
-pub fn maybe_deserialize<T>(data: &mut &[u8]) -> Option<T>
+pub fn maybe_deserialize<T>(data: &[u8]) -> Option<T>
 where
     T: DeserializeOwned,
 {

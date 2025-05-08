@@ -43,10 +43,13 @@ where
         let mut metadata = state.metadata_mut::<Context>()?;
         metadata.generated_input();
         let Some(generated) = generate(&mut self.visitor.borrow_mut()) else {
+            metadata.default_input();
             return Ok(());
         };
         metadata.add_mutation(crate::fuzzer::context::MutationMetadata::Generate);
         fuzzer.evaluate_input(state, executor, manager, &generated)?;
+        let mut metadata = state.metadata_mut::<Context>()?;
+        metadata.default_input();
         Ok(())
     }
 }

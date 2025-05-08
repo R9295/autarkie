@@ -24,17 +24,18 @@ use std::{
 use crate::fuzzer::Context;
 
 #[derive(Debug)]
-pub struct MinimizationStage<C, E, O, OT, S, I> {
+pub struct NoveltyMinimizationStage<C, E, O, OT, S, I> {
     map_observer_handle: Handle<C>,
     map_name: Cow<'static, str>,
     visitor: Rc<RefCell<Visitor>>,
     phantom: PhantomData<(E, O, OT, S, I)>,
 }
 
-impl<C, E, O, OT, S, I> MinimizationStage<C, E, O, OT, S, I>
+impl<C, E, O, OT, S, I> NoveltyMinimizationStage<C, E, O, OT, S, I>
 where
     O: MapObserver,
     for<'it> O: AsIter<'it, Item = O::Entry>,
+    O::Entry: 'static + Default + Debug + serde::de::DeserializeOwned + serde::Serialize,
     C: AsRef<O> + CanTrack,
     OT: ObserversTuple<I, S>,
 {
@@ -52,7 +53,7 @@ where
     }
 }
 
-impl<C, E, O, OT, S, I, EM, Z> Stage<E, EM, S, Z> for MinimizationStage<C, E, O, OT, S, I>
+impl<C, E, O, OT, S, I, EM, Z> Stage<E, EM, S, Z> for NoveltyMinimizationStage<C, E, O, OT, S, I>
 where
     I: Node + Serialize + Clone,
     S: HasCurrentTestcase<I> + HasCorpus<I> + HasMetadata,
@@ -81,7 +82,7 @@ where
             .current_testcase()
             .unwrap()
             .borrow()
-            .metadata::<MapIndexesMetadata>()
+            .metadata::<MapNoveltiesMetadata>()
             .unwrap()
             .list
             .clone();
@@ -89,7 +90,6 @@ where
         current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut skip = 0;
         let mut fields = self.visitor.borrow_mut().fields();
-        shuffle(&mut fields, &mut self.visitor.borrow_mut());
         let mut found = false;
         loop {
             let field = fields.pop();
@@ -131,32 +131,24 @@ where
                 }
             }
         }
-        state.current_testcase_mut()?.set_input(current.clone());
         if found {
             let metadata = state
                 .metadata_mut::<AutarkieStats>()
                 .unwrap()
                 .add_new_input_mutation(
-                    crate::fuzzer::context::MutationMetadata::IterableMinimization,
+                    crate::fuzzer::context::MutationMetadata::NoveltyMinimization,
                 );
+            fuzzer.add_input(state, executor, manager, current)?;
         }
         Ok(())
     }
 }
-impl<C, E, O, OT, S, I> Restartable<S> for MinimizationStage<C, E, O, OT, S, I> {
+impl<C, E, O, OT, S, I> Restartable<S> for NoveltyMinimizationStage<C, E, O, OT, S, I> {
     fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl::Error> {
         Ok(true)
     }
 
     fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl::Error> {
         Ok(())
-    }
-}
-
-pub fn shuffle<T>(data: &mut [T], v: &mut Visitor) {
-    let n: usize = data.len();
-    for i in (1..data.len()).rev() {
-        let j = v.random_range(0, (i));
-        data.swap(i, j);
     }
 }

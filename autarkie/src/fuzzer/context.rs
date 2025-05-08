@@ -66,6 +66,10 @@ impl Context {
         self.input_cause = InputCause::Generated;
     }
 
+    pub fn default_input(&mut self) {
+        self.input_cause = InputCause::Default;
+    }
+
     pub fn add_existing_chunk(&mut self, path: PathBuf) {
         let ty = path
             .parent()
@@ -140,6 +144,14 @@ pub enum MutationMetadata {
     RecursiveMinimization,
     /// Iterable Minimization
     IterableMinimization,
+    /// Novelty Minimization
+    NoveltyMinimization,
+    /// Afl
+    Afl,
     /// Generate
     Generate,
+    /// Cmplog
+    Cmplog,
+    /// I2S
+    I2S,
 }
