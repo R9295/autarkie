@@ -66,14 +66,6 @@ features = ["derive"]
 version = "0.14.5"
 default-features = true
 
-[dependencies.grammar_source]
-path = "/home/fuzz/projects/sbpf"
-package = "solana-sbpf"
-
-[dependencies.autarkie]
-path = "/home/fuzz/projects/autarkie/autarkie"
-version = "0.1.0"
-features = ["bincode", "derive", "libfuzzer"]
 
 [build-dependencies]
 bindgen = "0.71.1"
