@@ -67,7 +67,12 @@ where
                 .below(unsafe { NonZero::new(self.inner.len()).unwrap_unchecked() })
                 .into();
             self.inner.get_and_mutate(mutation, state, &mut input);
+            #[cfg(not(feature = "scale"))]
             let Some(deserialized) = crate::maybe_deserialize(&input) else {
+                return Ok(());
+            };
+            #[cfg(feature = "scale")]
+            let Some(deserialized) = crate::maybe_deserialize(&mut input.as_slice()) else {
                 return Ok(());
             };
             let mut metadata = state.metadata_mut::<Context>().unwrap();

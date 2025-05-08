@@ -125,28 +125,25 @@ impl<T: 'static + Node + Clone> Node for Cow<'static, T> {
 #[cfg(any(feature = "borsh", feature = "scale"))]
 impl<T, const N: usize> Node for [T; N]
 where
-    // TODO can we remove the debug clause?
-    T: Node,
+    T: Node + std::fmt::Debug,
 {
-    fn __autarkie_generate(
+  fn __autarkie_generate(
         visitor: &mut Visitor,
         depth: &mut usize,
         cur_depth: &mut usize,
     ) -> Option<Self> {
         // TODO: optimize?
-        (0..N)
-            .map(|_| {
-                Some(T::__autarkie_generate(
+        let res = (0..N)
+            .filter_map(|_| {
+                T::__autarkie_generate(
                     visitor,
                     &mut visitor.generate_depth(),
                     cur_depth,
-                )?)
+                )
             })
-            .collect::<Vec<T>>()
-            .try_into()
-            .expect("invariant;")
+            .collect::<Vec<T>>();
+        Some(res.try_into().expect("err"))
     }
-
     fn __autarkie_serialized(&self, visitor: &mut Visitor) {
         for item in self {
             visitor.add_serialized(serialize(&item), T::__autarkie_id());
@@ -603,7 +600,7 @@ impl Node for std::string::String {
         Some(visitor.get_string())
     }
 }
-
+#[cfg(not(feature = "scale"))]
 impl Node for char {
     fn __autarkie_generate(
         visitor: &mut Visitor,
