@@ -11,7 +11,7 @@ macro_rules! impl_node_serde_array {
             fn __autarkie_generate(
                 visitor: &mut Visitor,
                 depth: &mut usize,
-                cur_depth: &mut usize,
+                cur_depth: usize,
             ) -> Option<Self> {
                 Some(
                     (0..$n)
@@ -59,9 +59,7 @@ macro_rules! impl_node_serde_array {
                             *self = deserialize(other);
                         }
                         MutationType::GenerateReplace(ref mut bias) => {
-                            if let Some(generated) =
-                                Self::__autarkie_generate(visitor, bias, &mut 0)
-                            {
+                            if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0) {
                                 *self = generated;
                                 self.__autarkie_serialized(visitor);
                             }

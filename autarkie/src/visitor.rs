@@ -261,8 +261,8 @@ impl Visitor {
     /// If not, we MAY NOT pick a recursive variant
     /// If we do not have any non-recursive variants we return None and the Input
     /// generation/mutation fails.
-    pub fn generate(&mut self, id: &Id, depth: &usize) -> Option<(usize, bool)> {
-        let consider_recursive = *depth < self.depth.generate;
+    pub fn generate(&mut self, id: &Id, depth: usize) -> Option<(usize, bool)> {
+        let consider_recursive = depth < self.depth.generate;
         let (variant, is_recursive) = if consider_recursive {
             let variants = self.ty_generate_map.get(id).expect("____VbO3rGYTSf");
             let nr_variants = variants

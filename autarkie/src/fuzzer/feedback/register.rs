@@ -10,6 +10,7 @@ use libafl::{
     corpus::{Corpus, Testcase},
     executors::ExitKind,
     feedbacks::{Feedback, StateInitializer},
+    inputs::InputToBytes,
     state::{HasCorpus, HasCurrentTestcase},
     Error, HasMetadata,
 };
@@ -22,23 +23,29 @@ use libafl_bolts::Named;
 
 use crate::fuzzer::Context;
 
-pub struct RegisterFeedback<I> {
+pub struct RegisterFeedback<I, TC> {
+    bytes_converter: TC,
     visitor: Rc<RefCell<Visitor>>,
     phantom: PhantomData<I>,
 }
 
-impl<I> RegisterFeedback<I> {
-    pub fn new(visitor: Rc<RefCell<Visitor>>) -> Self {
+impl<I, TC> RegisterFeedback<I, TC>
+where
+    TC: InputToBytes<I> + Clone,
+{
+    pub fn new(visitor: Rc<RefCell<Visitor>>, bytes_converter: TC) -> Self {
         Self {
+            bytes_converter,
             visitor,
             phantom: PhantomData,
         }
     }
 }
 
-impl<I, EM, OT, S> Feedback<EM, I, OT, S> for RegisterFeedback<I>
+impl<I, TC, EM, OT, S> Feedback<EM, I, OT, S> for RegisterFeedback<I, TC>
 where
     I: Node,
+    TC: InputToBytes<I> + Clone,
     S: HasCurrentTestcase<I> + HasCorpus<I> + HasMetadata,
 {
     fn is_interesting(
@@ -65,6 +72,7 @@ where
         metadata.register_input(
             testcase.input().as_ref().expect("we must have input!"),
             &mut self.visitor.borrow_mut(),
+            &mut self.bytes_converter,
         );
         let done_mutations = metadata.clear_mutations();
         let metadata = state
@@ -75,9 +83,9 @@ where
     }
 }
 
-impl<I, S> StateInitializer<S> for RegisterFeedback<I> {}
+impl<I, TC, S> StateInitializer<S> for RegisterFeedback<I, TC> {}
 
-impl<I> Named for RegisterFeedback<I> {
+impl<I, TC> Named for RegisterFeedback<I, TC> {
     fn name(&self) -> &std::borrow::Cow<'static, str> {
         &Cow::Borrowed("RegisterFeedback")
     }

@@ -70,7 +70,9 @@ where
         let unmutated_input = state.current_input_cloned()?;
 
         let mut obs = self.tracer_executor.observers_mut();
-        let ob = obs.get_mut(&self.cmplog_observer_handle).unwrap();
+        let ob = obs
+            .get_mut(&self.cmplog_observer_handle)
+            .expect("dayPLOtv____");
         ob.set_original(true);
         self.tracer_executor
             .observers_mut()

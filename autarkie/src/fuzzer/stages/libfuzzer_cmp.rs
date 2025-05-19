@@ -52,7 +52,7 @@ where
         state: &mut S,
         manager: &mut EM,
     ) -> Result<(), libafl_bolts::Error> {
-        if state.current_testcase().unwrap().scheduled_count() > 1 {
+        if state.current_testcase().unwrap().scheduled_count() > 0 {
             return Ok(());
         }
         let unmutated_input = state.current_input_cloned()?;

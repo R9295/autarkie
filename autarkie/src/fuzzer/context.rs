@@ -1,6 +1,7 @@
 use crate::{FieldLocation, Id, Node, Visitor};
-use libafl::{corpus::CorpusId, SerdeAny};
+use libafl::{corpus::CorpusId, inputs::InputToBytes, SerdeAny};
 use libafl_bolts::current_time;
+use libafl_bolts::AsSlice;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -17,6 +18,7 @@ pub enum InputCause {
 }
 #[derive(Debug, Clone, SerdeAny, Serialize, Deserialize)]
 pub struct Context {
+    render: bool,
     mutations: HashSet<MutationMetadata>,
     out_dir: PathBuf,
     type_input_map: HashMap<Id, Vec<PathBuf>>,
@@ -25,8 +27,9 @@ pub struct Context {
 
 // TODO: chunk & cmp reloading
 impl Context {
-    pub fn register_input<I>(&mut self, input: &I, visitor: &mut Visitor)
+    pub fn register_input<I, TC>(&mut self, input: &I, visitor: &mut Visitor, converter: &mut TC)
     where
+        TC: InputToBytes<I>,
         I: Node,
     {
         let generated_fields = match &self.input_cause {
@@ -58,6 +61,13 @@ impl Context {
                     self.type_input_map.insert(ty, vec![path]);
                 }
             }
+        }
+        let rendered = converter.to_bytes(&input);
+        let path = self.out_dir.join("rendered");
+        let hash = blake3::hash(&rendered);
+        let path = path.join(hash.to_string());
+        if !std::fs::exists(&path).unwrap() {
+            std::fs::write(&path, rendered.as_slice()).unwrap();
         }
         self.input_cause = InputCause::Default;
     }
@@ -93,13 +103,14 @@ impl Context {
 }
 
 impl Context {
-    pub fn new(out_dir: PathBuf) -> Self {
+    pub fn new(out_dir: PathBuf, render: bool) -> Self {
         let type_input_map = HashMap::default();
         Self {
             mutations: HashSet::new(),
             input_cause: InputCause::Default,
             out_dir,
             type_input_map,
+            render,
         }
     }
 

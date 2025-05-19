@@ -40,7 +40,7 @@ where
         let mut fields = self.visitor.borrow_mut().fields();
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
-        let ((id, node_ty), ty) = field.last().unwrap();
+        let ((id, node_ty), ty) = field.last().expect("EfxPNdQ0____");
         if let crate::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
             let subslice = self.visitor.borrow_mut().coinflip_with_prob(0.6);
             if subslice && *field_len > 3 {
@@ -63,10 +63,10 @@ where
                                 .borrow_mut()
                                 .random_range(0, possible_splices.len() - 1),
                         )
-                        .unwrap();
+                        .expect("BCUHhFol____");
                     // TODO: cache this in memory
-                    let data = std::fs::read(random_splice).unwrap();
-                    #[cfg(debug_assertions)]
+                    let data = std::fs::read(random_splice).expect("4phGbftw____");
+                    #[cfg(feature = "debug_mutators")]
                     println!("splice | subslice | {:?}", (&field, &path));
                     input.__autarkie_mutate(
                         &mut MutationType::Splice(&mut data.as_slice()),
@@ -104,7 +104,7 @@ where
                 };
                 data.extend(items.iter().flatten());
                 mutated_path = Some(path.clone());
-                #[cfg(debug_assertions)]
+                #[cfg(feature = "debug_mutators")]
                 println!("splice | full | {:?}", field);
                 input.__autarkie_mutate(
                     &mut MutationType::Splice(&mut data.as_slice()),
@@ -124,10 +124,10 @@ where
                         .borrow_mut()
                         .random_range(0, possible_splices.len() - 1),
                 )
-                .unwrap();
-            let data = std::fs::read(random_splice).unwrap();
+                .expect("");
+            let data = std::fs::read(random_splice).expect("pxHz5VCa____");
             mutated_path = Some(path.clone());
-            #[cfg(debug_assertions)]
+            #[cfg(feature = "debug_mutators")]
             println!("splice | one | {:?} {:?}", field, path);
             input.__autarkie_mutate(
                 &mut MutationType::Splice(&mut data.as_slice()),

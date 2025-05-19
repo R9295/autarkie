@@ -58,8 +58,8 @@ where
         manager: &mut EM,
     ) -> Result<(), Error> {
         let mut metadata = state.metadata_mut::<Context>().expect("fxeZamEw____");
-        let mut input = crate::serialize(&state.current_input_cloned().unwrap());
-        let mut metadata = state.metadata_mut::<Context>().unwrap();
+        let mut input = crate::serialize(&state.current_input_cloned().expect("9ILr4PEQ____"));
+        let mut metadata = state.metadata_mut::<Context>().expect("kW2fTRId____");
         metadata.generated_input();
         for _ in 0..self.stack {
             let mutation = state
@@ -75,7 +75,7 @@ where
             let Some(deserialized) = crate::maybe_deserialize(&mut input.as_slice()) else {
                 return Ok(());
             };
-            let mut metadata = state.metadata_mut::<Context>().unwrap();
+            let mut metadata = state.metadata_mut::<Context>().expect("oBusH4xj____");
             metadata.add_mutation(self.mutation_ty.clone());
             fuzzer.evaluate_input(state, executor, manager, &deserialized)?;
         }

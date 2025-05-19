@@ -25,7 +25,7 @@ macro_rules! impl_generate_compact {
             fn __autarkie_generate(
                 v: &mut crate::Visitor,
                 depth: &mut usize,
-                cur_depth: &mut usize,
+                cur_depth: usize,
             ) -> Option<Self> {
                 let inner =
                     crate::deserialize::<$inner>(&mut v.generate_bytes($num_bytes).as_slice());

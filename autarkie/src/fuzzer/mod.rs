@@ -12,8 +12,9 @@ use crate::{DepthInfo, Node, Visitor};
 use clap::Parser;
 use context::{Context, MutationMetadata};
 use feedback::register::RegisterFeedback;
-#[cfg(feature = "libfuzzer")]
 use libafl::mutators::I2SRandReplace;
+#[cfg(feature = "libfuzzer")]
+use libafl::stages::ShadowTracingStage;
 use libafl::{
     corpus::{CachedOnDiskCorpus, Corpus, OnDiskCorpus},
     events::{ClientDescription, EventConfig, Launcher, SimpleEventManager},
@@ -25,7 +26,7 @@ use libafl::{
         CrashFeedback, MaxMapFeedback, MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, TimeFeedback,
         TimeoutFeedback,
     },
-    inputs::{BytesInput, HasTargetBytes, Input, TargetBytesConverter},
+    inputs::{BytesInput, HasTargetBytes, Input, InputConverter, InputToBytes},
     monitors::{MultiMonitor, SimpleMonitor},
     mutators::{
         havoc_mutations, havoc_mutations_no_crossover, tokens_mutations, HavocScheduledMutator,
@@ -34,7 +35,7 @@ use libafl::{
     schedulers::{powersched::PowerSchedule, QueueScheduler, StdWeightedScheduler},
     stages::{IfStage, StdMutationalStage, StdPowerMutationalStage},
     state::{HasCorpus, HasCurrentTestcase, StdState},
-    BloomInputFilter, Evaluator, Fuzzer, HasMetadata, StdFuzzer,
+    BloomInputFilter, Evaluator, Fuzzer, HasMetadata, StdFuzzerBuilder,
 };
 pub use libafl_bolts::current_nanos;
 use libafl_bolts::tuples::Merge;
@@ -49,8 +50,6 @@ use libafl_bolts::{
     tuples::{tuple_list, Handled},
     AsSliceMut, Error,
 };
-#[cfg(feature = "libfuzzer")]
-use libafl::stages::ShadowTracingStage;
 #[cfg(feature = "libfuzzer")]
 use libafl_targets::{extra_counters, CmpLogObserver};
 #[cfg(feature = "afl")]
@@ -72,8 +71,6 @@ use stages::{
     stats::{AutarkieStats, StatsStage},
 };
 
-#[cfg(feature = "afl")]
-use stages::cmp::CmpLogStage;
 use std::io::{stderr, stdout, Write};
 use std::os::fd::AsRawFd;
 use std::str::FromStr;
@@ -89,7 +86,7 @@ const SHMEM_ENV_VAR: &str = "__AFL_SHM_ID";
 pub fn run_fuzzer<I, TC, F>(bytes_converter: TC, harness: Option<F>)
 where
     I: Node + Input,
-    TC: TargetBytesConverter<I> + Clone,
+    TC: InputToBytes<I> + Clone,
     F: Fn(&I) -> ExitKind,
 {
     #[cfg(feature = "afl")]
@@ -185,20 +182,36 @@ where
         let time_observer = TimeObserver::new("time");
         let cb = |_fuzzer: &mut _,
                   _executor: &mut _,
-                  _state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
+                  state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
                   _event_manager: &mut _|
-         -> Result<bool, Error> { Ok(true) };
+         -> Result<bool, Error> { Ok(opt.novelty_minimization) };
+        let novelty_minimization_stage = IfStage::new(
+            cb,
+            tuple_list!(NoveltyMinimizationStage::new(
+                Rc::clone(&visitor),
+                &map_feedback
+            )),
+        );
+        let cb = |_fuzzer: &mut _,
+                  _executor: &mut _,
+                  state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
+                  _event_manager: &mut _|
+         -> Result<bool, Error> {
+            Ok(state.current_testcase_mut()?.scheduled_count() == 0)
+        };
+
         let minimization_stage = IfStage::new(
             cb,
             tuple_list!(
                 MinimizationStage::new(Rc::clone(&visitor), &map_feedback),
-                RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback)
+                RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
+                novelty_minimization_stage,
             ),
         );
         let mut feedback = feedback_or!(
             map_feedback,
             TimeFeedback::new(&time_observer),
-            RegisterFeedback::new(Rc::clone(&visitor)),
+            RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone()),
         );
 
         let mut objective = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new(),);
@@ -219,11 +232,14 @@ where
         if !fuzzer_dir.join("chunks").exists() {
             std::fs::create_dir(fuzzer_dir.join("chunks")).unwrap();
         }
+        if !fuzzer_dir.join("rendered").exists() {
+            std::fs::create_dir(fuzzer_dir.join("rendered")).unwrap();
+        }
         if !fuzzer_dir.join("cmps").exists() {
             std::fs::create_dir(fuzzer_dir.join("cmps")).unwrap();
         }
 
-        let mut context = Context::new(fuzzer_dir.clone());
+        let mut context = Context::new(fuzzer_dir.clone(), opt.render);
 
         let scheduler = StdWeightedScheduler::with_schedule(
             &mut state,
@@ -233,8 +249,12 @@ where
         let observers = tuple_list!(edges_observer, time_observer);
         let scheduler = scheduler.cycling_scheduler();
         // Create our Fuzzer
-        let mut fuzzer =
-            StdFuzzer::with_bloom_input_filter(scheduler, feedback, objective, 10_000, 0.0001);
+        let mut filter = BloomInputFilter::new(5000, 0.0001);
+        let mut fuzzer = StdFuzzerBuilder::new()
+            .input_filter(filter)
+            .bytes_converter(bytes_converter.clone())
+            .build(scheduler, feedback, objective)
+            .unwrap();
 
         // Create our Executor
         #[cfg(feature = "afl")]
@@ -246,7 +266,6 @@ where
             .is_deferred_frksrv(true)
             .timeout(Duration::from_millis(opt.hang_timeout))
             .shmem_provider(&mut shmem_provider)
-            .target_bytes_converter(bytes_converter.clone())
             .build(observers)
             .unwrap();
         #[cfg(feature = "libfuzzer")]
@@ -333,63 +352,17 @@ where
         let recursion_mutator =
             AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
         let append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
-        /* #[cfg(feature = "afl")]
-        let cmplog = {
-            // The CmpLog map shared between the CmpLog observer and CmpLog executor
-            let mut cmplog_shmem = shmem_provider.uninit_on_shmem::<AFLppCmpLogMap>().unwrap();
-
-            // Let the Forkserver know the CmpLog shared memory map ID.
-            unsafe {
-                cmplog_shmem.write_to_env("__AFL_CMPLOG_SHM_ID").unwrap();
-            }
-            let cmpmap = unsafe { OwnedRefMut::from_shmem(&mut cmplog_shmem) };
-            // Create the CmpLog observer.
-            let cmplog_observer = AFLppCmpLogObserver::new("cmplog", cmpmap, true);
-            let cmplog_ref = cmplog_observer.handle();
-            // Create the CmpLog executor.
-            // Cmplog has 25% execution overhead so we give it double the timeout
-            let cmplog_executor = ForkserverExecutor::builder()
-                .program(opt.executable.clone())
-                .coverage_map_size(map_size)
-                .debug_child(opt.debug_child)
-                .is_persistent(true)
-                .is_deferred_frksrv(true)
-                .timeout(Duration::from_millis(opt.hang_timeout * 2))
-                .shmem_provider(&mut shmem_provider)
-                .target_bytes_converter(bytes_converter.clone())
-                .build(tuple_list!(cmplog_observer))
-                .unwrap();
-
-            let cb = |_fuzzer: &mut _,
-                      _executor: &mut _,
-                      state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
-                      _event_manager: &mut _|
-             -> Result<bool, Error> {
-                if !opt.cmplog || core.core_id() != *opt.cores.ids.first().unwrap() {
-                    return Ok(false);
-                }
-                let testcase = state.current_testcase()?;
-                if testcase.scheduled_count() > 1 {
-                    return Ok(false);
-                }
-                Ok(true)
-            };
-            IfStage::new(
-                cb,
-                tuple_list!(stages::cmp::CmpLogStage::new(
-                    Rc::clone(&visitor),
-                    cmplog_executor,
-                    cmplog_ref
-                )),
-            )
-        }; */
-        let generate_stage = GenerateStage::new(Rc::clone(&visitor));
+        let cb = |_fuzzer: &mut _,
+                  _executor: &mut _,
+                  _state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
+                  _event_manager: &mut _|
+         -> Result<bool, Error> { Ok(opt.generate_stage) };
+        let generate_stage = IfStage::new(cb, tuple_list!(GenerateStage::new(Rc::clone(&visitor))));
         let afl_stage = AutarkieBinaryMutatorStage::new(
             havoc_mutations_no_crossover(),
             7,
             MutationMetadata::Afl,
         );
-        #[cfg(feature = "libfuzzer")]
         let i2s = AutarkieBinaryMutatorStage::new(
             tuple_list!(I2SRandReplace::new()),
             7,
@@ -399,6 +372,7 @@ where
         #[cfg(feature = "afl")]
         let mut stages = tuple_list!(
             minimization_stage,
+            MutatingStageWrapper::new(i2s, Rc::clone(&visitor)),
             MutatingStageWrapper::new(
                 AutarkieMutationalStage::new(append_mutator, SPLICE_APPEND_STACK),
                 Rc::clone(&visitor)
@@ -444,7 +418,7 @@ where
         .cores(&opt.cores)
         .monitor(monitor)
         .run_client(run_client)
-        .broker_port(4444)
+        .broker_port(opt.broker_port)
         .shmem_provider(shmem_provider)
         .configuration(EventConfig::from_name("default"))
         .build()
@@ -477,6 +451,14 @@ struct Opt {
     #[arg(short = 'd')]
     debug_child: bool,
 
+    /// Render for other fuzzers
+    #[arg(short = 'r')]
+    render: bool,
+
+    /// broker port
+    #[arg(short = 'p', default_value_t = 4000)]
+    broker_port: u16,
+
     #[cfg(feature = "afl")]
     /// AFL_DUMP_MAP_SIZE + x where x = map bias
     #[arg(short = 'm')]
@@ -488,10 +470,13 @@ struct Opt {
 
     /// Include a generate input stage (advanced)
     #[arg(short = 'g')]
-    generate: bool,
+    generate_stage: bool,
 
     #[arg(short = 'c', value_parser=Cores::from_cmdline)]
     cores: Cores,
+
+    #[arg(short = 'n')]
+    novelty_minimization: bool,
 
     /// Max iterate depth when generating iterable nodes (advanced)
     #[arg(short = 'I', default_value_t = 5)]
@@ -521,23 +506,26 @@ struct Opt {
 #[macro_export]
 macro_rules! debug_grammar {
     ($t:ty) => {
-        use $crate::{Node, Visitor};
-        let mut visitor = Visitor::new(
-            $crate::fuzzer::current_nanos(),
-            $crate::DepthInfo {
-                generate: 105,
-                iterate: 500,
-            },
-        );
-        <$t>::__autarkie_register(&mut visitor, None, 0);
-        visitor.calculate_recursion();
-        let gen_depth = visitor.generate_depth();
-        loop {
-            /* println!(
-                "{:?}",
-                <$t>::__autarkie_generate(&mut visitor, &mut gen_depth.clone(), &mut 0)
+        fn main() {
+            use autarkie::{Node, Visitor};
+            let mut visitor = Visitor::new(
+                $crate::fuzzer::current_nanos(),
+                $crate::DepthInfo {
+                    generate: 2,
+                    iterate: 5,
+                },
             );
-            println!("--------------------------------"); */
+            <$t>::__autarkie_register(&mut visitor, None, 0);
+            visitor.calculate_recursion();
+            let gen_depth = visitor.generate_depth();
+            loop {
+                println!(
+                    "{:?}",
+                    <$t>::__autarkie_generate(&mut visitor, &mut gen_depth.clone(), &mut 0)
+                );
+                println!("--------------------------------");
+                std::thread::sleep(Duration::from_millis(500))
+            }
         }
     };
 }

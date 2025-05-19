@@ -73,10 +73,6 @@ where
         state: &mut S,
         manager: &mut EM,
     ) -> Result<(), libafl_bolts::Error> {
-        if state.current_testcase()?.scheduled_count() > 0 {
-            return Ok(());
-        }
-
         let metadata = state.metadata::<Context>().unwrap();
         let novelties = state
             .current_testcase()

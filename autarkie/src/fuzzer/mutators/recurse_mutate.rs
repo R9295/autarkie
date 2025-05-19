@@ -37,7 +37,7 @@ where
         mark_feature_time!(state, Data::Fields);
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &mut fields[field_splice_index];
-        let ((id, node_ty), ty) = field.last().unwrap();
+        let ((id, node_ty), ty) = field.last().expect("YjBYG4Fr____");
         let mut bias = if self.visitor.borrow_mut().coinflip() {
             self.visitor.borrow().generate_depth()
         } else {
@@ -56,7 +56,7 @@ where
             for index in subslice_bounds {
                 let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
                 path.push_back(index);
-                #[cfg(debug_assertions)]
+                #[cfg(feature = "debug_mutators")]
                 println!("recursive_mutate | subslice | {:?}", field);
                 input.__autarkie_mutate(
                     &mut MutationType::GenerateReplace(bias),
@@ -67,7 +67,7 @@ where
             metadata.add_mutation(crate::fuzzer::context::MutationMetadata::RecurseMutateSubsplice);
         } else {
             let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-            #[cfg(debug_assertions)]
+            #[cfg(feature = "debug_mutators")]
             println!("recursive_mutate | single | {:?}", field);
             input.__autarkie_mutate(
                 &mut MutationType::GenerateReplace(bias),

@@ -80,6 +80,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         eprintln!("Autarkie: missing path to grammar source (AUTARKIE_GRAMMAR_SRC)");
         panic!("Autarkie: missing path to grammar source (AUTARKIE_GRAMMAR_SRC)");
     };
+    println!("cargo:rerun-if-changed={}", grammar_source);
 
     let grammar_source = PathBuf::from_str(&grammar_source)?;
     assert!(

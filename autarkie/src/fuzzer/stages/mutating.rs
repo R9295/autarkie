@@ -42,7 +42,10 @@ where
         manager: &mut M,
     ) -> Result<(), Error> {
         self.inner.perform(fuzzer, executor, state, manager)?;
-        let _ = state.metadata_mut::<Context>().unwrap().clear_mutations();
+        let _ = state
+            .metadata_mut::<Context>()
+            .expect("773RwiGF____")
+            .clear_mutations();
         let _ = self.visitor.borrow_mut().serialized();
         Ok(())
     }

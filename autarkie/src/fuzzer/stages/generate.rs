@@ -58,7 +58,7 @@ pub fn generate<I>(visitor: &mut Visitor) -> Option<I>
 where
     I: Node,
 {
-    I::__autarkie_generate(visitor, &mut visitor.generate_depth(), &mut 0)
+    I::__autarkie_generate(visitor, &mut visitor.generate_depth(), 0)
 }
 
 impl<I, S> Restartable<S> for GenerateStage<I> {

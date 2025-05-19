@@ -26,7 +26,7 @@ where
     S: HasCorpus<I> + HasRand + HasMetadata,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
-        let mut metadata = state.metadata_mut::<Context>().unwrap();
+        let mut metadata = state.metadata_mut::<Context>().expect("YAERLTe6____");
         #[cfg(feature = "introspection")]
         start_timer!(state);
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
@@ -38,7 +38,7 @@ where
             .fields()
             .into_iter()
             .filter(|inner| {
-                let last = inner.last().as_ref().unwrap();
+                let last = inner.last().as_ref().expect("Kf7u2pOx____");
                 matches!(&crate::NodeType::Iterable, last)
             })
             .collect::<Vec<_>>();
@@ -47,7 +47,7 @@ where
         }
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
-        let ((id, node_ty), ty) = field.last().unwrap();
+        let ((id, node_ty), ty) = field.last().expect("jJeuJLG8____");
         if let crate::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
             if *is_fixed_len {
                 return Ok(MutationResult::Skipped);
@@ -64,10 +64,10 @@ where
                                 .borrow_mut()
                                 .random_range(0, possible_splices.len() - 1),
                         )
-                        .unwrap();
+                        .expect("2T4FO2ig____");
                     // TODO: cache this in memory
-                    let data = std::fs::read(random_splice).unwrap();
-                    #[cfg(debug_assertions)]
+                    let data = std::fs::read(random_splice).expect("bOoVXT0Z____");
+                    #[cfg(feature = "debug_mutators")]
                     println!("splice | splice_append | {:?}", (&field, &path));
                     input.__autarkie_mutate(
                         &mut crate::MutationType::SpliceAppend(&mut data.as_slice()),

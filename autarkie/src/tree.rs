@@ -28,7 +28,7 @@ where
     Self: $($bound)*
 {
     /// Generate Self
-    fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth: &mut usize) -> Option<Self>;
+    fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth : usize) -> Option<Self>;
 
     fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
         v.register_ty(parent, Self::__autarkie_id(), variant);
@@ -70,7 +70,7 @@ where
                 *self = deserialize(other);
             }
             MutationType::GenerateReplace(ref mut bias) => {
-                if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
+                if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0) {
                     *self = generated;
                     visitor.add_serialized(serialize(&self), Self::__autarkie_id());
                 }
@@ -99,7 +99,7 @@ impl<T: 'static> Node for PhantomData<T> {
     fn __autarkie_generate(
         visitor: &mut Visitor,
         depth: &mut usize,
-        cur_depth: &mut usize,
+        cur_depth: usize,
     ) -> Option<Self> {
         Some(Self)
     }
@@ -109,7 +109,7 @@ impl<T: 'static + Node + Clone> Node for Cow<'static, T> {
     fn __autarkie_generate(
         visitor: &mut Visitor,
         depth: &mut usize,
-        cur_depth: &mut usize,
+        cur_depth: usize,
     ) -> Option<Self> {
         Some(Cow::Owned(T::__autarkie_generate(
             visitor, depth, cur_depth,
@@ -127,19 +127,15 @@ impl<T, const N: usize> Node for [T; N]
 where
     T: Node + std::fmt::Debug,
 {
-  fn __autarkie_generate(
+    fn __autarkie_generate(
         visitor: &mut Visitor,
         depth: &mut usize,
-        cur_depth: &mut usize,
+        cur_depth: usize,
     ) -> Option<Self> {
         // TODO: optimize?
         let res = (0..N)
             .filter_map(|_| {
-                T::__autarkie_generate(
-                    visitor,
-                    &mut visitor.generate_depth(),
-                    cur_depth,
-                )
+                T::__autarkie_generate(visitor, &mut visitor.generate_depth(), cur_depth)
             })
             .collect::<Vec<T>>();
         Some(res.try_into().expect("err"))
@@ -180,7 +176,7 @@ where
                     *self = deserialize(other);
                 }
                 MutationType::GenerateReplace(ref mut bias) => {
-                    if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
+                    if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0) {
                         *self = generated;
                         self.__autarkie_serialized(visitor);
                     }
@@ -219,7 +215,7 @@ where
     fn __autarkie_generate(
         visitor: &mut Visitor,
         depth: &mut usize,
-        cur_depth: &mut usize,
+        cur_depth: usize,
     ) -> Option<Self> {
         let element_count = visitor.random_range(0, visitor.iterate_depth());
         if element_count == 0 {
@@ -272,7 +268,7 @@ where
                     *self = deserialize(other);
                 }
                 MutationType::GenerateReplace(ref mut bias) => {
-                    if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
+                    if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0) {
                         *self = generated;
                         self.__autarkie_serialized(visitor);
                     }
@@ -317,7 +313,7 @@ impl Node for bool {
     fn __autarkie_generate(
         visitor: &mut Visitor,
         depth: &mut usize,
-        cur_depth: &mut usize,
+        cur_depth: usize,
     ) -> Option<Self> {
         Some(visitor.coinflip())
     }
@@ -330,7 +326,7 @@ where
     fn __autarkie_generate(
         visitor: &mut Visitor,
         depth: &mut usize,
-        cur_depth: &mut usize,
+        cur_depth: usize,
     ) -> Option<Self> {
         Some(Box::new(T::__autarkie_generate(visitor, depth, cur_depth)?))
     }
@@ -381,7 +377,7 @@ where
     fn __autarkie_generate(
         visitor: &mut Visitor,
         depth: &mut usize,
-        cur_depth: &mut usize,
+        cur_depth: usize,
     ) -> Option<Self> {
         let choose_some = visitor.coinflip();
         if choose_some {
@@ -433,7 +429,7 @@ where
                     *self = deserialize(other);
                 }
                 MutationType::GenerateReplace(ref mut bias) => {
-                    if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
+                    if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0) {
                         *self = generated;
                         visitor.add_serialized(serialize(&self), Self::__autarkie_id());
                         self.__autarkie_serialized(visitor);
@@ -489,7 +485,7 @@ where
     fn __autarkie_generate(
         visitor: &mut Visitor,
         depth: &mut usize,
-        cur_depth: &mut usize,
+        cur_depth: usize,
     ) -> Option<Self> {
         let choose_ok = visitor.coinflip();
         if choose_ok {
@@ -539,7 +535,7 @@ where
                     *self = deserialize(other);
                 }
                 MutationType::GenerateReplace(ref mut bias) => {
-                    if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
+                    if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0) {
                         *self = generated;
                         visitor.add_serialized(serialize(&self), Self::__autarkie_id());
                         self.__autarkie_serialized(visitor);
@@ -595,7 +591,7 @@ impl Node for std::string::String {
     fn __autarkie_generate(
         visitor: &mut Visitor,
         depth: &mut usize,
-        cur_depth: &mut usize,
+        cur_depth: usize,
     ) -> Option<Self> {
         Some(visitor.get_string())
     }
@@ -605,7 +601,7 @@ impl Node for char {
     fn __autarkie_generate(
         visitor: &mut Visitor,
         depth: &mut usize,
-        cur_depth: &mut usize,
+        cur_depth: usize,
     ) -> Option<Self> {
         Some(
             char::from_u32(
@@ -624,7 +620,7 @@ where
     fn __autarkie_generate(
         visitor: &mut Visitor,
         depth: &mut usize,
-        cur_depth: &mut usize,
+        cur_depth: usize,
     ) -> Option<Self> {
         Some(BTreeMap::new())
     }
@@ -679,10 +675,10 @@ where
                         self.insert(k, v);
                     }
                     MutationType::GenerateReplace(bias) => {
-                        let Some(key) = K::__autarkie_generate(visitor, bias, &mut 0) else {
+                        let Some(key) = K::__autarkie_generate(visitor, bias, 0) else {
                             return;
                         };
-                        let Some(val) = V::__autarkie_generate(visitor, bias, &mut 0) else {
+                        let Some(val) = V::__autarkie_generate(visitor, bias, 0) else {
                             return;
                         };
                         self.insert(key, val);
@@ -712,7 +708,7 @@ where
                     *self = deserialize(other);
                 }
                 MutationType::GenerateReplace(ref mut bias) => {
-                    if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
+                    if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0) {
                         *self = generated;
                         self.__autarkie_serialized(visitor);
                         visitor.add_serialized(serialize(&self), Self::__autarkie_id());
@@ -756,7 +752,7 @@ macro_rules! tuple_impls {
         {
             fn __autarkie_generate(
                 visitor: &mut Visitor,
-                depth: &mut usize, cur_depth: &mut usize
+                depth: &mut usize, cur_depth : usize
             ) -> Option<Self> {
                 Some(($($T::__autarkie_generate(visitor, depth, cur_depth)?,)+))
             }
@@ -774,7 +770,7 @@ macro_rules! tuple_impls {
                             *self = deserialize(other);
                         },
                         MutationType::GenerateReplace(ref mut bias) => {
-                            if let Some(generated) = Self::__autarkie_generate(visitor, bias, &mut 0) {
+                            if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0) {
                             *self = generated;
                             self.__autarkie_serialized(visitor);
                             visitor.add_serialized(serialize(&self), Self::__autarkie_id());
@@ -845,7 +841,7 @@ macro_rules! impl_generate_simple {
             fn __autarkie_generate(
                 v: &mut Visitor,
                 depth: &mut usize,
-                cur_depth: &mut usize,
+                cur_depth: usize,
             ) -> Option<Self> {
                 Some(deserialize::<Self>(
                     &mut v.generate_bytes($num_bytes).as_slice(),

@@ -82,7 +82,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             // Generate the Node trait implementation for the Struct
             let node_impl = quote! {
                 impl #impl_generics ::autarkie::Node for #root_name #ty_generics #where_clause {
-                    fn __autarkie_generate(v: &mut autarkie::Visitor, depth: &mut usize, cur_depth: &mut usize) -> Option<Self> {
+                    fn __autarkie_generate(v: &mut autarkie::Visitor, depth: &mut usize, cur_depth : usize) -> Option<Self> {
+                        let (_, is_recursive) = v.generate(&Self::__autarkie_id(), cur_depth)?;
                         #generate
                     }
 
@@ -123,7 +124,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                                     *self = autarkie::deserialize(other);
                                 }
                                 autarkie::MutationType::GenerateReplace(ref mut bias) => {
-                                    if let Some(generated) = Self::__autarkie_generate(autarkie_visitor, bias, &mut 0) {
+                                    if let Some(generated) = Self::__autarkie_generate(autarkie_visitor, bias, 0) {
                                         *self = generated;
                                         autarkie_visitor.add_serialized(autarkie::serialize(&self), Self::__autarkie_id());
                                         self.__autarkie_serialized(autarkie_visitor);
@@ -363,9 +364,6 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 };
                 quote! {
                         #variant_id_calculation
-                        if is_recursive {
-                            *cur_depth += 1usize;
-                        }
                         match variant_id {
                              #(#generate,)*
                             _ => unreachable!()
@@ -378,7 +376,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             // TODO: can optimize this if the enum has only two variants like (Result)
             let node_impl = quote! {
                 impl #impl_generics ::autarkie::Node for #root_name #ty_generics #where_clause {
-                    fn __autarkie_generate(v: &mut ::autarkie::Visitor, depth: &mut usize, cur_depth: &mut usize) -> Option<Self> {
+                    fn __autarkie_generate(v: &mut ::autarkie::Visitor, depth: &mut usize, cur_depth : usize) -> Option<Self> {
                         #generate_func
                     }
 
@@ -419,7 +417,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                                     *self = autarkie::deserialize(other);
                                 }
                                 autarkie::MutationType::GenerateReplace(ref mut bias) => {
-                                    if let Some(generated) = Self::__autarkie_generate(autarkie_visitor, bias, &mut 0) {
+                                    if let Some(generated) = Self::__autarkie_generate(autarkie_visitor, bias, 0) {
                                         *self = generated;
                                         autarkie_visitor.add_serialized(autarkie::serialize(&self), Self::__autarkie_id());
                                         self.__autarkie_serialized(autarkie_visitor);
@@ -428,7 +426,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                                 autarkie::MutationType::RecursiveReplace => {
                                     if self.__autarkie_node_ty(autarkie_visitor).is_recursive() {
                                         // 0 depth == always non-recursive
-                                    if let Some(generated) = Self::__autarkie_generate(autarkie_visitor, &mut 0, &mut 0) {
+                                    if let Some(generated) = Self::__autarkie_generate(autarkie_visitor, &mut 0, 0) {
                                         *self = generated;
                                         autarkie_visitor.add_serialized(autarkie::serialize(&self), Self::__autarkie_id());
                                         self.__autarkie_serialized(autarkie_visitor);
@@ -527,7 +525,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
             // If we do not have a literal attribute, we use the inner generate function of the type.
             if generator.is_none() {
                 generator = Some(quote! {
-                    let #name = <#ty>::__autarkie_generate(v, depth, cur_depth)?;
+                    let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth})?;
                 });
             }
             // this should never happen, cause we either have a literal attribute or not.
