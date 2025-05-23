@@ -28,7 +28,6 @@ pub use serde::*;
 pub mod scale;
 #[cfg(feature = "scale")]
 pub use scale::*;
-
 pub mod fuzzer;
 pub use fuzzer::afl;
 pub use fuzzer::libfuzzer;

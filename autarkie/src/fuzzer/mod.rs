@@ -1,6 +1,7 @@
 #![allow(warnings)]
 #![feature(core_intrinsics)]
 
+mod hooks;
 pub mod afl;
 mod context;
 mod feedback;
@@ -89,6 +90,8 @@ where
     TC: InputToBytes<I> + Clone,
     F: Fn(&I) -> ExitKind,
 {
+    use hooks::rare_share::RareShare;
+
     #[cfg(feature = "afl")]
     let monitor = MultiMonitor::new(|s| println!("{s}"));
     // TODO: -close_fd_mask from libfuzzer
@@ -422,7 +425,7 @@ where
         .shmem_provider(shmem_provider)
         .configuration(EventConfig::from_name("default"))
         .build()
-        .launch();
+        .launch_with_hooks(tuple_list!(RareShare::new(opt.skip_count)));
 }
 
 #[derive(Debug, Parser, Clone)]
@@ -443,6 +446,10 @@ struct Opt {
     #[arg(short = 't', default_value_t = 1000)]
     hang_timeout: u64,
 
+    /// Share an entry only every n entries
+    #[arg(short = 'K', default_value_t = 100)]
+    skip_count: usize,
+    
     /// seed for rng
     #[arg(short = 's')]
     rng_seed: Option<u64>,
