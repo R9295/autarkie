@@ -77,6 +77,7 @@ use std::os::fd::AsRawFd;
 use std::str::FromStr;
 use std::{cell::RefCell, io::ErrorKind, path::PathBuf, process::Command, rc::Rc, time::Duration};
 use std::{env::args, ffi::c_int};
+use hooks::rare_share::RareShare;
 
 use stages::generate;
 
@@ -90,7 +91,6 @@ where
     TC: InputToBytes<I> + Clone,
     F: Fn(&I) -> ExitKind,
 {
-    use hooks::rare_share::RareShare;
 
     #[cfg(feature = "afl")]
     let monitor = MultiMonitor::new(|s| println!("{s}"));
@@ -174,9 +174,11 @@ where
                 generate: opt.generate_depth,
                 iterate: opt.iterate_depth,
             },
+            opt.string_pool_size,
         );
         I::__autarkie_register(&mut visitor, None, 0);
-        visitor.calculate_recursion();
+        let recursive_nodes = visitor.calculate_recursion();
+        let has_recursion = recursive_nodes.len() > 0;
         let visitor = Rc::new(RefCell::new(visitor));
 
         // Create a MapFeedback for coverage guided fuzzin'
@@ -187,7 +189,7 @@ where
                   _executor: &mut _,
                   state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
                   _event_manager: &mut _|
-         -> Result<bool, Error> { Ok(opt.novelty_minimization) };
+         -> Result<bool, Error> { Ok(opt.novelty_minimization && has_recursion) };
         let novelty_minimization_stage = IfStage::new(
             cb,
             tuple_list!(NoveltyMinimizationStage::new(
@@ -214,10 +216,14 @@ where
         let mut feedback = feedback_or!(
             map_feedback,
             TimeFeedback::new(&time_observer),
-            RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone()),
+            RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone(), false),
         );
 
-        let mut objective = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new(),);
+        let mut objective = feedback_or_fast!(
+            CrashFeedback::new(),
+            TimeoutFeedback::new(),
+            RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone(), true),
+        );
 
         // Initialize our State if necessary
         let mut state = state.unwrap_or(
@@ -235,8 +241,11 @@ where
         if !fuzzer_dir.join("chunks").exists() {
             std::fs::create_dir(fuzzer_dir.join("chunks")).unwrap();
         }
-        if !fuzzer_dir.join("rendered").exists() {
-            std::fs::create_dir(fuzzer_dir.join("rendered")).unwrap();
+        if !fuzzer_dir.join("rendered_corpus").exists() {
+            std::fs::create_dir(fuzzer_dir.join("rendered_corpus")).unwrap();
+        }
+        if !fuzzer_dir.join("rendered_crashes").exists() {
+            std::fs::create_dir(fuzzer_dir.join("rendered_crashes")).unwrap();
         }
         if !fuzzer_dir.join("cmps").exists() {
             std::fs::create_dir(fuzzer_dir.join("cmps")).unwrap();
@@ -267,7 +276,7 @@ where
             .debug_child(opt.debug_child)
             .is_persistent(true)
             .is_deferred_frksrv(true)
-            .timeout(Duration::from_millis(opt.hang_timeout))
+            .timeout(Duration::from_millis(opt.hang_timeout * 1000))
             .shmem_provider(&mut shmem_provider)
             .build(observers)
             .unwrap();
@@ -280,7 +289,7 @@ where
             &mut fuzzer,
             &mut state,
             &mut mgr,
-            Duration::from_millis(opt.hang_timeout),
+            Duration::from_millis(opt.hang_timeout * 1000),
         )?;
         #[cfg(feature = "libfuzzer")]
         let mut executor = ShadowExecutor::new(executor, tuple_list!(cmplog_observer));
@@ -321,14 +330,23 @@ where
         }
         state.add_metadata(context);
         state.add_metadata(AutarkieStats::default());
-
+        /* let crashes = std::fs::read_dir(fuzzer_dir.join("crash"))?;
+        println!("crashes");
+        for file in crashes {
+            if let Some(item)= crate::maybe_deserialize::<I>(std::fs::read(file?.path())?.as_slice()) {
+                let data = bytes_converter.clone().to_bytes(&item);
+                let hash = blake3::hash(&data);
+                std::fs::write(fuzzer_dir.join("rendered_crashes").join(hash.to_string()), data.to_vec())?;
+            }
+        } */
+/*         return Err(Error::shutting_down()); */
         // Reload corpus
         if state.must_load_initial_inputs() {
             state.load_initial_inputs(
                 &mut fuzzer,
                 &mut executor,
                 &mut mgr,
-                &[fuzzer_dir.join("queue").clone()],
+                &[fuzzer_dir.join("queue").clone(), fuzzer_dir.join("crash")],
             )?;
             for _ in 0..opt.initial_generated_inputs {
                 let mut metadata = state.metadata_mut::<Context>().expect("fxeZamEw____");
@@ -437,8 +455,8 @@ struct Opt {
     #[arg(short = 'o')]
     output_dir: PathBuf,
 
-    /// Timeout in milliseconds
-    #[arg(short = 't', default_value_t = 1000)]
+    /// Timeout in seconds
+    #[arg(short = 't', default_value_t = 1)]
     hang_timeout: u64,
 
     /// Share an entry only every n entries
@@ -488,6 +506,10 @@ struct Opt {
     #[arg(short = 'z', default_value_t = 15)]
     max_subslice_size: usize,
 
+    /// string pool size
+    #[arg(short = 'l', default_value_t = 50)]
+    string_pool_size: usize,
+
     /// Max generate depth when generating recursive nodes (advanced)
     #[arg(short = 'G', default_value_t = 2)]
     generate_depth: usize,
@@ -516,6 +538,7 @@ macro_rules! debug_grammar {
                     generate: 2,
                     iterate: 5,
                 },
+                50,
             );
             <$t>::__autarkie_register(&mut visitor, None, 0);
             visitor.calculate_recursion();

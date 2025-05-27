@@ -27,8 +27,13 @@ pub struct Context {
 
 // TODO: chunk & cmp reloading
 impl Context {
-    pub fn register_input<I, TC>(&mut self, input: &I, visitor: &mut Visitor, converter: &mut TC)
-    where
+    pub fn register_input<I, TC>(
+        &mut self,
+        input: &I,
+        visitor: &mut Visitor,
+        converter: &mut TC,
+        is_solution: bool,
+    ) where
         TC: InputToBytes<I>,
         I: Node,
     {
@@ -39,8 +44,12 @@ impl Context {
                 visitor.serialized()
             }
         };
+        let string_ty = String::__autarkie_id();
         for field in generated_fields {
             let (data, ty) = field;
+            if ty == string_ty {
+                visitor.register_string(crate::deserialize(&mut data.as_slice()));
+            }
             // todo: optimize this
             let path = self.out_dir.join("chunks").join(ty.to_string());
             match std::fs::create_dir(&path) {
@@ -63,10 +72,15 @@ impl Context {
             }
         }
         let rendered = converter.to_bytes(&input);
-        let path = self.out_dir.join("rendered");
+        let path = if is_solution {
+            self.out_dir.join("rendered_crashes")
+        } else {
+            self.out_dir.join("rendered_corpus")
+        };
         let hash = blake3::hash(&rendered);
         let path = path.join(hash.to_string());
         if !std::fs::exists(&path).unwrap() {
+            // warn that the same input gave new coverage == instability!
             std::fs::write(&path, rendered.as_slice()).unwrap();
         }
         self.input_cause = InputCause::Default;

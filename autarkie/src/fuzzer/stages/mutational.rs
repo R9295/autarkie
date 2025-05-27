@@ -60,6 +60,7 @@ where
                 fuzzer.evaluate_input(state, executor, manager, &current)?;
             }
         }
+        fuzzer.evaluate_input(state, executor, manager, &current)?;
         Ok(())
     }
 }
