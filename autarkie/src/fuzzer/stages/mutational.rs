@@ -2,14 +2,16 @@
 use crate::fuzzer::Context;
 use crate::Visitor;
 use core::{marker::PhantomData, time::Duration};
+use libafl::state::HasRand;
+use libafl_bolts::rands::Rand;
 use libafl_bolts::{current_time, Error};
-use std::cell::RefCell;
 use std::rc::Rc;
+use std::{cell::RefCell, num::NonZero};
 
 use libafl::{
     events::EventFirer,
     executors::Executor,
-    mutators::{MutationResult, Mutator},
+    mutators::{MutationId, MutationResult, Mutator, MutatorsTuple},
     stages::{Restartable, Stage},
     state::HasCurrentTestcase,
     Evaluator, HasMetadata,
@@ -38,8 +40,8 @@ where
     E: Executor<EM, I, S, Z>,
     Z: Evaluator<E, EM, I, S>,
     EM: EventFirer<I, S>,
-    S: HasMetadata + HasCurrentTestcase<I>,
-    M: Mutator<I, S>,
+    S: HasMetadata + HasCurrentTestcase<I> + HasRand,
+    M: MutatorsTuple<I, S>,
 {
     fn perform(
         &mut self,
@@ -50,7 +52,11 @@ where
     ) -> Result<(), Error> {
         let mut current = state.current_input_cloned().unwrap();
         for i in 0..self.stack {
-            if self.inner.mutate(state, &mut current)? == MutationResult::Mutated {
+            let idx = state
+                .rand_mut()
+                .below(unsafe { NonZero::new(self.inner.len()).unwrap_unchecked() })
+                .into();
+            if self.inner.get_and_mutate(idx, state, &mut current)? == MutationResult::Mutated {
                 fuzzer.evaluate_input(state, executor, manager, &current)?;
             }
         }

@@ -15,7 +15,7 @@ use crate::fuzzer::Context;
 
 use super::commons::calculate_subslice_bounds;
 
-pub const RECURSE_STACK: usize = 100;
+pub const RECURSE_STACK: usize = 1000;
 pub struct AutarkieRecurseMutator<I> {
     max_subslice_size: usize,
     visitor: Rc<RefCell<Visitor>>,

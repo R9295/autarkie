@@ -19,10 +19,10 @@ impl<I, S> EventManagerHook<I, S> for RareShare {
         if matches!(event.event(), Event::NewTestcase { .. }) {
             if self.skipped == self.skip_count {
                 self.skipped = 0;
-                return Ok(false);
+                return Ok(true);
             } else {
                 self.skipped += 1;
-                return Ok(true);
+                return Ok(false);
             }
         }
         Ok(true)
