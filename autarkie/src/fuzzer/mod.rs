@@ -366,6 +366,7 @@ where
             7,
             MutationMetadata::Afl,
         );
+        #[cfg(feature = "libfuzzer")]
         let i2s = AutarkieBinaryMutatorStage::new(
             tuple_list!(I2SRandReplace::new()),
             7,
@@ -375,17 +376,11 @@ where
         #[cfg(feature = "afl")]
         let mut stages = tuple_list!(
             minimization_stage,
-            MutatingStageWrapper::new(i2s, Rc::clone(&visitor)),
             MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(append_mutator, SPLICE_APPEND_STACK),
-                Rc::clone(&visitor)
-            ),
-            MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(recursion_mutator, RECURSE_STACK),
-                Rc::clone(&visitor)
-            ),
-            MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(splice_mutator, SPLICE_STACK),
+                AutarkieMutationalStage::new(
+                    tuple_list!(append_mutator, recursion_mutator, splice_mutator),
+                    SPLICE_STACK
+                ),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(afl_stage, Rc::clone(&visitor)),
