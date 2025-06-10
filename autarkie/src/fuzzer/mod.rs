@@ -58,6 +58,7 @@ use libafl_targets::{AFLppCmpLogMap, AFLppCmpLogObserver};
 use mutators::{
     recurse_mutate::{AutarkieRecurseMutator, RECURSE_STACK},
     splice::{AutarkieSpliceMutator, SPLICE_STACK},
+    generate_append::AutarkieGenerateAppendMutator,
     splice_append::{AutarkieSpliceAppendMutator, SPLICE_APPEND_STACK},
 };
 use regex::Regex;
@@ -72,12 +73,12 @@ use stages::{
     stats::{AutarkieStats, StatsStage},
 };
 
+use hooks::rare_share::RareShare;
 use std::io::{stderr, stdout, Write};
 use std::os::fd::AsRawFd;
 use std::str::FromStr;
 use std::{cell::RefCell, io::ErrorKind, path::PathBuf, process::Command, rc::Rc, time::Duration};
 use std::{env::args, ffi::c_int};
-use hooks::rare_share::RareShare;
 
 use stages::generate;
 
@@ -91,7 +92,6 @@ where
     TC: InputToBytes<I> + Clone,
     F: Fn(&I) -> ExitKind,
 {
-
     #[cfg(feature = "afl")]
     let monitor = MultiMonitor::new(|s| println!("{s}"));
     // TODO: -close_fd_mask from libfuzzer
@@ -221,6 +221,7 @@ where
 
         let mut objective = feedback_or_fast!(
             CrashFeedback::new(),
+            TimeoutFeedback::new(),
             RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone(), true),
         );
 
@@ -338,7 +339,7 @@ where
                 std::fs::write(fuzzer_dir.join("rendered_crashes").join(hash.to_string()), data.to_vec())?;
             }
         } */
-/*         return Err(Error::shutting_down()); */
+        /*         return Err(Error::shutting_down()); */
         // Reload corpus
         if state.must_load_initial_inputs() {
             state.load_initial_inputs_multicore(
@@ -347,7 +348,7 @@ where
                 &mut mgr,
                 &[fuzzer_dir.join("queue").clone(), fuzzer_dir.join("crash")],
                 &core.core_id(),
-                &opt.cores
+                &opt.cores,
             )?;
             for _ in 0..opt.initial_generated_inputs {
                 let mut metadata = state.metadata_mut::<Context>().expect("fxeZamEw____");
@@ -377,7 +378,8 @@ where
             AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
         let recursion_mutator_three =
             AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
-        let append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
+        let splice_append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
+        let generate_append_mutator = AutarkieGenerateAppendMutator::new(Rc::clone(&visitor));
         let cb = |_fuzzer: &mut _,
                   _executor: &mut _,
                   _state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
@@ -401,7 +403,14 @@ where
             minimization_stage,
             MutatingStageWrapper::new(
                 AutarkieMutationalStage::new(
-                    tuple_list!(append_mutator, recursion_mutator, recursion_mutator_two, recursion_mutator_three, splice_mutator),
+                    tuple_list!(
+                        splice_append_mutator,
+                        generate_append_mutator,
+                        recursion_mutator,
+                        recursion_mutator_two,
+                        recursion_mutator_three,
+                        splice_mutator
+                    ),
                     SPLICE_STACK
                 ),
                 Rc::clone(&visitor)
@@ -415,12 +424,16 @@ where
             minimization_stage,
             tracing,
             MutatingStageWrapper::new(i2s, Rc::clone(&visitor)),
-            MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(
-                    tuple_list!(append_mutator, recursion_mutator, splice_mutator),
-                    7
+            AutarkieMutationalStage::new(
+                tuple_list!(
+                    splice_append_mutator,
+                    generate_append_mutator,
+                    recursion_mutator,
+                    recursion_mutator_two,
+                    recursion_mutator_three,
+                    splice_mutator
                 ),
-                Rc::clone(&visitor)
+                SPLICE_STACK
             ),
             MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)),
             MutatingStageWrapper::new(afl_stage, Rc::clone(&visitor)),

@@ -161,6 +161,8 @@ pub enum MutationMetadata {
     SpliceSubSplice,
     /// Splice Append
     SpliceAppend,
+    /// Generate Append
+    GenerateAppend,
     /// Splice Single Node (never an iterable)
     RecurseMutateSingle,
     /// Random Generate Partial Iterable
