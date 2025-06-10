@@ -189,7 +189,7 @@ where
                   _executor: &mut _,
                   state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
                   _event_manager: &mut _|
-         -> Result<bool, Error> { Ok(opt.novelty_minimization && has_recursion) };
+         -> Result<bool, Error> { Ok(opt.novelty_minimization) };
         let novelty_minimization_stage = IfStage::new(
             cb,
             tuple_list!(NoveltyMinimizationStage::new(
@@ -221,7 +221,6 @@ where
 
         let mut objective = feedback_or_fast!(
             CrashFeedback::new(),
-            TimeoutFeedback::new(),
             RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone(), true),
         );
 
@@ -342,11 +341,13 @@ where
 /*         return Err(Error::shutting_down()); */
         // Reload corpus
         if state.must_load_initial_inputs() {
-            state.load_initial_inputs(
+            state.load_initial_inputs_multicore(
                 &mut fuzzer,
                 &mut executor,
                 &mut mgr,
                 &[fuzzer_dir.join("queue").clone(), fuzzer_dir.join("crash")],
+                &core.core_id(),
+                &opt.cores
             )?;
             for _ in 0..opt.initial_generated_inputs {
                 let mut metadata = state.metadata_mut::<Context>().expect("fxeZamEw____");
@@ -372,6 +373,10 @@ where
         let splice_mutator = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
         let recursion_mutator =
             AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
+        let recursion_mutator_two =
+            AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
+        let recursion_mutator_three =
+            AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
         let append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
         let cb = |_fuzzer: &mut _,
                   _executor: &mut _,
@@ -384,6 +389,7 @@ where
             7,
             MutationMetadata::Afl,
         );
+        #[cfg(feature = "libfuzzer")]
         let i2s = AutarkieBinaryMutatorStage::new(
             tuple_list!(I2SRandReplace::new()),
             7,
@@ -393,17 +399,11 @@ where
         #[cfg(feature = "afl")]
         let mut stages = tuple_list!(
             minimization_stage,
-            MutatingStageWrapper::new(i2s, Rc::clone(&visitor)),
             MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(append_mutator, SPLICE_APPEND_STACK),
-                Rc::clone(&visitor)
-            ),
-            MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(recursion_mutator, RECURSE_STACK),
-                Rc::clone(&visitor)
-            ),
-            MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(splice_mutator, SPLICE_STACK),
+                AutarkieMutationalStage::new(
+                    tuple_list!(append_mutator, recursion_mutator, recursion_mutator_two, recursion_mutator_three, splice_mutator),
+                    SPLICE_STACK
+                ),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(afl_stage, Rc::clone(&visitor)),
@@ -418,7 +418,7 @@ where
             MutatingStageWrapper::new(
                 AutarkieMutationalStage::new(
                     tuple_list!(append_mutator, recursion_mutator, splice_mutator),
-                    SPLICE_STACK
+                    7
                 ),
                 Rc::clone(&visitor)
             ),
@@ -460,7 +460,7 @@ struct Opt {
     hang_timeout: u64,
 
     /// Share an entry only every n entries
-    #[arg(short = 'K', default_value_t = 100)]
+    #[arg(short = 'K', default_value_t = 0)]
     skip_count: usize,
 
     /// seed for rng

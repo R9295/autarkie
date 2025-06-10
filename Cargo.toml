@@ -14,3 +14,4 @@ libafl = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "58bdbd293a8e84
 libafl_bolts = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "58bdbd293a8e843ee537988c808a111d21c69907"}
 libafl_targets = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "58bdbd293a8e843ee537988c808a111d21c69907", default-features = false }
 
+

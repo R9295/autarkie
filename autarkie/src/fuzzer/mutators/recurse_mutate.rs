@@ -35,7 +35,11 @@ where
         let mut fields = self.visitor.borrow_mut().fields();
         #[cfg(feature = "introspection")]
         mark_feature_time!(state, Data::Fields);
-        let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
+        let mut field_splice_index = if self.visitor.borrow_mut().coinflip() {
+           0 
+        } else {
+            self.visitor.borrow_mut().random_range(0, fields.len() - 1)
+        };
         let field = &mut fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().expect("YjBYG4Fr____");
         let mut bias = if self.visitor.borrow_mut().coinflip() {
