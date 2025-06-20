@@ -374,10 +374,6 @@ where
         let splice_mutator = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
         let recursion_mutator =
             AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
-        let recursion_mutator_two =
-            AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
-        let recursion_mutator_three =
-            AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
         let splice_append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
         let generate_append_mutator = AutarkieGenerateAppendMutator::new(Rc::clone(&visitor));
         /* let cb = |_fuzzer: &mut _,
@@ -404,14 +400,36 @@ where
             MutatingStageWrapper::new(
                 AutarkieMutationalStage::new(
                     tuple_list!(
-                        splice_append_mutator,
                         generate_append_mutator,
-                        recursion_mutator,
-                        recursion_mutator_two,
-                        recursion_mutator_three,
-                        splice_mutator
                     ),
-                    SPLICE_STACK * 10
+                    20
+                ),
+                Rc::clone(&visitor)
+            ),
+            MutatingStageWrapper::new(
+                AutarkieMutationalStage::new(
+                    tuple_list!(
+                        splice_append_mutator,
+                    ),
+                    20
+                ),
+                Rc::clone(&visitor)
+            ),
+            MutatingStageWrapper::new(
+                AutarkieMutationalStage::new(
+                    tuple_list!(
+                        splice_mutator,
+                    ),
+                    SPLICE_STACK
+                ),
+                Rc::clone(&visitor)
+            ),
+            MutatingStageWrapper::new(
+                AutarkieMutationalStage::new(
+                    tuple_list!(
+                        recursion_mutator,
+                    ),
+                    SPLICE_STACK
                 ),
                 Rc::clone(&visitor)
             ),
