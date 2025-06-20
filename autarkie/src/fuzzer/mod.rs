@@ -185,12 +185,12 @@ where
         let map_feedback = MaxMapFeedback::new(&edges_observer);
 
         let time_observer = TimeObserver::new("time");
-        /* let cb = |_fuzzer: &mut _,
+        let cb = |_fuzzer: &mut _,
                   _executor: &mut _,
                   state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
                   _event_manager: &mut _|
-         -> Result<bool, Error> { Ok(opt.novelty_minimization) }; */
-        /* let novelty_minimization_stage = IfStage::new(
+         -> Result<bool, Error> { Ok(opt.novelty_minimization) };
+        let novelty_minimization_stage = IfStage::new(
             cb,
             tuple_list!(NoveltyMinimizationStage::new(
                 Rc::clone(&visitor),
@@ -212,7 +212,7 @@ where
                 RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
                 novelty_minimization_stage,
             ),
-        ); */
+        );
         let mut feedback = feedback_or!(
             map_feedback,
             TimeFeedback::new(&time_observer),
@@ -400,7 +400,7 @@ where
         // TODO: I2S for AFL
         #[cfg(feature = "afl")]
         let mut stages = tuple_list!(
-/*             minimization_stage, */
+            minimization_stage,
             MutatingStageWrapper::new(
                 AutarkieMutationalStage::new(
                     tuple_list!(
