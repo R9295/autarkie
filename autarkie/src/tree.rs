@@ -18,6 +18,7 @@ pub enum MutationType<'a> {
     IterablePop(usize),
     RecursiveReplace,
     Splice(&'a mut &'a [u8]),
+    GenerateAppend(usize),
     SpliceAppend(&'a mut &'a [u8]),
 }
 
@@ -275,6 +276,11 @@ where
                 }
                 MutationType::SpliceAppend(other) => {
                     self.push(deserialize(other));
+                }
+                MutationType::GenerateAppend(bias) => {
+                    if let Some(generated) = T::__autarkie_generate(visitor, bias, 0) {
+                        self.push(generated)
+                    }
                 }
                 MutationType::IterablePop(ref mut bias) => {
                     self.remove(*bias);
@@ -717,6 +723,13 @@ where
                 MutationType::SpliceAppend(other) => {
                     let (k, v) = deserialize(other);
                     self.insert(k, v);
+                }
+                MutationType::GenerateAppend(bias) => {
+                    if let Some(k) = K::__autarkie_generate(visitor, bias, 0) {
+                        if let Some(v) = V::__autarkie_generate(visitor, bias, 0) {
+                        self.insert(k, v);
+                    }
+                }
                 }
                 MutationType::IterablePop(ref mut bias) => {
                     let mut remove_key = None;

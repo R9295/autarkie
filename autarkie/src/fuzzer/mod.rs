@@ -58,6 +58,7 @@ use libafl_targets::{AFLppCmpLogMap, AFLppCmpLogObserver};
 use mutators::{
     recurse_mutate::{AutarkieRecurseMutator, RECURSE_STACK},
     splice::{AutarkieSpliceMutator, SPLICE_STACK},
+    generate_append::AutarkieGenerateAppendMutator,
     splice_append::{AutarkieSpliceAppendMutator, SPLICE_APPEND_STACK},
 };
 use regex::Regex;
@@ -72,6 +73,7 @@ use stages::{
     stats::{AutarkieStats, StatsStage},
 };
 
+use hooks::rare_share::RareShare;
 use std::io::{stderr, stdout, Write};
 use std::os::fd::AsRawFd;
 use std::str::FromStr;
@@ -90,8 +92,6 @@ where
     TC: InputToBytes<I> + Clone,
     F: Fn(&I) -> ExitKind,
 {
-    use hooks::rare_share::RareShare;
-
     #[cfg(feature = "afl")]
     let monitor = MultiMonitor::new(|s| println!("{s}"));
     // TODO: -close_fd_mask from libfuzzer
@@ -174,9 +174,11 @@ where
                 generate: opt.generate_depth,
                 iterate: opt.iterate_depth,
             },
+            opt.string_pool_size,
         );
         I::__autarkie_register(&mut visitor, None, 0);
-        visitor.calculate_recursion();
+        let recursive_nodes = visitor.calculate_recursion();
+        let has_recursion = recursive_nodes.len() > 0;
         let visitor = Rc::new(RefCell::new(visitor));
 
         // Create a MapFeedback for coverage guided fuzzin'
@@ -214,10 +216,14 @@ where
         let mut feedback = feedback_or!(
             map_feedback,
             TimeFeedback::new(&time_observer),
-            RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone()),
+            RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone(), false),
         );
 
-        let mut objective = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new(),);
+        let mut objective = feedback_or_fast!(
+            CrashFeedback::new(),
+            TimeoutFeedback::new(),
+            RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone(), true),
+        );
 
         // Initialize our State if necessary
         let mut state = state.unwrap_or(
@@ -235,8 +241,11 @@ where
         if !fuzzer_dir.join("chunks").exists() {
             std::fs::create_dir(fuzzer_dir.join("chunks")).unwrap();
         }
-        if !fuzzer_dir.join("rendered").exists() {
-            std::fs::create_dir(fuzzer_dir.join("rendered")).unwrap();
+        if !fuzzer_dir.join("rendered_corpus").exists() {
+            std::fs::create_dir(fuzzer_dir.join("rendered_corpus")).unwrap();
+        }
+        if !fuzzer_dir.join("rendered_crashes").exists() {
+            std::fs::create_dir(fuzzer_dir.join("rendered_crashes")).unwrap();
         }
         if !fuzzer_dir.join("cmps").exists() {
             std::fs::create_dir(fuzzer_dir.join("cmps")).unwrap();
@@ -267,7 +276,7 @@ where
             .debug_child(opt.debug_child)
             .is_persistent(true)
             .is_deferred_frksrv(true)
-            .timeout(Duration::from_millis(opt.hang_timeout))
+            .timeout(Duration::from_millis(opt.hang_timeout * 1000))
             .shmem_provider(&mut shmem_provider)
             .build(observers)
             .unwrap();
@@ -280,7 +289,7 @@ where
             &mut fuzzer,
             &mut state,
             &mut mgr,
-            Duration::from_millis(opt.hang_timeout),
+            Duration::from_millis(opt.hang_timeout * 1000),
         )?;
         #[cfg(feature = "libfuzzer")]
         let mut executor = ShadowExecutor::new(executor, tuple_list!(cmplog_observer));
@@ -321,14 +330,25 @@ where
         }
         state.add_metadata(context);
         state.add_metadata(AutarkieStats::default());
-
+        /* let crashes = std::fs::read_dir(fuzzer_dir.join("crash"))?;
+        println!("crashes");
+        for file in crashes {
+            if let Some(item)= crate::maybe_deserialize::<I>(std::fs::read(file?.path())?.as_slice()) {
+                let data = bytes_converter.clone().to_bytes(&item);
+                let hash = blake3::hash(&data);
+                std::fs::write(fuzzer_dir.join("rendered_crashes").join(hash.to_string()), data.to_vec())?;
+            }
+        } */
+        /*         return Err(Error::shutting_down()); */
         // Reload corpus
         if state.must_load_initial_inputs() {
-            state.load_initial_inputs(
+            state.load_initial_inputs_multicore(
                 &mut fuzzer,
                 &mut executor,
                 &mut mgr,
-                &[fuzzer_dir.join("queue").clone()],
+                &[fuzzer_dir.join("queue").clone(), fuzzer_dir.join("crash")],
+                &core.core_id(),
+                &opt.cores,
             )?;
             for _ in 0..opt.initial_generated_inputs {
                 let mut metadata = state.metadata_mut::<Context>().expect("fxeZamEw____");
@@ -354,13 +374,14 @@ where
         let splice_mutator = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
         let recursion_mutator =
             AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
-        let append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
-        let cb = |_fuzzer: &mut _,
+        let splice_append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
+        let generate_append_mutator = AutarkieGenerateAppendMutator::new(Rc::clone(&visitor));
+        /* let cb = |_fuzzer: &mut _,
                   _executor: &mut _,
                   _state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
                   _event_manager: &mut _|
          -> Result<bool, Error> { Ok(opt.generate_stage) };
-        let generate_stage = IfStage::new(cb, tuple_list!(GenerateStage::new(Rc::clone(&visitor))));
+        let generate_stage = IfStage::new(cb, tuple_list!(GenerateStage::new(Rc::clone(&visitor)))); */
         let afl_stage = AutarkieBinaryMutatorStage::new(
             havoc_mutations_no_crossover(),
             7,
@@ -378,13 +399,42 @@ where
             minimization_stage,
             MutatingStageWrapper::new(
                 AutarkieMutationalStage::new(
-                    tuple_list!(append_mutator, recursion_mutator, splice_mutator),
+                    tuple_list!(
+                        generate_append_mutator,
+                    ),
+                    20
+                ),
+                Rc::clone(&visitor)
+            ),
+            MutatingStageWrapper::new(
+                AutarkieMutationalStage::new(
+                    tuple_list!(
+                        splice_append_mutator,
+                    ),
+                    20
+                ),
+                Rc::clone(&visitor)
+            ),
+            MutatingStageWrapper::new(
+                AutarkieMutationalStage::new(
+                    tuple_list!(
+                        splice_mutator,
+                    ),
+                    SPLICE_STACK
+                ),
+                Rc::clone(&visitor)
+            ),
+            MutatingStageWrapper::new(
+                AutarkieMutationalStage::new(
+                    tuple_list!(
+                        recursion_mutator,
+                    ),
                     SPLICE_STACK
                 ),
                 Rc::clone(&visitor)
             ),
             MutatingStageWrapper::new(afl_stage, Rc::clone(&visitor)),
-            MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)),
+/*             MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)), */
             StatsStage::new(fuzzer_dir),
         );
         #[cfg(feature = "libfuzzer")]
@@ -392,12 +442,16 @@ where
             minimization_stage,
             tracing,
             MutatingStageWrapper::new(i2s, Rc::clone(&visitor)),
-            MutatingStageWrapper::new(
-                AutarkieMutationalStage::new(
-                    tuple_list!(append_mutator, recursion_mutator, splice_mutator),
-                    SPLICE_STACK
+            AutarkieMutationalStage::new(
+                tuple_list!(
+                    splice_append_mutator,
+                    generate_append_mutator,
+                    recursion_mutator,
+                    recursion_mutator_two,
+                    recursion_mutator_three,
+                    splice_mutator
                 ),
-                Rc::clone(&visitor)
+                SPLICE_STACK
             ),
             MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)),
             MutatingStageWrapper::new(afl_stage, Rc::clone(&visitor)),
@@ -432,12 +486,12 @@ struct Opt {
     #[arg(short = 'o')]
     output_dir: PathBuf,
 
-    /// Timeout in milliseconds
-    #[arg(short = 't', default_value_t = 1000)]
+    /// Timeout in seconds
+    #[arg(short = 't', default_value_t = 1)]
     hang_timeout: u64,
 
     /// Share an entry only every n entries
-    #[arg(short = 'K', default_value_t = 100)]
+    #[arg(short = 'K', default_value_t = 0)]
     skip_count: usize,
 
     /// seed for rng
@@ -483,6 +537,10 @@ struct Opt {
     #[arg(short = 'z', default_value_t = 15)]
     max_subslice_size: usize,
 
+    /// string pool size
+    #[arg(short = 'l', default_value_t = 50)]
+    string_pool_size: usize,
+
     /// Max generate depth when generating recursive nodes (advanced)
     #[arg(short = 'G', default_value_t = 2)]
     generate_depth: usize,
@@ -511,6 +569,7 @@ macro_rules! debug_grammar {
                     generate: 2,
                     iterate: 5,
                 },
+                50,
             );
             <$t>::__autarkie_register(&mut visitor, None, 0);
             visitor.calculate_recursion();

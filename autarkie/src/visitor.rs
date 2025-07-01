@@ -268,6 +268,7 @@ impl Visitor {
     pub fn generate(&mut self, id: &Id, depth: usize) -> Option<(usize, bool)> {
         let consider_recursive = depth < self.depth.generate;
         let (variant, is_recursive) = if consider_recursive {
+            let consider_recursive_bias = self.random_range(0, 35) < 35;
             let variants = self.ty_generate_map.get(id).expect("____VbO3rGYTSf");
             let nr_variants = variants
                 .get(&GenerateType::NonRecursive)
@@ -277,7 +278,7 @@ impl Visitor {
                 .expect("____q154Wl5zf2");
             let nr_variants_len = nr_variants.len().saturating_sub(1);
             let r_variants_len = r_variants.len().saturating_sub(1);
-            let id = self.rng.between(0, nr_variants_len + r_variants_len);
+            let id = self.rng.between(0, nr_variants_len +  if consider_recursive_bias {r_variants_len} else {0});
             if id <= nr_variants_len {
                 if let Some(nr_variant) = nr_variants.iter().nth(id) {
                     (nr_variant.clone(), false)
@@ -317,7 +318,7 @@ impl Visitor {
         Some((variant, is_recursive))
     }
 
-    pub fn new(seed: u64, depth: DepthInfo) -> Self {
+    pub fn new(seed: u64, depth: DepthInfo, string_num: usize) -> Self {
         let mut visitor = Self {
             ty_generate_map: BTreeMap::default(),
             ty_done: BTreeSet::default(),
@@ -331,7 +332,7 @@ impl Visitor {
             ty_map: BTreeMap::new(),
             rng: StdRand::with_seed(seed),
         };
-        visitor.strings.add_strings(&mut visitor.rng, 100, 10);
+        visitor.strings.add_strings(&mut visitor.rng, string_num, 10);
         return visitor;
     }
 }

@@ -26,6 +26,7 @@ use crate::fuzzer::Context;
 pub struct RegisterFeedback<I, TC> {
     bytes_converter: TC,
     visitor: Rc<RefCell<Visitor>>,
+    is_solution: bool,
     phantom: PhantomData<I>,
 }
 
@@ -33,10 +34,11 @@ impl<I, TC> RegisterFeedback<I, TC>
 where
     TC: InputToBytes<I> + Clone,
 {
-    pub fn new(visitor: Rc<RefCell<Visitor>>, bytes_converter: TC) -> Self {
+    pub fn new(visitor: Rc<RefCell<Visitor>>, bytes_converter: TC, is_solution: bool) -> Self {
         Self {
             bytes_converter,
             visitor,
+            is_solution,
             phantom: PhantomData,
         }
     }
@@ -73,6 +75,7 @@ where
             testcase.input().as_ref().expect("we must have input!"),
             &mut self.visitor.borrow_mut(),
             &mut self.bytes_converter,
+            self.is_solution,
         );
         let done_mutations = metadata.clear_mutations();
         let metadata = state
