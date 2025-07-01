@@ -39,7 +39,6 @@ where
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
         let mut metadata = state.metadata_mut::<Context>()?;
-        let mut mutated_path = None;
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
@@ -52,7 +51,6 @@ where
                     return Ok(MutationResult::Skipped);
                 };
                 let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                mutated_path = Some(path.clone());
                 let subslice_bounds = calculate_subslice_bounds(
                     *field_len,
                     self.max_subslice_size,
@@ -85,31 +83,26 @@ where
                 let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) else {
                     return Ok(MutationResult::Skipped);
                 };
-                // unfortunately we need to replace the exact amount.
-                // cause we don't differentiate between vec and slice
                 let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                let items = (0..*field_len)
-                    .into_iter()
-                    .map(|_| {
-                        std::fs::read(
-                            possible_splices
-                                .get(
-                                    self.visitor
-                                        .borrow_mut()
-                                        .random_range(0, possible_splices.len() - 1),
-                                )
-                                .expect("NZkjgWib____"),
-                        )
-                        .expect("could not read splice file")
-                    })
-                    .collect::<Vec<_>>();
                 let mut data = if !*is_fixed_len {
                     crate::serialize_vec_len(if *field_len > 0 { *field_len } else { 0 })
                 } else {
                     vec![]
                 };
-                data.extend(items.iter().flatten());
-                mutated_path = Some(path.clone());
+                // unfortunately we need to replace the exact amount.
+                // cause we don't differentiate between vec and slice
+                for _ in (0..*field_len) {
+                    let path = possible_splices
+                        .get(
+                            self.visitor
+                                .borrow_mut()
+                                .random_range(0, possible_splices.len() - 1),
+                        )
+                        .expect("NZkjgWib____");
+                    data.extend_from_slice(
+                        self.file_cache.read_cached(path).expect("____gJaxjQmU"),
+                    );
+                }
                 #[cfg(feature = "debug_mutators")]
                 println!("splice | full | {:?}", field);
                 input.__autarkie_mutate(
@@ -130,9 +123,11 @@ where
                         .borrow_mut()
                         .random_range(0, possible_splices.len() - 1),
                 )
-                .expect("");
-            let data = std::fs::read(random_splice).expect("pxHz5VCa____");
-            mutated_path = Some(path.clone());
+                .expect("____zyUpz0uu");
+            let data = self
+                .file_cache
+                .read_cached(random_splice)
+                .expect("____gJaxjQmU");
             #[cfg(feature = "debug_mutators")]
             println!("splice | one | {:?} {:?}", field, path);
             input.__autarkie_mutate(

@@ -4,15 +4,15 @@ use autarkie::fuzzer::mutators::splice::AutarkieSpliceMutator;
 use autarkie::fuzzer::mutators::splice_append::AutarkieSpliceAppendMutator;
 use autarkie::{impl_converter, impl_hash, impl_input, DepthInfo};
 use autarkie::{Node, Visitor};
-use blake3::Hash;
 use criterion::{criterion_group, criterion_main, Criterion};
+use libafl::state::HasRand;
 use libafl::{
     corpus::InMemoryCorpus,
     mutators::{MutationResult, Mutator},
-    state::{HasCorpus, HasRand, StdState},
+    state::StdState,
     HasMetadata,
 };
-use libafl_bolts::rands::StdRand;
+use libafl_bolts::rands::{Rand, StdRand};
 use std::collections::BTreeMap;
 use std::{cell::RefCell, rc::Rc};
 use tempdir::TempDir;
@@ -91,6 +91,8 @@ fn benchmark_mutators(c: &mut Criterion) {
     }
     c.bench_function("splice_mutator", |b| {
         b.iter(|| {
+            state.rand_mut().set_seed(0);
+            visitor.borrow_mut().set_seed(0);
             let mut count = 0;
             for mut i in generated.clone() {
                 let mutated = splice_mutator.mutate(&mut state, &mut i);
@@ -102,6 +104,8 @@ fn benchmark_mutators(c: &mut Criterion) {
     });
     c.bench_function("splice_append", |b| {
         b.iter(|| {
+            state.rand_mut().set_seed(0);
+            visitor.borrow_mut().set_seed(0);
             let mut count = 0;
             for mut i in generated.clone() {
                 let mutated = append_mutator.mutate(&mut state, &mut i);
@@ -113,6 +117,8 @@ fn benchmark_mutators(c: &mut Criterion) {
     });
     c.bench_function("random", |b| {
         b.iter(|| {
+            state.rand_mut().set_seed(0);
+            visitor.borrow_mut().set_seed(0);
             let mut count = 0;
             for mut i in generated.clone() {
                 let mutated = random_mutator.mutate(&mut state, &mut i);
