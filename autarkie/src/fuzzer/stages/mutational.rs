@@ -52,7 +52,11 @@ where
     ) -> Result<(), Error> {
         let mut current = state.current_input_cloned().unwrap();
         for i in 0..self.stack {
-            if self.inner.get_and_mutate(MutationId::from(0), state, &mut current)? == MutationResult::Mutated {
+            let idx = state
+                .rand_mut()
+                .below(unsafe { NonZero::new(self.inner.len()).unwrap_unchecked() })
+                .into();
+            if self.inner.get_and_mutate(idx, state, &mut current)? == MutationResult::Mutated {
                 fuzzer.evaluate_input(state, executor, manager, &current)?;
             }
         }
