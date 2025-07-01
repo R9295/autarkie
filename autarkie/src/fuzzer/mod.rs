@@ -2,11 +2,11 @@
 #![feature(core_intrinsics)]
 
 pub mod afl;
-mod context;
+pub mod context;
 mod feedback;
 mod hooks;
 pub mod libfuzzer;
-mod mutators;
+pub mod mutators;
 mod stages;
 
 use crate::{DepthInfo, Node, Visitor};
