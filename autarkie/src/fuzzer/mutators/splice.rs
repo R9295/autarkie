@@ -6,8 +6,6 @@ use libafl::{
     state::{HasCorpus, HasRand},
     HasMetadata,
 };
-#[cfg(feature = "introspection")]
-use libafl::{mark_feature_time, start_timer};
 use libafl_bolts::{current_time, AsSlice, Named};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -26,11 +24,6 @@ pub struct AutarkieSpliceMutator<I> {
     phantom: PhantomData<I>,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[repr(u8)]
-pub enum Data {
-    Fields,
-}
 
 impl<I, S> Mutator<I, S> for AutarkieSpliceMutator<I>
 where

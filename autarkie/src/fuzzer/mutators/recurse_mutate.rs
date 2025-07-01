@@ -6,8 +6,6 @@ use libafl::{
     state::{HasCorpus, HasRand},
     HasMetadata,
 };
-#[cfg(feature = "introspection")]
-use libafl::{mark_feature_time, start_timer};
 use libafl_bolts::{HasLen, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
 
@@ -30,12 +28,8 @@ where
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
         let mut metadata = state.metadata_mut::<Context>()?;
-        #[cfg(feature = "introspection")]
-        start_timer!(state);
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
-        #[cfg(feature = "introspection")]
-        mark_feature_time!(state, Data::Fields);
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &mut fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().expect("YjBYG4Fr____");
