@@ -69,6 +69,10 @@ impl Visitor {
         self.rng.between(min, max)
     }
 
+    pub fn set_seed(&mut self, seed: u64) {
+        self.rng.set_seed(seed);
+    }
+
     pub fn register_field(&mut self, item: FieldLocation) {
         self.field_stack.push(item);
         self.fields.push(self.field_stack.clone());

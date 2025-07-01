@@ -24,6 +24,14 @@ regex = "1.11.1"
 num-traits = "0.2.19"
 serde_json = "1.0.140"
 
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tempdir = "0.3.7"
+
+[[bench]]
+name = "mutators"
+harness = false
+
 [features]
 derive = ["autarkie_derive"]
 bincode = ["dep:bincode"]

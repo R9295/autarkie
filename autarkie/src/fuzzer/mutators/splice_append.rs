@@ -14,9 +14,12 @@ use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData
 
 use crate::fuzzer::Context;
 
+use super::commons::FileCache;
+
 pub const SPLICE_APPEND_STACK: usize = 1000;
 pub struct AutarkieSpliceAppendMutator<I> {
     visitor: Rc<RefCell<Visitor>>,
+    file_cache: FileCache,
     phantom: PhantomData<I>,
 }
 
@@ -65,8 +68,10 @@ where
                                 .random_range(0, possible_splices.len() - 1),
                         )
                         .expect("2T4FO2ig____");
-                    // TODO: cache this in memory
-                    let data = std::fs::read(random_splice).expect("bOoVXT0Z____");
+                    let data = self
+                        .file_cache
+                        .read_cached(random_splice)
+                        .expect("4phGbftw____");
                     #[cfg(feature = "debug_mutators")]
                     println!("splice | splice_append | {:?}", (&field, &path));
                     input.__autarkie_mutate(
@@ -101,6 +106,7 @@ impl<I> Named for AutarkieSpliceAppendMutator<I> {
 impl<I> AutarkieSpliceAppendMutator<I> {
     pub fn new(visitor: Rc<RefCell<Visitor>>) -> Self {
         Self {
+            file_cache: FileCache::new(256),
             visitor,
             phantom: PhantomData,
         }
