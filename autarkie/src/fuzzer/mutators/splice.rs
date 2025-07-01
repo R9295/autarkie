@@ -9,16 +9,20 @@ use libafl::{
 #[cfg(feature = "introspection")]
 use libafl::{mark_feature_time, start_timer};
 use libafl_bolts::{current_time, AsSlice, Named};
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
 
 use crate::fuzzer::Context;
 
-use super::commons::calculate_subslice_bounds;
+use super::commons::{calculate_subslice_bounds, FileCache};
 
 pub const SPLICE_STACK: usize = 1000;
+
 pub struct AutarkieSpliceMutator<I> {
     visitor: Rc<RefCell<Visitor>>,
     max_subslice_size: usize,
+    file_cache: FileCache,
     phantom: PhantomData<I>,
 }
 
@@ -64,8 +68,10 @@ where
                                 .random_range(0, possible_splices.len() - 1),
                         )
                         .expect("BCUHhFol____");
-                    // TODO: cache this in memory
-                    let data = std::fs::read(random_splice).expect("4phGbftw____");
+                    let data = self
+                        .file_cache
+                        .read_cached(random_splice)
+                        .expect("4phGbftw____");
                     #[cfg(feature = "debug_mutators")]
                     println!("splice | subslice | {:?}", (&field, &path));
                     input.__autarkie_mutate(
@@ -158,6 +164,7 @@ impl<I> AutarkieSpliceMutator<I> {
         Self {
             visitor,
             max_subslice_size,
+            file_cache: FileCache::new(256),
             phantom: PhantomData,
         }
     }
