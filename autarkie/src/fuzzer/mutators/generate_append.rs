@@ -7,12 +7,10 @@ use libafl::{
     state::{HasCorpus, HasRand},
     HasMetadata,
 };
-#[cfg(feature = "introspection")]
-use libafl::{mark_feature_time, start_timer};
 use libafl_bolts::{AsSlice, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
 
-use crate::fuzzer::Context;
+use crate::fuzzer::context::Context;
 
 pub const SPLICE_APPEND_STACK: usize = 1000;
 pub struct AutarkieGenerateAppendMutator<I> {
@@ -27,11 +25,7 @@ where
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
         let mut metadata = state.metadata_mut::<Context>().expect("YAERLTe6____");
-        #[cfg(feature = "introspection")]
-        start_timer!(state);
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
-        #[cfg(feature = "introspection")]
-        mark_feature_time!(state, Data::Fields);
         let mut fields = self
             .visitor
             .borrow_mut()

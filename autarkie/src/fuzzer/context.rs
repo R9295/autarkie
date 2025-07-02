@@ -171,6 +171,8 @@ pub enum MutationMetadata {
     RecursiveMinimization,
     /// Iterable Minimization
     IterableMinimization,
+    /// Iterable Pop
+    IterablePop,
     /// Novelty Minimization
     NoveltyMinimization,
     /// Afl

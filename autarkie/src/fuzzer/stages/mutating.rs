@@ -1,5 +1,5 @@
 //! Stage that wraps mutating stages for stats and cleanup
-use crate::fuzzer::Context;
+use crate::fuzzer::context::Context;
 use crate::Visitor;
 use core::{marker::PhantomData, time::Duration};
 use libafl_bolts::{current_time, Error};

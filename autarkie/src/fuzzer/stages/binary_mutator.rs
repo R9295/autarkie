@@ -1,7 +1,7 @@
 //! Stage that wraps mutating stages for stats and cleanup
 use crate::fuzzer::context::MutationMetadata;
 use crate::Visitor;
-use crate::{fuzzer::Context, Node};
+use crate::{fuzzer::context::Context, Node};
 use core::{marker::PhantomData, time::Duration};
 use libafl::inputs::BytesInput;
 use libafl::mutators::MutatorsTuple;

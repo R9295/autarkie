@@ -21,7 +21,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::fuzzer::Context;
+use crate::fuzzer::context::Context;
 
 use super::stats::AutarkieStats;
 

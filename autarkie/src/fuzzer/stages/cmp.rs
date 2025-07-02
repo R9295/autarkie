@@ -21,7 +21,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::fuzzer::Context;
+use crate::fuzzer::context::Context;
 
 #[derive(Debug)]
 pub struct CmpLogStage<'a, TE, I> {

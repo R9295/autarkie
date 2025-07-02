@@ -21,7 +21,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::fuzzer::Context;
+use crate::fuzzer::context::Context;
 
 #[derive(Debug)]
 pub struct MinimizationStage<C, E, O, OT, S, I> {

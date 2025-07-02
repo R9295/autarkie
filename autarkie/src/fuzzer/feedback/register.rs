@@ -21,7 +21,7 @@ use crate::{
 };
 use libafl_bolts::Named;
 
-use crate::fuzzer::Context;
+use crate::fuzzer::context::Context;
 
 pub struct RegisterFeedback<I, TC> {
     bytes_converter: TC,

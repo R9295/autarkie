@@ -1,4 +1,5 @@
 mod commons;
+pub mod iterable_pop;
 pub mod recurse_mutate;
 pub mod generate_append;
 pub mod splice;

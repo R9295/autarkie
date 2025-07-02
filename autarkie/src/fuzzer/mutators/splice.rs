@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
 
-use crate::fuzzer::Context;
+use crate::fuzzer::context::Context;
 
 use super::commons::{calculate_subslice_bounds, FileCache};
 
