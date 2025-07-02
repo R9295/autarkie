@@ -385,7 +385,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     #[cfg(feature = "afl")]
     let mut stages = tuple_list!(
         minimization_stage,
-        AutarkieMutationalStage::new(
+        MutatingStageWrapper::new(AutarkieMutationalStage::new(
             tuple_list!(
                 splice_append_mutator,
                 generate_append_mutator,
@@ -395,7 +395,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
                 splice_mutator
             ),
             SPLICE_STACK
-        ),
+        ), Rc::clone(&visitor)),
         StatsStage::new(fuzzer_dir),
     );
     #[cfg(feature = "libfuzzer")]
