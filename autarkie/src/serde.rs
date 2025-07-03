@@ -12,10 +12,11 @@ macro_rules! impl_node_serde_array {
                 visitor: &mut Visitor,
                 depth: &mut usize,
                 cur_depth: usize,
+                settings: Option<crate::GenerateSettings>
             ) -> Option<Self> {
                 Some(
                     (0..$n)
-                        .map(|_| T::__autarkie_generate(visitor, depth, cur_depth))
+                        .map(|_| T::__autarkie_generate(visitor, depth, cur_depth, None))
                         .filter_map(|i| i)
                         .collect::<Vec<T>>()
                         .try_into()
@@ -59,7 +60,7 @@ macro_rules! impl_node_serde_array {
                             *self = deserialize(other);
                         }
                         MutationType::GenerateReplace(ref mut bias) => {
-                            if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0) {
+                            if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0, None) {
                                 *self = generated;
                                 self.__autarkie_serialized(visitor);
                             }

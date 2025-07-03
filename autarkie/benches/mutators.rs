@@ -77,7 +77,7 @@ fn benchmark_mutators(c: &mut Criterion) {
     let mut bytes_converter = FuzzDataTargetBytesConverter::new();
     while generated.len() != 1_000 {
         let Some(mut input) =
-            Data::__autarkie_generate(&mut visitor.borrow_mut(), &mut generate_depth.clone(), 0)
+            Data::__autarkie_generate(&mut visitor.borrow_mut(), &mut generate_depth.clone(), 0, None)
         else {
             continue;
         };
@@ -86,7 +86,7 @@ fn benchmark_mutators(c: &mut Criterion) {
             .metadata_mut::<Context>()
             .expect("we must have context!");
         metadata.generated_input();
-        metadata.register_input(&input, &mut visitor.borrow_mut(), &mut bytes_converter);
+        metadata.register_input(&input, &mut visitor.borrow_mut(), &mut bytes_converter, None);
         metadata.default_input();
     }
     c.bench_function("splice_mutator", |b| {

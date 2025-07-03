@@ -375,6 +375,11 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     let generate_append_mutator = AutarkieGenerateAppendMutator::new(Rc::clone(&visitor));
     let pop_mutator  = AutarkieIterablePopMutator::new(Rc::clone(&visitor));
     let pop_mutator2  = AutarkieIterablePopMutator::new(Rc::clone(&visitor));
+      let afl_stage = AutarkieBinaryMutatorStage::new(
+            havoc_mutations_no_crossover(),
+            1000,
+            MutationMetadata::Afl,
+        );
     #[cfg(feature = "libfuzzer")]
     let i2s = AutarkieBinaryMutatorStage::new(
         tuple_list!(I2SRandReplace::new()),
@@ -396,6 +401,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
             ),
             SPLICE_STACK
         ), Rc::clone(&visitor)),
+        MutatingStageWrapper::new(afl_stage, Rc::clone(&visitor)),
         StatsStage::new(fuzzer_dir),
     );
     #[cfg(feature = "libfuzzer")]
