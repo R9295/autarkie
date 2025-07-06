@@ -3,7 +3,7 @@ use libafl::{
     corpus::Corpus,
     events::EventFirer,
     executors::{Executor, HasObservers},
-    observers::{AFLppCmpValuesMetadata, CmpValues, ObserversTuple},
+    observers::{AflppCmpValuesMetadata, CmpValues, ObserversTuple},
     stages::{Restartable, Stage},
     state::HasCurrentTestcase,
     Evaluator, HasMetadata,
@@ -12,7 +12,7 @@ use libafl_bolts::{
     tuples::{Handle, MatchNameRef},
     AsSlice,
 };
-use libafl_targets::AFLppCmpLogObserver;
+use libafl_targets::AflppCmpLogObserver;
 use serde::Serialize;
 use std::{
     cell::RefCell,
@@ -27,7 +27,7 @@ use crate::fuzzer::context::Context;
 pub struct CmpLogStage<'a, TE, I> {
     visitor: Rc<RefCell<Visitor>>,
     tracer_executor: TE,
-    cmplog_observer_handle: Handle<AFLppCmpLogObserver<'a>>,
+    cmplog_observer_handle: Handle<AflppCmpLogObserver<'a>>,
     phantom: PhantomData<I>,
 }
 
@@ -35,7 +35,7 @@ impl<'a, TE, I> CmpLogStage<'a, TE, I> {
     pub fn new(
         visitor: Rc<RefCell<Visitor>>,
         tracer_executor: TE,
-        cmplog_observer_handle: Handle<AFLppCmpLogObserver<'a>>,
+        cmplog_observer_handle: Handle<AflppCmpLogObserver<'a>>,
     ) -> Self {
         Self {
             cmplog_observer_handle,
@@ -46,6 +46,8 @@ impl<'a, TE, I> CmpLogStage<'a, TE, I> {
     }
 }
 
+use libafl::inputs::BytesInput;
+
 impl<TE, E, EM, Z, S, I> Stage<E, EM, S, Z> for CmpLogStage<'_, TE, I>
 where
     I: Node + Serialize + Clone,
@@ -53,7 +55,7 @@ where
     E: Executor<EM, I, S, Z>,
     EM: EventFirer<I, S>,
     TE: Executor<EM, I, S, Z> + HasObservers,
-    TE::Observers: MatchNameRef + ObserversTuple<I, S>,
+    TE::Observers: MatchNameRef + ObserversTuple<BytesInput, S>,
     Z: Evaluator<E, EM, I, S>,
 {
     fn perform(
@@ -62,31 +64,37 @@ where
         executor: &mut E,
         state: &mut S,
         manager: &mut EM,
-    ) -> Result<(), libafl_bolts::Error> {
+    ) -> Result<(), libafl::Error> {
         if state.current_testcase().unwrap().scheduled_count() > 1 {
             return Ok(());
         }
 
         let unmutated_input = state.current_input_cloned()?;
 
-        let mut obs = self.tracer_executor.observers_mut();
-        let ob = obs
+        if let Some(ob) = self
+            .tracer_executor
+            .observers_mut()
             .get_mut(&self.cmplog_observer_handle)
-            .expect("dayPLOtv____");
-        ob.set_original(true);
+        {
+            // This is not the original input,
+            // Set it to false
+            ob.set_original(true);
+        }
+        // I can't think of any use of this stage if you don't use AflppCmpLogObserver
+        // but do nothing ofcourse
+
         self.tracer_executor
             .observers_mut()
-            .pre_exec_all(state, &unmutated_input)?;
+            .pre_exec_all(state, &BytesInput::new(vec![0,0,0,0]))?;
 
-        let exit_kind =
+        /* let exit_kind =
             self.tracer_executor
                 .run_target(fuzzer, state, manager, &unmutated_input)?;
         self.tracer_executor
             .observers_mut()
-            .post_exec_all(state, &unmutated_input, &exit_kind)?;
-
+            .post_exec_all(state, &BytesInput::new(vec![0,0,0,0]), &exit_kind)?; */
         let mut reduced = HashSet::new();
-        if let Ok(data) = state.metadata::<AFLppCmpValuesMetadata>() {
+        if let Ok(data) = state.metadata::<AflppCmpValuesMetadata>() {
             for item in data.orig_cmpvals().values() {
                 for i in item.iter() {
                     match i {
@@ -120,7 +128,7 @@ where
             unmutated_input.__autarkie_cmps(&mut self.visitor.borrow_mut(), 0, cmp);
             let matches = self.visitor.borrow_mut().cmps();
             for path in matches {
-                let cmp_path = path.0.iter().map(|(i, ty)| i.0).collect::<VecDeque<_>>();
+                /* let cmp_path = path.0.iter().map(|(i, ty)| i.0).collect::<VecDeque<_>>();
                 let mut serialized_alternative = path.1.as_slice();
                 let mut input = unmutated_input.clone();
                 let before = crate::serialize(&input);
@@ -131,7 +139,7 @@ where
                     &mut self.visitor.borrow_mut(),
                     cmp_path,
                 );
-                let res = fuzzer.evaluate_input(state, executor, manager, &input)?;
+                let res = fuzzer.evaluate_input(state, executor, manager, &input)?; */
             }
         }
 

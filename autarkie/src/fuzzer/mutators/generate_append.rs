@@ -92,3 +92,4 @@ impl<I> AutarkieGenerateAppendMutator<I> {
         }
     }
 }
+

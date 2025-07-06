@@ -17,7 +17,7 @@ use libafl::events::{SimpleEventManager};
 use libafl::monitors::MultiMonitor;
 use libafl_bolts::shmem::StdShMemProvider;
 use libafl::executors::ExitKind;
-use crate::{Input, InputToBytes, Node};
+use crate::{Input, ToTargetBytes, Node};
 use libafl_bolts::shmem::ShMemProvider;
 use libafl_bolts::tuples::tuple_list;
 use libafl::events::{EventConfig, Launcher};
@@ -27,7 +27,7 @@ use crate::fuzzer::hooks::rare_share::RareShare;
 pub fn run_fuzzer<I, TC, F>(bytes_converter: TC, harness: Option<F>)
 where
     I: Node + Input,
-    TC: InputToBytes<I> + Clone,
+    TC: ToTargetBytes<I> + Clone,
     F: Fn(&I) -> ExitKind,
 {
     use libafl::monitors::SimpleMonitor;

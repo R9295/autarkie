@@ -73,7 +73,7 @@ where
         executor: &mut E,
         state: &mut S,
         manager: &mut EM,
-    ) -> Result<(), libafl_bolts::Error> {
+    ) -> Result<(), libafl::Error> {
         let metadata = state.metadata::<Context>().unwrap();
         let indexes = state
             .current_testcase()

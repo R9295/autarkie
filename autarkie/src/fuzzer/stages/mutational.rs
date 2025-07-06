@@ -4,11 +4,12 @@ use crate::Visitor;
 use core::{marker::PhantomData, time::Duration};
 use libafl::state::HasRand;
 use libafl_bolts::rands::Rand;
-use libafl_bolts::{current_time, Error};
+use libafl_bolts::{current_time};
 use std::rc::Rc;
 use std::{cell::RefCell, num::NonZero};
 
 use libafl::{
+    Error,
     events::EventFirer,
     executors::Executor,
     mutators::{MutationId, MutationResult, Mutator, MutatorsTuple},

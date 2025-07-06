@@ -10,8 +10,8 @@ macro_rules! impl_converter {
             }
         }
 
-        impl autarkie::InputToBytes<$t> for FuzzDataTargetBytesConverter {
-            fn to_bytes<'a>(&mut self, input: &'a $t) -> autarkie::OwnedSlice<'a, u8> {
+        impl autarkie::ToTargetBytes<$t> for FuzzDataTargetBytesConverter {
+            fn to_target_bytes<'a>(&mut self, input: &'a $t) -> autarkie::OwnedSlice<'a, u8> {
                 let bytes = autarkie::serialize(input);
                 let bytes = if bytes.len() == 0 {
                     vec![0, 0, 0, 0]
@@ -33,8 +33,8 @@ macro_rules! impl_converter {
             }
         }
 
-        impl autarkie::InputToBytes<$t> for FuzzDataTargetBytesConverter {
-            fn to_bytes<'a>(&mut self, input: &'a $t) -> autarkie::OwnedSlice<'a, u8> {
+        impl autarkie::ToTargetBytes<$t> for FuzzDataTargetBytesConverter {
+            fn to_target_bytes<'a>(&mut self, input: &'a $t) -> autarkie::OwnedSlice<'a, u8> {
                 let bytes = $closure(input);
                 let bytes = if bytes.len() == 0 {
                     vec![0, 0, 0, 0]

@@ -10,8 +10,8 @@ members = [
 ]
 
 [workspace.dependencies]
-libafl = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "58bdbd293a8e843ee537988c808a111d21c69907", features = ["errors_backtrace"]}
-libafl_bolts = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "58bdbd293a8e843ee537988c808a111d21c69907"}
-libafl_targets = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "58bdbd293a8e843ee537988c808a111d21c69907", default-features = false }
+libafl = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "08026740b03c1bcf271983af16eb817ac1ad0e03", features = ["errors_backtrace"]}
+libafl_bolts = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "08026740b03c1bcf271983af16eb817ac1ad0e03"}
+libafl_targets = { git = "https://github.com/AFLplusplus/LibAFL", rev =  "08026740b03c1bcf271983af16eb817ac1ad0e03", default-features = false }
 
 

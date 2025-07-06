@@ -39,7 +39,7 @@ where
         executor: &mut E,
         state: &mut S,
         manager: &mut EM,
-    ) -> Result<(), libafl_bolts::Error> {
+    ) -> Result<(), libafl::Error> {
         let mut metadata = state.metadata_mut::<Context>()?;
         metadata.generated_input();
         let Some(generated) = generate(&mut self.visitor.borrow_mut()) else {

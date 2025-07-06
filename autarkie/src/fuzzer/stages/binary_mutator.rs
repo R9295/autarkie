@@ -7,12 +7,13 @@ use libafl::inputs::BytesInput;
 use libafl::mutators::MutatorsTuple;
 use libafl::state::HasRand;
 use libafl_bolts::rands::Rand;
-use libafl_bolts::{current_time, Error};
+use libafl_bolts::{current_time};
 use std::cell::RefCell;
 use std::num::NonZero;
 use std::rc::Rc;
 
 use libafl::{
+    Error,
     events::EventFirer,
     executors::Executor,
     mutators::{MutationResult, Mutator},

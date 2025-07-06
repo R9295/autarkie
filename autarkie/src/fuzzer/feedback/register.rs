@@ -10,7 +10,7 @@ use libafl::{
     corpus::{Corpus, Testcase},
     executors::ExitKind,
     feedbacks::{Feedback, StateInitializer},
-    inputs::InputToBytes,
+    inputs::ToTargetBytes,
     state::{HasCorpus, HasCurrentTestcase},
     Error, HasMetadata,
 };
@@ -32,7 +32,7 @@ pub struct RegisterFeedback<I, TC> {
 
 impl<I, TC> RegisterFeedback<I, TC>
 where
-    TC: InputToBytes<I> + Clone,
+    TC: ToTargetBytes<I> + Clone,
 {
     pub fn new(visitor: Rc<RefCell<Visitor>>, bytes_converter: TC, is_solution: bool) -> Self {
         Self {
@@ -47,7 +47,7 @@ where
 impl<I, TC, EM, OT, S> Feedback<EM, I, OT, S> for RegisterFeedback<I, TC>
 where
     I: Node,
-    TC: InputToBytes<I> + Clone,
+    TC: ToTargetBytes<I> + Clone,
     S: HasCurrentTestcase<I> + HasCorpus<I> + HasMetadata,
 {
     fn is_interesting(

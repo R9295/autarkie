@@ -8,9 +8,9 @@ pub use blake3::hash;
 pub use libafl::corpus::CorpusId;
 pub use libafl::executors::ExitKind as LibAFLExitKind;
 pub use libafl::inputs::Input;
-pub use libafl::inputs::InputToBytes;
+pub use libafl::inputs::ToTargetBytes;
 pub use libafl_bolts::ownedref::OwnedSlice;
-pub use libafl_bolts::Error as LibAFLError;
+pub use libafl::Error as LibAFLError;
 
 pub mod tree;
 pub mod visitor;

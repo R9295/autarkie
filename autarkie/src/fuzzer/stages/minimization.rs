@@ -71,7 +71,7 @@ where
         executor: &mut E,
         state: &mut S,
         manager: &mut EM,
-    ) -> Result<(), libafl_bolts::Error> {
+    ) -> Result<(), libafl::Error> {
         let metadata = state.metadata::<Context>().expect("DPY5DSqO____");
         let novelties = state
             .current_testcase()

@@ -51,7 +51,7 @@ where
         executor: &mut E,
         state: &mut S,
         manager: &mut EM,
-    ) -> Result<(), libafl_bolts::Error> {
+    ) -> Result<(), libafl::Error> {
         if state.current_testcase().unwrap().scheduled_count() > 0 {
             return Ok(());
         }

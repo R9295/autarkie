@@ -1,5 +1,5 @@
 use crate::{FieldLocation, Id, Node, Visitor};
-use libafl::{corpus::CorpusId, inputs::InputToBytes, SerdeAny};
+use libafl::{corpus::CorpusId, inputs::ToTargetBytes, SerdeAny};
 use libafl_bolts::current_time;
 use libafl_bolts::AsSlice;
 use serde::{Deserialize, Serialize};
@@ -34,7 +34,7 @@ impl Context {
         converter: &mut TC,
         is_solution: bool,
     ) where
-        TC: InputToBytes<I>,
+        TC: ToTargetBytes<I>,
         I: Node,
     {
         let generated_fields = match &self.input_cause {
@@ -71,7 +71,7 @@ impl Context {
                 }
             }
         }
-        let rendered = converter.to_bytes(&input);
+        let rendered = converter.to_target_bytes(&input);
         let path = if is_solution {
             self.out_dir.join("rendered_crashes")
         } else {

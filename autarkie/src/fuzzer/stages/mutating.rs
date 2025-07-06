@@ -2,11 +2,12 @@
 use crate::fuzzer::context::Context;
 use crate::Visitor;
 use core::{marker::PhantomData, time::Duration};
-use libafl_bolts::{current_time, Error};
+use libafl_bolts::{current_time};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use libafl::{
+    Error,
     stages::{Restartable, Stage},
     HasMetadata,
 };
