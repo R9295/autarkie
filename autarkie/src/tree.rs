@@ -891,15 +891,9 @@ macro_rules! impl_generate_simple {
             fn __autarkie_cmps(&self, v: &mut Visitor, index: usize, val: (u64, u64)) {
                 if val.0 == *self as u64 {
                     v.register_cmp(serialize(&(val.1 as Self)));
+                } else if val.1 == *self as u64 {
+                    v.register_cmp(serialize(&(val.0 as Self)));
                 }
-            }
-        }
-    };
-    // we don't do cmps for u8
-    (u8, $num_bytes: literal) => {
-        impl Node for $type {
-            fn __autarkie_generate(v: &mut Visitor) -> Option<Self> {
-                deserialize::<Self>(&mut v.generate_bytes($num_bytes).as_slice())
             }
         }
     };

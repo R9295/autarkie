@@ -225,7 +225,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
 
     let mut objective = feedback_or_fast!(
         CrashFeedback::new(),
-/*         TimeoutFeedback::new(), */
+        TimeoutFeedback::new(),
         RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone(), true),
     );
 
@@ -265,9 +265,9 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     let observers = tuple_list!(time_observer);
     let scheduler = scheduler.cycling_scheduler();
     // Create our Fuzzer
-    let mut filter = BloomInputFilter::new(5000, 0.0001);
+/*     let mut filter = BloomInputFilter::new(5000, 0.0001); */
     let mut fuzzer = StdFuzzerBuilder::new()
-        .input_filter(filter)
+/*         .input_filter(filter) */
         .target_bytes_converter(bytes_converter.clone())
                 .scheduler(scheduler)
         .feedback(feedback)
@@ -336,6 +336,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     }
     state.add_metadata(context);
     state.add_metadata(AutarkieStats::default());
+    let mut gen = vec![];
     // Reload corpus
     if state.must_load_initial_inputs() {
         state.load_initial_inputs(
@@ -351,6 +352,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
             while generated.is_none() {
                 generated = generate(&mut visitor.borrow_mut());
             }
+            gen.push(generated.clone().unwrap());
             fuzzer
                 .evaluate_input(
                     &mut state,
@@ -364,56 +366,35 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         metadata.default_input();
         println!("We imported {} inputs from disk.", state.corpus().count());
     }
-    #[cfg(feature = "afl")]
-    let mut cmplog = { 
-        // The CmpLog map shared between the CmpLog observer and CmpLog executor
+        // The cmplog map shared between observer and executor
         let mut cmplog_shmem = shmem_provider.uninit_on_shmem::<AflppCmpLogMap>().unwrap();
-
-        // Let the Forkserver know the CmpLog shared memory map ID.
+        // let the forkserver know the shmid
         unsafe {
             cmplog_shmem.write_to_env(SHM_CMPLOG_ENV_VAR).unwrap();
         }
-        let mut cmpmap: OwnedRefMut<'_, AflppCmpLogMap> = unsafe { OwnedRefMut::from_shmem(&mut cmplog_shmem) };
-        use libafl_bolts::HasLen;
-        use libafl::observers::CmpMap;
-
-        // Create the CmpLog observer.
-        let cmplog_observer = AflppCmpLogObserver::new("cmplog", cmpmap, false);
+        let cmpmap = unsafe { OwnedRefMut::from_shmem(&mut cmplog_shmem) };
+    #[cfg(feature = "afl")]
+    let mut cmplog = { 
+        let cmplog_observer = AflppCmpLogObserver::new("cmplog", cmpmap, true);
         let cmplog_ref = cmplog_observer.handle();
-
-        // Create the CmpLog executor.
-        // Cmplog has 25% execution overhead so we give it double the timeout
         let mut cmplog_executor = ForkserverExecutor::builder()
         .program(opt.executable.clone())
-        .coverage_map_size(65536)
+        .coverage_map_size(65_536)
         .is_persistent(true)
         .timeout(Duration::from_millis(opt.hang_timeout * 1000) * 2)
         .shmem_provider(&mut shmem_provider)
         .build(tuple_list!(cmplog_observer))
         .unwrap();
-
-        // Create an IfStage and wrap the CmpLog stages in it.
-        // We run cmplog on the second fuzz run of the testcase.
-        // This stage checks if the testcase has been fuzzed more than twice, if so do not run cmplog.
-        // We also check if it is an initial corpus testcase
-        // and if run with AFL_CMPLOG_ONLY_NEW, then we avoid cmplog.
-        let cb = |_fuzzer: &mut _,
-                  _executor: &mut _,
-                  state: &mut AutarkieState<I>,
-                  _event_manager: &mut _|
-         -> Result<bool, Error> {
-            let testcase = state.current_testcase()?;
-            if testcase.scheduled_count() == 0 {
-                return Ok(true);
-            }
-            Ok(false)
-        };
-        IfStage::new(cb, tuple_list!(
-            CmpLogStage::new(Rc::clone(&visitor),cmplog_executor, cmplog_ref)
-        ))
+       let tracing = CmpLogStage::new(Rc::clone(&visitor), cmplog_executor, cmplog_ref);
+        let cmplog = IfStage::new(cb, tuple_list!(tracing));
+        cmplog
     };
     let splice_mutator = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
+    let splice_mutator2 = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
+    let splice_mutator3 = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let recursion_mutator = AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
+    let recursion_mutator2 = AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
+    let recursion_mutator3 = AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let splice_append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
     let generate_append_mutator = AutarkieGenerateAppendMutator::new(Rc::clone(&visitor));
     let pop_mutator  = AutarkieIterablePopMutator::new(Rc::clone(&visitor));
@@ -433,15 +414,19 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     #[cfg(feature = "afl")]
     let mut stages = tuple_list!(
         minimization_stage,
-        cmplog,
+       MutatingStageWrapper::new(cmplog, Rc::clone(&visitor)),
         MutatingStageWrapper::new(AutarkieMutationalStage::new(
             tuple_list!(
                 splice_append_mutator,
                 generate_append_mutator,
                 recursion_mutator,
+                recursion_mutator2,
+                recursion_mutator3,
                 pop_mutator,
                 pop_mutator2,
-                splice_mutator
+                splice_mutator,
+                splice_mutator2,
+                splice_mutator3,
             ),
             SPLICE_STACK
         ), Rc::clone(&visitor)),

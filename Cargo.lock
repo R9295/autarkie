@@ -916,7 +916,6 @@ dependencies = [
 [[package]]
 name = "libafl"
 version = "0.15.3"
-source = "git+https://github.com/AFLplusplus/LibAFL?rev=08026740b03c1bcf271983af16eb817ac1ad0e03#08026740b03c1bcf271983af16eb817ac1ad0e03"
 dependencies = [
  "ahash",
  "arbitrary-int",
@@ -953,7 +952,6 @@ dependencies = [
 [[package]]
 name = "libafl_bolts"
 version = "0.15.3"
-source = "git+https://github.com/AFLplusplus/LibAFL?rev=08026740b03c1bcf271983af16eb817ac1ad0e03#08026740b03c1bcf271983af16eb817ac1ad0e03"
 dependencies = [
  "ahash",
  "backtrace",
@@ -989,7 +987,6 @@ dependencies = [
 [[package]]
 name = "libafl_derive"
 version = "0.15.3"
-source = "git+https://github.com/AFLplusplus/LibAFL?rev=08026740b03c1bcf271983af16eb817ac1ad0e03#08026740b03c1bcf271983af16eb817ac1ad0e03"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1030,7 +1027,6 @@ dependencies = [
 [[package]]
 name = "libafl_targets"
 version = "0.15.3"
-source = "git+https://github.com/AFLplusplus/LibAFL?rev=08026740b03c1bcf271983af16eb817ac1ad0e03#08026740b03c1bcf271983af16eb817ac1ad0e03"
 dependencies = [
  "bindgen 0.72.0",
  "cc",

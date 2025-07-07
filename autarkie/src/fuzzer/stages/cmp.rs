@@ -1,74 +1,63 @@
-use crate::{MutationType, Node, Visitor};
+use core::marker::PhantomData;
+use crate::fuzzer::context::{MutationMetadata, Context};
+use crate::{Node, Visitor};
+use std::cell::RefCell;
+use std::rc::Rc;
+use crate::MutationType;
+use std::collections::VecDeque;
+use std::borrow::{Cow, ToOwned};
+use std::collections::HashSet;
 use libafl::{
-    corpus::Corpus,
-    events::EventFirer,
+    Evaluator,
+    corpus::HasCurrentCorpusId,
     executors::{Executor, HasObservers},
-    observers::{AflppCmpValuesMetadata, CmpValues, ObserversTuple},
-    stages::{Restartable, Stage},
-    state::HasCurrentTestcase,
-    Evaluator, HasMetadata,
+    observers::{CmpValues, ObserversTuple, AflppCmpValuesMetadata},
+    stages::{colorization::TaintMetadata, Restartable, RetryCountRestartHelper, Stage},
+    state::{HasCorpus, HasCurrentTestcase},
+    Error, HasMetadata, HasNamedMetadata,
 };
 use libafl_bolts::{
     tuples::{Handle, MatchNameRef},
-    AsSlice,
+    Named,
 };
+
 use libafl_targets::AflppCmpLogObserver;
-use serde::Serialize;
-use std::{
-    cell::RefCell,
-    collections::{HashSet, VecDeque},
-    marker::PhantomData,
-    rc::Rc,
-};
 
-use crate::fuzzer::context::Context;
-
-#[derive(Debug)]
-pub struct CmpLogStage<'a, TE, I> {
+/// Trace with tainted input
+#[derive(Debug, Clone)]
+pub struct CmpLogStage<'a, EM, TE, S, Z, I> {
     visitor: Rc<RefCell<Visitor>>,
+    name: Cow<'static, str>,
     tracer_executor: TE,
     cmplog_observer_handle: Handle<AflppCmpLogObserver<'a>>,
-    phantom: PhantomData<I>,
+    phantom: PhantomData<(EM, TE, S, Z, I)>,
 }
+/// The name for aflpp tracing stage
+pub static AFLPP_CMPLOG_TRACING_STAGE_NAME: &str = "aflpptracing";
 
-impl<'a, TE, I> CmpLogStage<'a, TE, I> {
-    pub fn new(
-        visitor: Rc<RefCell<Visitor>>,
-        tracer_executor: TE,
-        cmplog_observer_handle: Handle<AflppCmpLogObserver<'a>>,
-    ) -> Self {
-        Self {
-            cmplog_observer_handle,
-            tracer_executor,
-            visitor,
-            phantom: PhantomData,
-        }
+impl<EM, TE, S, Z, I> Named for CmpLogStage<'_, EM, TE, S, Z, I> {
+    fn name(&self) -> &Cow<'static, str> {
+        &self.name
     }
 }
 
-use libafl::inputs::BytesInput;
-
-impl<TE, E, EM, Z, S, I> Stage<E, EM, S, Z> for CmpLogStage<'_, TE, I>
+impl<E, EM, TE, S, Z, I> Stage<E, EM, S, Z> for CmpLogStage<'_, EM, TE, S, Z, I>
 where
-    I: Node + Serialize + Clone,
-    S: HasCurrentTestcase<I> + HasMetadata,
-    E: Executor<EM, I, S, Z>,
-    EM: EventFirer<I, S>,
-    TE: Executor<EM, I, S, Z> + HasObservers,
-    TE::Observers: MatchNameRef + ObserversTuple<BytesInput, S>,
+    I: Node + Clone,
+    TE: HasObservers + Executor<EM, I, S, Z>,
+    TE::Observers: MatchNameRef + ObserversTuple<I, S>,
+    S: HasCorpus<I> + HasCurrentTestcase<I> + HasMetadata + HasNamedMetadata + HasCurrentCorpusId,
     Z: Evaluator<E, EM, I, S>,
 {
+    #[inline]
     fn perform(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         state: &mut S,
         manager: &mut EM,
-    ) -> Result<(), libafl::Error> {
-        if state.current_testcase().unwrap().scheduled_count() > 1 {
-            return Ok(());
-        }
-
+    ) -> Result<(), Error> {
+        // First run with the un-mutated input
         let unmutated_input = state.current_input_cloned()?;
 
         if let Some(ob) = self
@@ -85,53 +74,34 @@ where
 
         self.tracer_executor
             .observers_mut()
-            .pre_exec_all(state, &BytesInput::new(vec![0,0,0,0]))?;
+            .pre_exec_all(state, &unmutated_input)?;
 
-        /* let exit_kind =
+        let exit_kind =
             self.tracer_executor
                 .run_target(fuzzer, state, manager, &unmutated_input)?;
+
         self.tracer_executor
             .observers_mut()
-            .post_exec_all(state, &BytesInput::new(vec![0,0,0,0]), &exit_kind)?; */
+            .post_exec_all(state, &unmutated_input, &exit_kind)?;
         let mut reduced = HashSet::new();
         if let Ok(data) = state.metadata::<AflppCmpValuesMetadata>() {
             for item in data.orig_cmpvals().values() {
-                for i in item.iter() {
-                    match i {
-                        CmpValues::U16((left, right, is_const)) => {
-                            reduced.insert((*left as u64, *right as u64));
-                            reduced.insert((*right as u64, *left as u64));
-                        }
-                        CmpValues::U32((left, right, is_const)) => {
-                            reduced.insert((*left as u64, *right as u64));
-                            reduced.insert((*right as u64, *left as u64));
-                        }
-                        CmpValues::U64((left, right, is_const)) => {
-                            reduced.insert((*left, *right));
-                            reduced.insert((*right, *left));
-                        }
-                        CmpValues::Bytes((left, right)) => {
-                            // TODO
-                        }
-                        // ignore U8
-                        CmpValues::U8(_) => {}
+                    for i in item.into_iter() {
+                if let Some((left, right, _is_const)) = i.to_u64_tuple() {
+                    reduced.insert((left, right));
                     }
                 }
             }
         }
-
-        let metadata = state
-            .metadata_mut::<Context>()
-            .expect("we must have context!");
-
-        for cmp in reduced {
+          for cmp in reduced {
             unmutated_input.__autarkie_cmps(&mut self.visitor.borrow_mut(), 0, cmp);
             let matches = self.visitor.borrow_mut().cmps();
             for path in matches {
-                /* let cmp_path = path.0.iter().map(|(i, ty)| i.0).collect::<VecDeque<_>>();
+                let cmp_path = path.0.iter().map(|(i, ty)| i.0).collect::<VecDeque<_>>();
                 let mut serialized_alternative = path.1.as_slice();
                 let mut input = unmutated_input.clone();
                 let before = crate::serialize(&input);
+                state.metadata_mut::<Context>().unwrap().add_mutation(MutationMetadata::Cmplog);
                 #[cfg(debug_assertions)]
                 println!("cmplog_splice | one | {:?}", path.0);
                 input.__autarkie_mutate(
@@ -139,22 +109,57 @@ where
                     &mut self.visitor.borrow_mut(),
                     cmp_path,
                 );
-                let res = fuzzer.evaluate_input(state, executor, manager, &input)?; */
+                let res = fuzzer.evaluate_input(state, executor, manager, &input)?;
+                    if res.0.is_corpus() {
+                        println!("{:?}", res);
+                }
             }
         }
 
-        // walk all fields in the input and capture the paths where reduced is present and store
-        // those paths as potentially interesting.
         Ok(())
     }
 }
 
-impl<'a, TE, I, S> Restartable<S> for CmpLogStage<'a, TE, I> {
-    fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl::Error> {
-        Ok(true)
+impl<EM, TE, S, Z, I> Restartable<S> for CmpLogStage<'_, EM, TE, S, Z, I>
+where
+    S: HasMetadata + HasNamedMetadata + HasCurrentCorpusId,
+{
+    fn should_restart(&mut self, state: &mut S) -> Result<bool, Error> {
+        // Tracing stage is always deterministic
+        // don't restart
+        RetryCountRestartHelper::no_retry(state, &self.name)
     }
 
-    fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl::Error> {
-        Ok(())
+    fn clear_progress(&mut self, state: &mut S) -> Result<(), Error> {
+        // TODO: this may need better resumption? (Or is it always used with a forkserver?)
+        RetryCountRestartHelper::clear_progress(state, &self.name)
+    }
+}
+
+impl<'a, EM, TE, S, Z, I> CmpLogStage<'a, EM, TE, S, Z, I> {
+    /// With cmplog observer
+    pub fn new(visitor: Rc<RefCell<Visitor>>, tracer_executor: TE, observer_handle: Handle<AflppCmpLogObserver<'a>>) -> Self {
+        let observer_name = observer_handle.name().clone();
+        Self {
+            visitor,
+            name: Cow::Owned(
+                AFLPP_CMPLOG_TRACING_STAGE_NAME.to_owned()
+                    + ":"
+                    + observer_name.into_owned().as_str(),
+            ),
+            cmplog_observer_handle: observer_handle,
+            tracer_executor,
+            phantom: PhantomData,
+        }
+    }
+
+    /// Gets the underlying tracer executor
+    pub fn executor(&self) -> &TE {
+        &self.tracer_executor
+    }
+
+    /// Gets the underlying tracer executor (mut)
+    pub fn executor_mut(&mut self) -> &mut TE {
+        &mut self.tracer_executor
     }
 }
