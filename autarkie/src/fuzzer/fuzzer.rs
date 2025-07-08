@@ -196,10 +196,14 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
      -> Result<bool, Error> { Ok(opt.novelty_minimization) };
     let novelty_minimization_stage = IfStage::new(
         cb,
-        tuple_list!(NoveltyMinimizationStage::new(
+        tuple_list!(
+            NoveltyMinimizationStage::new(
             Rc::clone(&visitor),
             &map_feedback
-        )),
+        ),
+            MinimizationStage::new(Rc::clone(&visitor), &map_feedback),
+            RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
+        ),
     );
     let cb = |_fuzzer: &mut _,
               _executor: &mut _,
@@ -212,8 +216,6 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     let minimization_stage = IfStage::new(
         cb,
         tuple_list!(
-            MinimizationStage::new(Rc::clone(&visitor), &map_feedback),
-            RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
             novelty_minimization_stage,
         ),
     );

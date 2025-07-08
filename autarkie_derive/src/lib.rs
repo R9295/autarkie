@@ -6,7 +6,7 @@ mod trait_bounds;
 mod utils;
 use syn::{spanned::Spanned, token::Comma, *};
 
-#[proc_macro_derive(Grammar, attributes(autarkie_literal, autarkie_length))]
+#[proc_macro_derive(Grammar, attributes(autarkie_literal, autarkie_length, autarkie_range))]
 pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut base_parsed = syn::parse_macro_input!(input as syn::DeriveInput);
     let root_name = &base_parsed.ident;
@@ -540,6 +540,14 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
                             )?;
                             });
                     }
+                    else if ident == "autarkie_range" {
+                        let range: syn::ExprRange = syn::parse(list.tokens.clone().into()).unwrap();
+                            generator = Some(quote! {
+                                let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth}, 
+                                Some(autarkie::GenerateSettings::Range(#range))
+                            )?;
+                            });
+                }
                 }
             }
             // If we do not have a literal attribute, we use the inner generate function of the type.

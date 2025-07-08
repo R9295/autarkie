@@ -25,6 +25,7 @@ pub enum MutationType<'a> {
 #[derive(Debug)]
 pub enum GenerateSettings {
     Length(usize),
+    Range(std::ops::RangeInclusive<usize>),
 }
 
 macro_rules! node {
@@ -229,7 +230,10 @@ where
     ) -> Option<Self> {
         let element_count = if let Some(GenerateSettings::Length(len)) = settings {
             len
+        } else if let Some(GenerateSettings::Range(range)) = settings {
+            visitor.random_range(*range.start(), *range.end() + 1)
         } else {
+
             visitor.random_range(0, visitor.iterate_depth())
         };
         if element_count == 0 {
@@ -884,9 +888,16 @@ macro_rules! impl_generate_simple {
                 cur_depth: usize,
                 settings: Option<GenerateSettings>,
             ) -> Option<Self> {
-                Some(deserialize::<Self>(
+        let mut res = deserialize::<Self>(
                     &mut v.generate_bytes($num_bytes).as_slice(),
-                ))
+                );
+        if let Some(GenerateSettings::Range(range)) = settings {
+            res = res % (*range.end() as Self);
+            if res < *range.start() as Self {
+                res = (*range.start() as Self);
+             }
+        };
+        Some(res)
             }
             fn __autarkie_cmps(&self, v: &mut Visitor, index: usize, val: (u64, u64)) {
                 if val.0 == *self as u64 {
