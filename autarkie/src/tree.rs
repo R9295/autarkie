@@ -310,6 +310,7 @@ where
     }
 
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
+        return;
         for (index, child) in self.iter().enumerate() {
             visitor.register_field_stack((
                 (index, child.__autarkie_node_ty(visitor)),

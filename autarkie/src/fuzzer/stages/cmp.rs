@@ -58,7 +58,7 @@ where
         manager: &mut EM,
     ) -> Result<(), Error> {
         // First run with the un-mutated input
-        let unmutated_input = state.current_input_cloned()?;
+        let mut unmutated_input = state.current_input_cloned()?;
 
         if let Some(ob) = self
             .tracer_executor
@@ -99,17 +99,15 @@ where
             for path in matches {
                 let cmp_path = path.0.iter().map(|(i, ty)| i.0).collect::<VecDeque<_>>();
                 let mut serialized_alternative = path.1.as_slice();
-                let mut input = unmutated_input.clone();
-                let before = crate::serialize(&input);
                 state.metadata_mut::<Context>().unwrap().add_mutation(MutationMetadata::Cmplog);
                 #[cfg(debug_assertions)]
                 println!("cmplog_splice | one | {:?}", path.0);
-                input.__autarkie_mutate(
+                unmutated_input.__autarkie_mutate(
                     &mut MutationType::Splice(&mut serialized_alternative),
                     &mut self.visitor.borrow_mut(),
                     cmp_path,
                 );
-                let res = fuzzer.evaluate_input(state, executor, manager, &input)?;
+                let res = fuzzer.evaluate_input(state, executor, manager, &unmutated_input)?;
                     if res.0.is_corpus() {
                         println!("{:?}", res);
                 }

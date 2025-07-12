@@ -259,13 +259,13 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
 
     let mut context = Context::new(fuzzer_dir.clone(), opt.render);
 
-    let scheduler = StdWeightedScheduler::with_schedule(
+    /* let scheduler = StdWeightedScheduler::with_schedule(
         &mut state,
         &edges_observer,
         Some(PowerSchedule::explore()),
-    );
+    ); */
     let observers = tuple_list!(time_observer);
-    let scheduler = scheduler.cycling_scheduler();
+    let scheduler = QueueScheduler::new(); //scheduler.cycling_scheduler();
     // Create our Fuzzer
 /*     let mut filter = BloomInputFilter::new(5000, 0.0001); */
     let mut fuzzer = StdFuzzerBuilder::new()
@@ -392,13 +392,11 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         cmplog
     };
     let splice_mutator = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
-    let splice_mutator2 = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
-    let splice_mutator3 = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let recursion_mutator = AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
-    let recursion_mutator2 = AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
-    let recursion_mutator3 = AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let splice_append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
+    let splice_append2_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
     let generate_append_mutator = AutarkieGenerateAppendMutator::new(Rc::clone(&visitor));
+    let generate_append2_mutator = AutarkieGenerateAppendMutator::new(Rc::clone(&visitor));
     let pop_mutator  = AutarkieIterablePopMutator::new(Rc::clone(&visitor));
     let pop_mutator2  = AutarkieIterablePopMutator::new(Rc::clone(&visitor));
       let afl_stage = AutarkieBinaryMutatorStage::new(
@@ -420,15 +418,13 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         MutatingStageWrapper::new(AutarkieMutationalStage::new(
             tuple_list!(
                 splice_append_mutator,
+                splice_append2_mutator,
                 generate_append_mutator,
+                generate_append2_mutator,
                 recursion_mutator,
-                recursion_mutator2,
-                recursion_mutator3,
                 pop_mutator,
                 pop_mutator2,
                 splice_mutator,
-                splice_mutator2,
-                splice_mutator3,
             ),
             SPLICE_STACK
         ), Rc::clone(&visitor)),
