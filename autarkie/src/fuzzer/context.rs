@@ -181,6 +181,8 @@ pub enum MutationMetadata {
     Generate,
     /// Cmplog
     Cmplog,
+    /// CmplogBytes
+    CmplogBytes,
     /// I2S
     I2S,
 }

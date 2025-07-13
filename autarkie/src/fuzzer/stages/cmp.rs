@@ -1,5 +1,6 @@
 use core::marker::PhantomData;
 use crate::fuzzer::context::{MutationMetadata, Context};
+use libafl_bolts::AsSlice;
 use crate::{Node, Visitor};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -84,15 +85,35 @@ where
             .observers_mut()
             .post_exec_all(state, &unmutated_input, &exit_kind)?;
         let mut reduced = HashSet::new();
+        let mut reduced_bytes = HashSet::new();
         if let Ok(data) = state.metadata::<AflppCmpValuesMetadata>() {
             for item in data.orig_cmpvals().values() {
                     for i in item.into_iter() {
-                if let Some((left, right, _is_const)) = i.to_u64_tuple() {
-                    reduced.insert((left, right));
+                    if let Some((left, right, _is_const)) = i.to_u64_tuple() {
+                        reduced.insert((left, right));
+                    } else {
+                       if let CmpValues::Bytes((left, right))  = i {
+                            reduced_bytes.insert(left.as_slice().to_vec());
+                            reduced_bytes.insert(right.as_slice().to_vec());
+                        }
                     }
                 }
             }
         }
+         let mut unmutated_input_bytes = crate::serialize(&unmutated_input);
+         for cmp_chunk in reduced_bytes {
+            if let Some(index) = find_subsequence(&unmutated_input_bytes, &cmp_chunk) {
+                unmutated_input_bytes.splice(index..index+cmp_chunk.len(), cmp_chunk.to_vec());
+                let Some(deserialized) = crate::maybe_deserialize(&unmutated_input_bytes) else {
+                    continue;
+                };
+                state.metadata_mut::<Context>().unwrap().generated_input();
+                state.metadata_mut::<Context>().unwrap().add_mutation(MutationMetadata::CmplogBytes);
+                let res = fuzzer.evaluate_input(state, executor, manager, &deserialized)?;
+                state.metadata_mut::<Context>().unwrap().default_input();
+            }
+        }
+
           for cmp in reduced {
             unmutated_input.__autarkie_cmps(&mut self.visitor.borrow_mut(), 0, cmp);
             let matches = self.visitor.borrow_mut().cmps();
@@ -107,12 +128,10 @@ where
                     &mut self.visitor.borrow_mut(),
                     cmp_path,
                 );
-                let res = fuzzer.evaluate_input(state, executor, manager, &unmutated_input)?;
-                    if res.0.is_corpus() {
-                        println!("{:?}", res);
-                }
+                fuzzer.evaluate_input(state, executor, manager, &unmutated_input)?;
             }
         }
+
 
         Ok(())
     }
@@ -160,4 +179,8 @@ impl<'a, EM, TE, S, Z, I> CmpLogStage<'a, EM, TE, S, Z, I> {
     pub fn executor_mut(&mut self) -> &mut TE {
         &mut self.tracer_executor
     }
+}
+
+fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|window| window == needle)
 }
