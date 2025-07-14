@@ -102,11 +102,15 @@ where
         }
          let mut unmutated_input_bytes = crate::serialize(&unmutated_input);
          for cmp_chunk in reduced_bytes {
-            if let Some(index) = find_subsequence(&unmutated_input_bytes, &cmp_chunk) {
-                unmutated_input_bytes.splice(index..index+cmp_chunk.len(), cmp_chunk.to_vec());
-                let Some(deserialized) = crate::maybe_deserialize(&unmutated_input_bytes) else {
+            let mut start = None;
+            while let Some(index) = find_subsequence(&unmutated_input_bytes, &cmp_chunk, start) {
+                let mut cloned = unmutated_input_bytes.clone();
+                cloned.splice(index..index+cmp_chunk.len(), cmp_chunk.to_vec());
+                start = Some(index + cmp_chunk.len());
+                let Some(deserialized) = crate::maybe_deserialize(&cloned) else {
                     continue;
                 };
+                unmutated_input_bytes = cloned;
                 state.metadata_mut::<Context>().unwrap().generated_input();
                 state.metadata_mut::<Context>().unwrap().add_mutation(MutationMetadata::CmplogBytes);
                 let res = fuzzer.evaluate_input(state, executor, manager, &deserialized)?;
@@ -181,6 +185,6 @@ impl<'a, EM, TE, S, Z, I> CmpLogStage<'a, EM, TE, S, Z, I> {
     }
 }
 
-fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|window| window == needle)
+fn find_subsequence(haystack: &[u8], needle: &[u8], start: Option<usize>) -> Option<usize> {
+    haystack[start.unwrap_or(0)..].windows(needle.len()).position(|window| window == needle)
 }

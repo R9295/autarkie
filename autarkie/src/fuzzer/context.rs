@@ -185,4 +185,5 @@ pub enum MutationMetadata {
     CmplogBytes,
     /// I2S
     I2S,
+    Random,
 }

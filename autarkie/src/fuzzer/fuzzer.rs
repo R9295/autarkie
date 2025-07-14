@@ -10,6 +10,7 @@ use clap::Parser;
 use super::context::{self, MutationMetadata};
 use super::feedback::register::RegisterFeedback;
 use super::mutators::iterable_pop::AutarkieIterablePopMutator;
+use super::mutators::vecu8::AutarkieVecU8Mutator;
 use libafl::{events::LlmpRestartingEventManager, mutators::I2SRandReplace};
 #[cfg(feature = "afl")]
 use crate::fuzzer::stages::cmp::CmpLogStage;
@@ -394,11 +395,6 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     let splice_mutator = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let recursion_mutator = AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let splice_append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
-    let splice_append2_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
-    let generate_append_mutator = AutarkieGenerateAppendMutator::new(Rc::clone(&visitor));
-    let generate_append2_mutator = AutarkieGenerateAppendMutator::new(Rc::clone(&visitor));
-    let pop_mutator  = AutarkieIterablePopMutator::new(Rc::clone(&visitor));
-    let pop_mutator2  = AutarkieIterablePopMutator::new(Rc::clone(&visitor));
       let afl_stage = AutarkieBinaryMutatorStage::new(
             havoc_mutations_no_crossover(),
             1000,
@@ -418,15 +414,16 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         MutatingStageWrapper::new(AutarkieMutationalStage::new(
             tuple_list!(
                 splice_append_mutator,
-                splice_append2_mutator,
-                generate_append_mutator,
-                generate_append2_mutator,
                 recursion_mutator,
-                pop_mutator,
-                pop_mutator2,
                 splice_mutator,
             ),
             SPLICE_STACK
+        ), Rc::clone(&visitor)),
+        MutatingStageWrapper::new(AutarkieMutationalStage::new(
+            tuple_list!(
+                AutarkieVecU8Mutator::new(Rc::clone(&visitor), 20)
+            ),
+            10,
         ), Rc::clone(&visitor)),
         MutatingStageWrapper::new(afl_stage, Rc::clone(&visitor)),
         StatsStage::new(fuzzer_dir),
