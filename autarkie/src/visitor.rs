@@ -31,6 +31,7 @@ pub struct Visitor {
     /// a struct will be { Struct: {0: { usize, u32 } } }
     /// an enum will be { Enum: {variant_0: { usize, u32 },  variant_1: {u8}} }
     ty_map: BTreeMap<Id, BTreeMap<usize, BTreeSet<Id>>>,
+    ty_name_map: BTreeMap<Id, String>,
     /// Types we have already analyzed. to prevent infinite recursion
     ty_done: BTreeSet<Id>,
     /// A stack of types we are analyzing, to prevent infinite recursion
@@ -121,27 +122,26 @@ impl Visitor {
     }
 
     /// This function adds a type to the type map
-    pub fn register_ty(&mut self, parent: Option<Id>, id: Id, variant: usize) {
-        self.ty_map_stack.push(id.clone());
-        #[cfg(debug_assertions)]
-        let parent = parent.unwrap_or("AutarkieInternalFuzzData".to_string());
-        #[cfg(not(debug_assertions))]
+    pub fn register_ty(&mut self, parent: Option<(Id, String)>, id: (Id, String), variant: usize) {
+        self.ty_map_stack.push(id.0.clone());
         // Let's hope we get no collisions!
-        let parent = parent.unwrap_or(u128::MIN);
-        if !self.ty_map.get(&parent).is_some() {
+        let parent = parent.unwrap_or((u128::MIN, "AutarkieRootFuzzData".to_string()));
+        if !self.ty_map.get(&parent.0).is_some() {
             self.ty_map.insert(
-                parent.clone(),
+                parent.0.clone(),
                 BTreeMap::from_iter([(variant, BTreeSet::new())]),
             );
+            self.ty_name_map.insert(parent.0.clone(), parent.1.clone());
         }
+        self.ty_name_map.insert(id.0.clone(), id.1.clone());
         self.ty_map
-            .get_mut(&parent)
+            .get_mut(&parent.0)
             .expect("____rwBG5LkVKH")
             .entry(variant)
             .and_modify(|i| {
-                i.insert(id.clone());
+                i.insert(id.0.clone());
             })
-            .or_insert(BTreeSet::from_iter([id.clone()]));
+            .or_insert(BTreeSet::from_iter([id.0.clone()]));
     }
 
     pub fn pop_ty(&mut self) {
@@ -325,10 +325,14 @@ impl Visitor {
         };
         Some((variant, is_recursive))
     }
+    pub fn ty_name_map(&self) -> &BTreeMap<Id, String> {
+        &self.ty_name_map
+    }
 
     pub fn new(seed: u64, depth: DepthInfo, string_num: usize) -> Self {
         let mut visitor = Self {
             ty_generate_map: BTreeMap::default(),
+            ty_name_map: BTreeMap::default(),
             ty_done: BTreeSet::default(),
             ty_map_stack: vec![],
             depth,

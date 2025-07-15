@@ -119,6 +119,7 @@ macro_rules! define_run_client {
 }
 
 define_run_client!(state, mgr, core, bytes_converter, opt, {
+    let is_main_node = opt.cores.position(core.core_id()).unwrap() == 0;
     if !opt.output_dir.exists() {
         std::fs::create_dir(&opt.output_dir).unwrap();
     }
@@ -184,6 +185,12 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     );
     I::__autarkie_register(&mut visitor, None, 0);
     let recursive_nodes = visitor.calculate_recursion();
+    if is_main_node {
+        std::fs::write(
+            opt.output_dir.join("type_input_map.json"),
+            serde_json::to_string_pretty(visitor.ty_name_map()).expect("invariant"),
+        )?;
+    }
     let has_recursion = recursive_nodes.len() > 0;
     let visitor = Rc::new(RefCell::new(visitor));
 
@@ -403,7 +410,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
               _executor: &mut _,
               state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
               _event_manager: &mut _|
-     -> Result<bool, Error> { Ok(opt.cores.position(core.core_id()).unwrap() == 0) };
+     -> Result<bool, Error> { Ok(is_main_node) };
     let sync_stage = IfStage::new(cb, tuple_list!(sync_stage));
     let splice_mutator = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let recursion_mutator = AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);

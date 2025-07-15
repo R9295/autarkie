@@ -6,10 +6,6 @@ use std::{
     marker::PhantomData,
 };
 
-#[cfg(debug_assertions)]
-pub type Id = std::string::String;
-
-#[cfg(not(debug_assertions))]
 pub type Id = u128;
 
 #[derive(Debug)]
@@ -37,19 +33,22 @@ where
     /// Generate Self
     fn __autarkie_generate(visitor: &mut Visitor, depth: &mut usize, cur_depth : usize, settings: Option<GenerateSettings>) -> Option<Self>;
 
-    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
-        v.register_ty(parent, Self::__autarkie_id(), variant);
+    fn __autarkie_register(v: &mut Visitor, parent: Option<(Id, String)>, variant: usize) {
+        v.register_ty(parent, Self::__autarkie_id_tuple(), variant);
         v.pop_ty();
     }
 
-    #[cfg(debug_assertions)]
+
     fn __autarkie_id() -> Id {
+        std::intrinsics::type_id::<Self>()
+    }
+
+    fn __autarkie_id_name() -> String {
         std::intrinsics::type_name::<Self>().to_string()
     }
 
-    #[cfg(not(debug_assertions))]
-    fn __autarkie_id() -> Id {
-        std::intrinsics::type_id::<Self>()
+    fn __autarkie_id_tuple() -> (Id, String) {
+        (Self::__autarkie_id(), Self::__autarkie_id_name())
     }
 
     fn inner_id() -> Id {
@@ -161,11 +160,11 @@ where
         NodeType::Iterable(true, N, T::__autarkie_id())
     }
 
-    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
+    fn __autarkie_register(v: &mut Visitor, parent: Option<(Id, String)>, variant: usize) {
         if !v.is_recursive(T::__autarkie_id()) {
             T::__autarkie_register(v, parent, variant);
         } else {
-            v.register_ty(parent, T::__autarkie_id(), variant);
+            v.register_ty(parent, T::__autarkie_id_tuple(), variant);
             v.pop_ty();
         }
     }
@@ -245,11 +244,11 @@ where
         Some(vector)
     }
 
-    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
+    fn __autarkie_register(v: &mut Visitor, parent: Option<(Id, String)>, variant: usize) {
         if !v.is_recursive(T::__autarkie_id()) {
             T::__autarkie_register(v, parent, variant);
         } else {
-            v.register_ty(parent, T::__autarkie_id(), variant);
+            v.register_ty(parent, T::__autarkie_id_tuple(), variant);
             v.pop_ty();
         }
     }
@@ -361,11 +360,11 @@ where
         T::__autarkie_id()
     }
 
-    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
+    fn __autarkie_register(v: &mut Visitor, parent: Option<(Id, String)>, variant: usize) {
         if !v.is_recursive(T::__autarkie_id()) {
             T::__autarkie_register(v, parent, variant);
         } else {
-            v.register_ty(parent, T::__autarkie_id(), variant);
+            v.register_ty(parent, T::__autarkie_id_tuple(), variant);
             v.pop_ty();
         }
     }
@@ -420,22 +419,26 @@ where
         T::__autarkie_id()
     }
     // PhantomData<bool> is used as a dummy value for "None"
-    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
-        v.register_ty(parent, Self::__autarkie_id(), variant);
+    fn __autarkie_register(v: &mut Visitor, parent: Option<(Id, String)>, variant: usize) {
+        v.register_ty(parent, Self::__autarkie_id_tuple(), variant);
         if !v.is_recursive(T::__autarkie_id()) {
-            T::__autarkie_register(v, Some(Self::__autarkie_id()), 0);
+            T::__autarkie_register(v, Some(Self::__autarkie_id_tuple()), 0);
             v.register_ty(
-                Some(Self::__autarkie_id()),
-                PhantomData::<bool>::__autarkie_id(),
+                Some(Self::__autarkie_id_tuple()),
+                PhantomData::<bool>::__autarkie_id_tuple(),
                 1,
             );
             v.pop_ty();
         } else {
-            v.register_ty(Some(Self::__autarkie_id()), T::__autarkie_id(), 0);
+            v.register_ty(
+                Some(Self::__autarkie_id_tuple()),
+                T::__autarkie_id_tuple(),
+                0,
+            );
             v.pop_ty();
             v.register_ty(
-                Some(Self::__autarkie_id()),
-                PhantomData::<bool>::__autarkie_id(),
+                Some(Self::__autarkie_id_tuple()),
+                PhantomData::<bool>::__autarkie_id_tuple(),
                 1,
             );
             v.pop_ty();
@@ -527,18 +530,26 @@ where
         }
     }
 
-    fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
-        v.register_ty(parent, Self::__autarkie_id(), variant);
+    fn __autarkie_register(v: &mut Visitor, parent: Option<(Id, String)>, variant: usize) {
+        v.register_ty(parent, Self::__autarkie_id_tuple(), variant);
         if !v.is_recursive(T::__autarkie_id()) {
-            T::__autarkie_register(v, Some(Self::__autarkie_id()), 0);
+            T::__autarkie_register(v, Some(Self::__autarkie_id_tuple()), 0);
         } else {
-            v.register_ty(Some(Self::__autarkie_id()), T::__autarkie_id(), 0);
+            v.register_ty(
+                Some(Self::__autarkie_id_tuple()),
+                T::__autarkie_id_tuple(),
+                0,
+            );
             v.pop_ty();
         }
         if !v.is_recursive(E::__autarkie_id()) {
-            E::__autarkie_register(v, Some(Self::__autarkie_id()), 1);
+            E::__autarkie_register(v, Some(Self::__autarkie_id_tuple()), 1);
         } else {
-            v.register_ty(Some(Self::__autarkie_id()), E::__autarkie_id(), 1);
+            v.register_ty(
+                Some(Self::__autarkie_id_tuple()),
+                E::__autarkie_id_tuple(),
+                1,
+            );
             v.pop_ty();
         }
         v.pop_ty();
@@ -833,13 +844,13 @@ macro_rules! tuple_impls {
                 })*
             }
 
-            fn __autarkie_register(v: &mut Visitor, parent: Option<Id>, variant: usize) {
-                v.register_ty(parent, Self::__autarkie_id(), variant);
+            fn __autarkie_register(v: &mut Visitor, parent: Option<(Id, String)>, variant: usize) {
+                v.register_ty(parent, Self::__autarkie_id_tuple(), variant);
                 $({
                 if !v.is_recursive($T::__autarkie_id()) {
-                    $T::__autarkie_register(v, Some(Self::__autarkie_id()), 0);
+                    $T::__autarkie_register(v, Some(Self::__autarkie_id_tuple()), 0);
                 } else {
-                    v.register_ty(Some(Self::__autarkie_id()), $T::__autarkie_id(), 0);
+                    v.register_ty(Some(Self::__autarkie_id_tuple()), $T::__autarkie_id_tuple(), 0);
                     v.pop_ty();
                 }
                 })*

@@ -60,9 +60,9 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 let ty = &field.ty;
                 quote! {
                     if !v.is_recursive(<#ty>::__autarkie_id()) {
-                        <#ty>::__autarkie_register(v, Some(Self::__autarkie_id()), 0);
+                        <#ty>::__autarkie_register(v, Some(Self::__autarkie_id_tuple()), 0);
                     } else {
-                        v.register_ty(Some(Self::__autarkie_id()), <#ty>::__autarkie_id(), 0);
+                        v.register_ty(Some(Self::__autarkie_id_tuple()), <#ty>::__autarkie_id_tuple(), 0);
                         v.pop_ty();
                     }
                 }
@@ -87,8 +87,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #generate
                     }
 
-                    fn __autarkie_register(v: &mut ::autarkie::Visitor, parent: Option<::autarkie::tree::Id>, variant: usize) {
-                        v.register_ty(parent, Self::__autarkie_id(), variant);
+                    fn __autarkie_register(v: &mut ::autarkie::Visitor, parent: Option<(::autarkie::tree::Id, String)>, variant: usize) {
+                        v.register_ty(parent, Self::__autarkie_id_tuple(), variant);
                         #(#register_ty)*;
                         v.pop_ty();
                     }
@@ -225,7 +225,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 if fields.is_empty() {
                     register_ty.push(quote! {
                     // use something besides bool; bool is just a place holder.
-                    v.register_ty(Some(Self::__autarkie_id()), <std::marker::PhantomData<bool>>::__autarkie_id(), #i);
+                    v.register_ty(Some(Self::__autarkie_id_tuple()), <std::marker::PhantomData<bool>>::__autarkie_id_tuple(), #i);
                     v.pop_ty();
                 });
                 } else {
@@ -233,9 +233,9 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         let ty = &field.ty;
                         quote! {
                             if !v.is_recursive(<#ty>::__autarkie_id()) {
-                                <#ty>::__autarkie_register(v, Some(Self::__autarkie_id()), #i);
+                                <#ty>::__autarkie_register(v, Some(Self::__autarkie_id_tuple()), #i);
                             } else {
-                                v.register_ty(Some(Self::__autarkie_id()), <#ty>::__autarkie_id(), #i);
+                                v.register_ty(Some(Self::__autarkie_id_tuple()), <#ty>::__autarkie_id_tuple(), #i);
                                 v.pop_ty();
                             }
                         }
@@ -384,8 +384,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #(#fn_fields)*;
                     }
 
-                    fn __autarkie_register(v: &mut ::autarkie::Visitor, parent: Option<::autarkie::tree::Id>, variant: usize) {
-                        v.register_ty(parent, Self::__autarkie_id(), variant);
+                    fn __autarkie_register(v: &mut ::autarkie::Visitor, parent: Option<(::autarkie::tree::Id, String)>, variant: usize) {
+                        v.register_ty(parent, Self::__autarkie_id_tuple(), variant);
                         #(#register_ty)*;
                         v.pop_ty();
                     }
