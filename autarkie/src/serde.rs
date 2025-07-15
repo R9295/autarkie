@@ -12,7 +12,7 @@ macro_rules! impl_node_serde_array {
                 visitor: &mut Visitor,
                 depth: &mut usize,
                 cur_depth: usize,
-                settings: Option<crate::GenerateSettings>
+                settings: Option<crate::GenerateSettings>,
             ) -> Option<Self> {
                 Some(
                     (0..$n)
@@ -60,7 +60,9 @@ macro_rules! impl_node_serde_array {
                             *self = deserialize(other);
                         }
                         MutationType::GenerateReplace(ref mut bias) => {
-                            if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0, None) {
+                            if let Some(generated) =
+                                Self::__autarkie_generate(visitor, bias, 0, None)
+                            {
                                 *self = generated;
                                 self.__autarkie_serialized(visitor);
                             }

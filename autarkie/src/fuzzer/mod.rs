@@ -1,27 +1,27 @@
 #![allow(warnings)]
 #![feature(core_intrinsics)]
-mod fuzzer;
 pub mod afl;
 pub mod context;
 mod feedback;
+mod fuzzer;
 mod hooks;
 pub mod libfuzzer;
 pub mod mutators;
 mod stages;
 
-use clap::Parser;
-use std::path::{PathBuf, Path};
-use libafl_bolts::core_affinity::Cores;
-use libafl::events::ClientDescription;
-use libafl::events::{SimpleEventManager};
-use libafl::monitors::MultiMonitor;
-use libafl_bolts::shmem::StdShMemProvider;
-use libafl::executors::ExitKind;
-use crate::{Input, ToTargetBytes, Node};
-use libafl_bolts::shmem::ShMemProvider;
-use libafl_bolts::tuples::tuple_list;
-use libafl::events::{EventConfig, Launcher};
 use crate::fuzzer::hooks::rare_share::RareShare;
+use crate::{Input, Node, ToTargetBytes};
+use clap::Parser;
+use libafl::events::ClientDescription;
+use libafl::events::SimpleEventManager;
+use libafl::events::{EventConfig, Launcher};
+use libafl::executors::ExitKind;
+use libafl::monitors::MultiMonitor;
+use libafl_bolts::core_affinity::Cores;
+use libafl_bolts::shmem::ShMemProvider;
+use libafl_bolts::shmem::StdShMemProvider;
+use libafl_bolts::tuples::tuple_list;
+use std::path::{Path, PathBuf};
 
 #[cfg(any(feature = "libfuzzer", feature = "afl"))]
 pub fn run_fuzzer<I, TC, F>(bytes_converter: TC, harness: Option<F>)
@@ -52,9 +52,7 @@ where
     Launcher::builder()
         .cores(&opt.cores)
         .monitor(monitor)
-        .run_client(|s, mgr, core| {
-            fuzzer::run_client(s, mgr, core, bytes_converter.clone(), &opt)
-        })
+        .run_client(|s, mgr, core| fuzzer::run_client(s, mgr, core, bytes_converter.clone(), &opt))
         .broker_port(opt.broker_port)
         .shmem_provider(shmem_provider)
         .configuration(EventConfig::from_name("default"))
@@ -65,7 +63,13 @@ where
     {
         let monitor = SimpleMonitor::new(|s| println!("{}", s));
         let mgr = SimpleEventManager::new(monitor);
-        fuzzer::run_client(None, mgr, ClientDescription::new(0, 0, 0.into()),bytes_converter.clone(), &opt);
+        fuzzer::run_client(
+            None,
+            mgr,
+            ClientDescription::new(0, 0, 0.into()),
+            bytes_converter.clone(),
+            &opt,
+        );
     }
 }
 
@@ -125,6 +129,9 @@ pub(crate) struct Opt {
 
     #[arg(short = 'n')]
     novelty_minimization: bool,
+
+    #[arg(short = 'F')]
+    foreign_sync_dirs: Vec<PathBuf>,
 
     /// Max iterate depth when generating iterable nodes (advanced)
     #[arg(short = 'I', default_value_t = 5)]

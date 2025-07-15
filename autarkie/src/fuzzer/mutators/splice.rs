@@ -24,7 +24,6 @@ pub struct AutarkieSpliceMutator<I> {
     phantom: PhantomData<I>,
 }
 
-
 impl<I, S> Mutator<I, S> for AutarkieSpliceMutator<I>
 where
     I: Node,

@@ -22,7 +22,6 @@ pub struct AutarkieIterablePopMutator<I> {
     phantom: PhantomData<I>,
 }
 
-
 impl<I, S> Mutator<I, S> for AutarkieIterablePopMutator<I>
 where
     I: Node,

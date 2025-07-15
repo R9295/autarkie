@@ -278,7 +278,15 @@ impl Visitor {
                 .expect("____q154Wl5zf2");
             let nr_variants_len = nr_variants.len().saturating_sub(1);
             let r_variants_len = r_variants.len().saturating_sub(1);
-            let id = self.rng.between(0, nr_variants_len +  if consider_recursive_bias {r_variants_len} else {0});
+            let id = self.rng.between(
+                0,
+                nr_variants_len
+                    + if consider_recursive_bias {
+                        r_variants_len
+                    } else {
+                        0
+                    },
+            );
             if id <= nr_variants_len {
                 if let Some(nr_variant) = nr_variants.iter().nth(id) {
                     (nr_variant.clone(), false)
@@ -332,7 +340,9 @@ impl Visitor {
             ty_map: BTreeMap::new(),
             rng: StdRand::with_seed(seed),
         };
-        visitor.strings.add_strings(&mut visitor.rng, string_num, 10);
+        visitor
+            .strings
+            .add_strings(&mut visitor.rng, string_num, 10);
         return visitor;
     }
 }

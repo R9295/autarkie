@@ -1,22 +1,38 @@
-use crate::{DepthInfo, Visitor};
-use libafl_bolts::{StdTargetArgs};
-use libafl::executors::forkserver::SHM_CMPLOG_ENV_VAR;
-use libafl::executors::StdChildArgs;
-use libafl::monitors::SimpleMonitor;
-use libafl::stages::TracingStage;
-use crate::fuzzer::context::Context;
-use crate::fuzzer::stages::generate::generate;
-use clap::Parser;
 use super::context::{self, MutationMetadata};
 use super::feedback::register::RegisterFeedback;
 use super::mutators::iterable_pop::AutarkieIterablePopMutator;
 use super::mutators::vecu8::AutarkieVecU8Mutator;
-use libafl::{events::LlmpRestartingEventManager, mutators::I2SRandReplace};
+use crate::fuzzer::context::Context;
 #[cfg(feature = "afl")]
 use crate::fuzzer::stages::cmp::CmpLogStage;
+use crate::fuzzer::stages::generate::generate;
+use crate::{DepthInfo, Visitor};
+use clap::Parser;
+use libafl::executors::forkserver::SHM_CMPLOG_ENV_VAR;
+use libafl::executors::StdChildArgs;
+use libafl::monitors::SimpleMonitor;
 #[cfg(feature = "libfuzzer")]
 use libafl::stages::ShadowTracingStage;
+use libafl::stages::{SyncFromDiskStage, TracingStage};
+use libafl::{events::LlmpRestartingEventManager, mutators::I2SRandReplace};
+use libafl_bolts::StdTargetArgs;
 
+use crate::fuzzer::mutators::{
+    generate_append::AutarkieGenerateAppendMutator,
+    recurse_mutate::{AutarkieRecurseMutator, RECURSE_STACK},
+    splice::{AutarkieSpliceMutator, SPLICE_STACK},
+    splice_append::{AutarkieSpliceAppendMutator, SPLICE_APPEND_STACK},
+};
+use crate::fuzzer::stages::{
+    binary_mutator::AutarkieBinaryMutatorStage,
+    generate::GenerateStage,
+    minimization::MinimizationStage,
+    mutating::MutatingStageWrapper,
+    mutational::AutarkieMutationalStage,
+    novelty_minimization::NoveltyMinimizationStage,
+    recursive_minimization::RecursiveMinimizationStage,
+    stats::{AutarkieStats, StatsStage},
+};
 use libafl::{
     corpus::{CachedOnDiskCorpus, Corpus, OnDiskCorpus},
     events::{ClientDescription, EventConfig, Launcher, SimpleEventManager},
@@ -55,27 +71,12 @@ use libafl_bolts::{shmem::StdShMem, tuples::Merge};
 use libafl_targets::{extra_counters, CmpLogObserver};
 #[cfg(feature = "afl")]
 use libafl_targets::{AflppCmpLogMap, AflppCmpLogObserver, AflppCmplogTracingStage};
-use crate::fuzzer::mutators::{
-    generate_append::AutarkieGenerateAppendMutator,
-    recurse_mutate::{AutarkieRecurseMutator, RECURSE_STACK},
-    splice::{AutarkieSpliceMutator, SPLICE_STACK},
-    splice_append::{AutarkieSpliceAppendMutator, SPLICE_APPEND_STACK},
-};
 use regex::Regex;
-use crate::fuzzer::stages::{
-    binary_mutator::AutarkieBinaryMutatorStage,
-    generate::GenerateStage,
-    minimization::MinimizationStage,
-    mutating::MutatingStageWrapper,
-    mutational::AutarkieMutationalStage,
-    novelty_minimization::NoveltyMinimizationStage,
-    recursive_minimization::RecursiveMinimizationStage,
-    stats::{AutarkieStats, StatsStage},
-};
 
 use crate::fuzzer::hooks::rare_share::RareShare;
 use std::io::{stderr, stdout, Write};
 use std::os::fd::AsRawFd;
+use std::path::Path;
 use std::str::FromStr;
 use std::{cell::RefCell, io::ErrorKind, path::PathBuf, process::Command, rc::Rc, time::Duration};
 use std::{env::args, ffi::c_int};
@@ -198,10 +199,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     let novelty_minimization_stage = IfStage::new(
         cb,
         tuple_list!(
-            NoveltyMinimizationStage::new(
-            Rc::clone(&visitor),
-            &map_feedback
-        ),
+            NoveltyMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
             MinimizationStage::new(Rc::clone(&visitor), &map_feedback),
             RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
         ),
@@ -214,12 +212,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         Ok(state.current_testcase_mut()?.scheduled_count() == 0)
     };
 
-    let minimization_stage = IfStage::new(
-        cb,
-        tuple_list!(
-            novelty_minimization_stage,
-        ),
-    );
+    let minimization_stage = IfStage::new(cb, tuple_list!(novelty_minimization_stage,));
     let mut feedback = feedback_or!(
         map_feedback,
         TimeFeedback::new(&time_observer),
@@ -267,12 +260,12 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     ); */
     let observers = tuple_list!(time_observer);
     let scheduler = QueueScheduler::new(); //scheduler.cycling_scheduler();
-    // Create our Fuzzer
-/*     let mut filter = BloomInputFilter::new(5000, 0.0001); */
+                                           // Create our Fuzzer
+                                           /*     let mut filter = BloomInputFilter::new(5000, 0.0001); */
     let mut fuzzer = StdFuzzerBuilder::new()
-/*         .input_filter(filter) */
+        /*         .input_filter(filter) */
         .target_bytes_converter(bytes_converter.clone())
-                .scheduler(scheduler)
+        .scheduler(scheduler)
         .feedback(feedback)
         .objective(objective)
         .build();
@@ -369,37 +362,52 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         metadata.default_input();
         println!("We imported {} inputs from disk.", state.corpus().count());
     }
-        // The cmplog map shared between observer and executor
-        let mut cmplog_shmem = shmem_provider.uninit_on_shmem::<AflppCmpLogMap>().unwrap();
-        // let the forkserver know the shmid
-        unsafe {
-            cmplog_shmem.write_to_env(SHM_CMPLOG_ENV_VAR).unwrap();
-        }
-        let cmpmap = unsafe { OwnedRefMut::from_shmem(&mut cmplog_shmem) };
+    // The cmplog map shared between observer and executor
+    let mut cmplog_shmem = shmem_provider.uninit_on_shmem::<AflppCmpLogMap>().unwrap();
+    // let the forkserver know the shmid
+    unsafe {
+        cmplog_shmem.write_to_env(SHM_CMPLOG_ENV_VAR).unwrap();
+    }
+    let cmpmap = unsafe { OwnedRefMut::from_shmem(&mut cmplog_shmem) };
     #[cfg(feature = "afl")]
-    let mut cmplog = { 
+    let mut cmplog = {
         let cmplog_observer = AflppCmpLogObserver::new("cmplog", cmpmap, true);
         let cmplog_ref = cmplog_observer.handle();
         let mut cmplog_executor = ForkserverExecutor::builder()
-        .program(opt.executable.clone())
-        .coverage_map_size(65_536)
-        .is_persistent(true)
-        .timeout(Duration::from_millis(opt.hang_timeout * 1000) * 2)
-        .shmem_provider(&mut shmem_provider)
-        .build(tuple_list!(cmplog_observer))
-        .unwrap();
-       let tracing = CmpLogStage::new(Rc::clone(&visitor), cmplog_executor, cmplog_ref);
+            .program(opt.executable.clone())
+            .coverage_map_size(65_536)
+            .is_persistent(true)
+            .timeout(Duration::from_millis(opt.hang_timeout * 1000) * 2)
+            .shmem_provider(&mut shmem_provider)
+            .build(tuple_list!(cmplog_observer))
+            .unwrap();
+        let tracing = CmpLogStage::new(Rc::clone(&visitor), cmplog_executor, cmplog_ref);
         let cmplog = IfStage::new(cb, tuple_list!(tracing));
         cmplog
     };
+
+    let cb = |_fuzzer: &mut _, _executor: &mut _, path: &Path| -> Result<I, Error> {
+        let data = std::fs::read(path)?;
+        let Some(input) = crate::maybe_deserialize(&data) else {
+            return Err(Error::invalid_input("Invalid structure"));
+        };
+        Ok(input)
+    };
+    let sync_stage = SyncFromDiskStage::new(
+        opt.foreign_sync_dirs.clone(),
+        cb,
+        Duration::from_secs(15),
+        "Sync",
+    );
+    let cb = |_fuzzer: &mut _,
+              _executor: &mut _,
+              state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
+              _event_manager: &mut _|
+     -> Result<bool, Error> { Ok(opt.cores.position(core.core_id()).unwrap() == 0) };
+    let sync_stage = IfStage::new(cb, tuple_list!(sync_stage));
     let splice_mutator = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let recursion_mutator = AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let splice_append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
-      let afl_stage = AutarkieBinaryMutatorStage::new(
-            havoc_mutations_no_crossover(),
-            1000,
-            MutationMetadata::Afl,
-        );
     #[cfg(feature = "libfuzzer")]
     let i2s = AutarkieBinaryMutatorStage::new(
         tuple_list!(I2SRandReplace::new()),
@@ -410,23 +418,23 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     #[cfg(feature = "afl")]
     let mut stages = tuple_list!(
         minimization_stage,
-       MutatingStageWrapper::new(cmplog, Rc::clone(&visitor)),
-        MutatingStageWrapper::new(AutarkieMutationalStage::new(
-            tuple_list!(
-                splice_append_mutator,
-                recursion_mutator,
-                splice_mutator,
+        MutatingStageWrapper::new(cmplog, Rc::clone(&visitor)),
+        MutatingStageWrapper::new(
+            AutarkieMutationalStage::new(
+                tuple_list!(splice_append_mutator, recursion_mutator, splice_mutator,),
+                SPLICE_STACK
             ),
-            SPLICE_STACK
-        ), Rc::clone(&visitor)),
-        MutatingStageWrapper::new(AutarkieMutationalStage::new(
-            tuple_list!(
-                AutarkieVecU8Mutator::new(Rc::clone(&visitor), 20)
+            Rc::clone(&visitor)
+        ),
+        MutatingStageWrapper::new(
+            AutarkieMutationalStage::new(
+                tuple_list!(AutarkieVecU8Mutator::new(Rc::clone(&visitor), 20)),
+                10,
             ),
-            10,
-        ), Rc::clone(&visitor)),
-        MutatingStageWrapper::new(afl_stage, Rc::clone(&visitor)),
+            Rc::clone(&visitor)
+        ),
         StatsStage::new(fuzzer_dir),
+        sync_stage,
     );
     #[cfg(feature = "libfuzzer")]
     let mut stages = tuple_list!(
@@ -445,7 +453,6 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
             SPLICE_STACK
         ),
         MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)),
-        MutatingStageWrapper::new(afl_stage, Rc::clone(&visitor)),
         StatsStage::new(fuzzer_dir),
     );
     let res = fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr);

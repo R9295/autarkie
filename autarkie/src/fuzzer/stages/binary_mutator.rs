@@ -6,20 +6,19 @@ use core::{marker::PhantomData, time::Duration};
 use libafl::inputs::BytesInput;
 use libafl::mutators::MutatorsTuple;
 use libafl::state::HasRand;
+use libafl_bolts::current_time;
 use libafl_bolts::rands::Rand;
-use libafl_bolts::{current_time};
 use std::cell::RefCell;
 use std::num::NonZero;
 use std::rc::Rc;
 
 use libafl::{
-    Error,
     events::EventFirer,
     executors::Executor,
     mutators::{MutationResult, Mutator},
     stages::{Restartable, Stage},
     state::HasCurrentTestcase,
-    Evaluator, HasMetadata,
+    Error, Evaluator, HasMetadata,
 };
 
 #[derive(Debug)]

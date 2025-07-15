@@ -24,7 +24,6 @@ pub struct AutarkieVecU8Mutator<I> {
     phantom: PhantomData<I>,
 }
 
-
 impl<I, S> Mutator<I, S> for AutarkieVecU8Mutator<I>
 where
     I: Node,
@@ -43,20 +42,19 @@ where
                 while data.len() < length {
                     data.extend_from_slice(&state.rand_mut().next().to_ne_bytes());
                 }
-                
+
                 let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
                 let mut length_header = crate::serialize_vec_len(length);
                 length_header.extend_from_slice(&data);
-                    input.__autarkie_mutate(
-                        &mut MutationType::Splice(&mut length_header.as_slice()),
-                        &mut self.visitor.borrow_mut(),
-                        path,
-                    );
+                input.__autarkie_mutate(
+                    &mut MutationType::Splice(&mut length_header.as_slice()),
+                    &mut self.visitor.borrow_mut(),
+                    path,
+                );
                 let mut metadata = state.metadata_mut::<Context>()?;
                 metadata.add_mutation(crate::fuzzer::context::MutationMetadata::Random);
                 metadata.generated_input();
                 return Ok(MutationResult::Mutated);
-
             }
         }
         Ok(MutationResult::Skipped)
