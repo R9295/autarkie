@@ -1,4 +1,5 @@
 use crate::Visitor;
+use libafl::{mutators::MutatorsTuple, state::HasMaxSize};
 use crate::{MutationType, Node};
 use libafl::{
     corpus::Corpus,
@@ -6,13 +7,13 @@ use libafl::{
     state::{HasCorpus, HasRand},
     HasMetadata,
 };
-use libafl_bolts::rands::Rand;
+use libafl_bolts::{rands::Rand, HasLen};
 use libafl_bolts::{current_time, AsSlice, Named};
 use num_traits::ToBytes;
-use std::collections::HashMap;
+use std::{collections::HashMap, num::NonZero};
 use std::path::PathBuf;
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
-
+use libafl::mutators::havoc_mutations_no_crossover;
 use crate::fuzzer::context::Context;
 
 use super::commons::{calculate_subslice_bounds, FileCache};
@@ -27,7 +28,7 @@ pub struct AutarkieVecU8Mutator<I> {
 impl<I, S> Mutator<I, S> for AutarkieVecU8Mutator<I>
 where
     I: Node,
-    S: HasCorpus<I> + HasRand + HasMetadata,
+    S: HasCorpus<I> + HasRand + HasMetadata + HasMaxSize,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
@@ -37,14 +38,22 @@ where
         let ((id, node_ty), ty) = field.last().expect("EfxPNdQ0____");
         if let crate::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
             if *inner_ty == std::intrinsics::type_id::<u8>() {
-                let mut data = state.rand_mut().next().to_ne_bytes().to_vec();
-                let mut length = field_len + 8;
-                while data.len() < length {
-                    data.extend_from_slice(&state.rand_mut().next().to_ne_bytes());
-                }
-
                 let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                let mut length_header = crate::serialize_vec_len(length);
+                let serialized_old = self.visitor.borrow_mut().serialized().clone();
+                input.__autarkie_mutate(
+                    &mut MutationType::GenerateReplace(420),
+                    &mut self.visitor.borrow_mut(),
+                    path.clone(),
+                );
+                let data = self.visitor.borrow_mut().serialized().clone();
+                let mut data = data.first().unwrap().0[8..].to_vec();
+                let mut mutator = havoc_mutations_no_crossover();
+                let mutation = state
+                    .rand_mut()
+                    .below(unsafe { NonZero::new(mutator.len()).unwrap_unchecked() })
+                    .into();
+                mutator.get_and_mutate(mutation, state, &mut data);
+                let mut length_header = crate::serialize_vec_len(data.len());
                 length_header.extend_from_slice(&data);
                 input.__autarkie_mutate(
                     &mut MutationType::Splice(&mut length_header.as_slice()),
@@ -54,6 +63,9 @@ where
                 let mut metadata = state.metadata_mut::<Context>()?;
                 metadata.add_mutation(crate::fuzzer::context::MutationMetadata::Random);
                 metadata.generated_input();
+                for item in serialized_old.into_iter() {
+                    self.visitor.borrow_mut().add_serialized(item.0, item.1);
+                }
                 return Ok(MutationResult::Mutated);
             }
         }

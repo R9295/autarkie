@@ -284,9 +284,13 @@ where
                     *self = deserialize(other);
                 }
                 MutationType::GenerateReplace(ref mut bias) => {
-                    if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0, None) {
-                        *self = generated;
-                        self.__autarkie_serialized(visitor);
+                    if *bias == 420 {
+                        visitor.add_serialized(serialize(&self), 0)
+                    } else {
+                        if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0, None) {
+                            *self = generated;
+                            self.__autarkie_serialized(visitor);
+                        }
                     }
                 }
                 MutationType::SpliceAppend(other) => {
