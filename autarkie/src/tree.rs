@@ -78,7 +78,7 @@ where
             MutationType::GenerateReplace(ref mut bias) => {
                 if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0, None) {
                     *self = generated;
-                    visitor.add_serialized(serialize(&self), Self::__autarkie_id());
+                    visitor.add_serialized(serialize(self), Self::__autarkie_id());
                 }
             }
             _ => {
@@ -285,7 +285,7 @@ where
                 }
                 MutationType::GenerateReplace(ref mut bias) => {
                     if *bias == 420 {
-                        visitor.add_serialized(serialize(&self), 0)
+                        visitor.add_serialized(serialize(self), 0)
                     } else {
                         if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0, None) {
                             *self = generated;
@@ -467,7 +467,7 @@ where
                 MutationType::GenerateReplace(ref mut bias) => {
                     if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0, None) {
                         *self = generated;
-                        visitor.add_serialized(serialize(&self), Self::__autarkie_id());
+                        visitor.add_serialized(serialize(self), Self::__autarkie_id());
                         self.__autarkie_serialized(visitor);
                     }
                 }
@@ -584,7 +584,7 @@ where
                 MutationType::GenerateReplace(ref mut bias) => {
                     if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0, None) {
                         *self = generated;
-                        visitor.add_serialized(serialize(&self), Self::__autarkie_id());
+                        visitor.add_serialized(serialize(self), Self::__autarkie_id());
                         self.__autarkie_serialized(visitor);
                     }
                 }
@@ -644,7 +644,7 @@ impl Node for std::string::String {
         Some(visitor.get_string())
     }
 }
-#[cfg(not(feature = "scale"))]
+#[cfg(feature = "bincode")]
 impl Node for char {
     fn __autarkie_generate(
         visitor: &mut Visitor,
@@ -733,7 +733,7 @@ where
                         };
                         self.insert(key, val);
                         self.__autarkie_serialized(visitor);
-                        visitor.add_serialized(serialize(&self), Self::__autarkie_id());
+                        visitor.add_serialized(serialize(self), Self::__autarkie_id());
                     }
                     _ => unreachable!(),
                 }
@@ -761,7 +761,7 @@ where
                     if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0, None) {
                         *self = generated;
                         self.__autarkie_serialized(visitor);
-                        visitor.add_serialized(serialize(&self), Self::__autarkie_id());
+                        visitor.add_serialized(serialize(self), Self::__autarkie_id());
                     }
                 }
                 MutationType::SpliceAppend(other) => {
@@ -831,7 +831,7 @@ macro_rules! tuple_impls {
                             if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0, None ) {
                             *self = generated;
                             self.__autarkie_serialized(visitor);
-                            visitor.add_serialized(serialize(&self), Self::__autarkie_id());
+                            visitor.add_serialized(serialize(self), Self::__autarkie_id());
         }
                         },
             _  => {
@@ -988,7 +988,7 @@ pub fn serialize<T>(data: &T) -> Vec<u8>
 where
     T: borsh::BorshSerialize,
 {
-    borsh::to_vec(data).expect("invariant; we must always be able to deserialize")
+    borsh::to_vec(&data).expect("invariant; we must always be able to deserialize")
 }
 
 #[cfg(feature = "borsh")]

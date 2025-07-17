@@ -67,11 +67,11 @@ where
                 .below(unsafe { NonZero::new(self.inner.len()).unwrap_unchecked() })
                 .into();
             self.inner.get_and_mutate(mutation, state, &mut input);
-            #[cfg(not(feature = "scale"))]
+            #[cfg(feature = "bincode")]
             let Some(deserialized) = crate::maybe_deserialize(&input) else {
                 return Ok(());
             };
-            #[cfg(feature = "scale")]
+            #[cfg(not(feature = "bincode"))]
             let Some(deserialized) = crate::maybe_deserialize(&mut input.as_slice()) else {
                 return Ok(());
             };

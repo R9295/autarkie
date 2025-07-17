@@ -106,7 +106,12 @@ where
                 let mut cloned = unmutated_input_bytes.clone();
                 cloned.splice(index..index + cmp_chunk.len(), cmp_chunk.to_vec());
                 start = Some(index + cmp_chunk.len());
+                #[cfg(feature = "bincode")]
                 let Some(deserialized) = crate::maybe_deserialize(&cloned) else {
+                    continue;
+                };
+                #[cfg(not(feature = "bincode"))]
+                let Some(deserialized) = crate::maybe_deserialize(&mut cloned.as_slice()) else {
                     continue;
                 };
                 unmutated_input_bytes = cloned;

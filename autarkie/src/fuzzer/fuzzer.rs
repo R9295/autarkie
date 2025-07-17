@@ -382,7 +382,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         let cmplog_ref = cmplog_observer.handle();
         let mut cmplog_executor = ForkserverExecutor::builder()
             .program(opt.executable.clone())
-            .coverage_map_size(65_536)
+            .coverage_map_size(map_size)
             .is_persistent(true)
             .timeout(Duration::from_millis(opt.hang_timeout * 1000) * 2)
             .shmem_provider(&mut shmem_provider)
@@ -395,7 +395,12 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
 
     let cb = |_fuzzer: &mut _, _executor: &mut _, path: &Path| -> Result<I, Error> {
         let data = std::fs::read(path)?;
+        #[cfg(feature = "bincode")]
         let Some(input) = crate::maybe_deserialize(&data) else {
+            return Err(Error::invalid_input("Invalid structure"));
+        };
+        #[cfg(not(feature = "bincode"))]
+        let Some(input) = crate::maybe_deserialize(&mut data.as_slice()) else {
             return Err(Error::invalid_input("Invalid structure"));
         };
         Ok(input)
