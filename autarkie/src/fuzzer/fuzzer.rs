@@ -228,7 +228,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
 
     let mut objective = feedback_or_fast!(
         CrashFeedback::new(),
-        TimeoutFeedback::new(),
+/*         TimeoutFeedback::new(), */
         RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone(), true),
     );
 
@@ -433,15 +433,8 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         MutatingStageWrapper::new(cmplog, Rc::clone(&visitor)),
         MutatingStageWrapper::new(
             AutarkieMutationalStage::new(
-                tuple_list!(splice_append_mutator, recursion_mutator, splice_mutator,),
+                tuple_list!(splice_append_mutator, recursion_mutator, splice_mutator, AutarkieIterablePopMutator::new(Rc::clone(&visitor))),
                 SPLICE_STACK
-            ),
-            Rc::clone(&visitor)
-        ),
-        MutatingStageWrapper::new(
-            AutarkieMutationalStage::new(
-                tuple_list!(AutarkieVecU8Mutator::new(Rc::clone(&visitor), 20)),
-                10,
             ),
             Rc::clone(&visitor)
         ),
