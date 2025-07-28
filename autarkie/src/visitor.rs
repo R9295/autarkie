@@ -8,7 +8,10 @@ use petgraph::{
     graphmap::DiGraphMap,
     Directed,
 };
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap},
+    path::PathBuf,
+};
 
 /// The `Visitor` struct is the primary way to communicate with the Fuzz-ed type during runtime.
 /// Unforuntately procedural macros are rather limiting, so we must delegate effort to the runtime.
@@ -39,6 +42,7 @@ pub struct Visitor {
     /// Fields which are serialized by the Fuzz-ed type's instance. Used to save to corpora for splicing
     serialized: Vec<(Vec<u8>, Id)>,
     ty_generate_map: BTreeMap<Id, BTreeMap<GenerateType, BTreeSet<usize>>>,
+    pub type_input_map: HashMap<Id, Vec<PathBuf>>,
     /// State of randomnes
     rng: StdRand,
 }
@@ -121,6 +125,17 @@ impl Visitor {
         self.depth.iterate
     }
 
+    pub fn rand_asd(&mut self, t: &Id) -> Option<Vec<u8>> {
+        let maybe = self.coinflip_with_prob(0.3);
+        if maybe {
+            return None;
+        }
+        let Some(items) = self.type_input_map.get(t) else {
+            return None;
+        };
+        let items = items.clone();
+        Some(std::fs::read(items.get(self.random_range(0, items.len() - 1)).unwrap()).unwrap())
+    }
     /// This function adds a type to the type map
     pub fn register_ty(&mut self, parent: Option<(Id, String)>, id: (Id, String), variant: usize) {
         self.ty_map_stack.push(id.0.clone());
@@ -331,6 +346,7 @@ impl Visitor {
 
     pub fn new(seed: u64, depth: DepthInfo, string_num: usize) -> Self {
         let mut visitor = Self {
+            type_input_map: HashMap::new(),
             ty_generate_map: BTreeMap::default(),
             ty_name_map: BTreeMap::default(),
             ty_done: BTreeSet::default(),

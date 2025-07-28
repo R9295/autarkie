@@ -259,18 +259,23 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     }
 
     let mut context = Context::new(fuzzer_dir.clone(), opt.render);
-
-    /* let scheduler = StdWeightedScheduler::with_schedule(
+    let schedule =  match core.core_id().0 % 6 {
+        0 => PowerSchedule::explore(),
+        1 => PowerSchedule::exploit(),
+        2 => PowerSchedule::quad(),
+        3 => PowerSchedule::coe(),
+        4 => PowerSchedule::lin(),
+        5 => PowerSchedule::fast(),
+        _ => unreachable!(),
+    }; 
+    let scheduler = StdWeightedScheduler::with_schedule(
         &mut state,
         &edges_observer,
-        Some(PowerSchedule::explore()),
-    ); */
-    let observers = tuple_list!(time_observer);
-    let scheduler = QueueScheduler::new(); //scheduler.cycling_scheduler();
-                                           // Create our Fuzzer
-                                           /*     let mut filter = BloomInputFilter::new(5000, 0.0001); */
+        Some(schedule),
+    );
+    let mut filter = BloomInputFilter::new(5000, 0.0001);
     let mut fuzzer = StdFuzzerBuilder::new()
-        /*         .input_filter(filter) */
+        .input_filter(filter)
         .target_bytes_converter(bytes_converter.clone())
         .scheduler(scheduler)
         .feedback(feedback)
@@ -287,7 +292,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         .is_deferred_frksrv(true)
         .timeout(Duration::from_millis(opt.hang_timeout * 1000))
         .shmem_provider(&mut shmem_provider)
-        .build_dynamic_map(edges_observer, observers)
+        .build_dynamic_map(edges_observer, tuple_list!(time_observer))
         .unwrap();
     #[cfg(feature = "libfuzzer")]
     let mut harness = harness.unwrap();
@@ -426,18 +431,20 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         7,
         MutationMetadata::I2S,
     );
+     let mutator = HavocScheduledMutator::with_max_stack_pow(
+        tuple_list!(splice_append_mutator, recursion_mutator, splice_mutator, AutarkieIterablePopMutator::new(Rc::clone(&visitor))),
+        3,
+    );
     // TODO: I2S for AFL
     #[cfg(feature = "afl")]
     let mut stages = tuple_list!(
         minimization_stage,
         MutatingStageWrapper::new(cmplog, Rc::clone(&visitor)),
         MutatingStageWrapper::new(
-            AutarkieMutationalStage::new(
-                tuple_list!(splice_append_mutator, recursion_mutator, splice_mutator, AutarkieIterablePopMutator::new(Rc::clone(&visitor))),
-                SPLICE_STACK
-            ),
-            Rc::clone(&visitor)
+            StdPowerMutationalStage::new(mutator),
+            Rc::clone(&visitor),
         ),
+        MutatingStageWrapper::new(GenerateStage::new(Rc::clone(&visitor)), Rc::clone(&visitor)),
         StatsStage::new(fuzzer_dir),
         sync_stage,
     );

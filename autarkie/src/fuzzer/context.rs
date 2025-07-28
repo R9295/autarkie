@@ -21,7 +21,7 @@ pub struct Context {
     render: bool,
     mutations: HashSet<MutationMetadata>,
     out_dir: PathBuf,
-    type_input_map: HashMap<Id, Vec<PathBuf>>,
+    pub type_input_map: HashMap<Id, Vec<PathBuf>>,
     input_cause: InputCause,
 }
 
