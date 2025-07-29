@@ -21,13 +21,15 @@ use libafl::{
 pub struct AutarkieMutationalStage<S, M, I> {
     inner: M,
     stack: usize,
+    visitor: Rc<RefCell<Visitor>>,
     phantom: PhantomData<(I, S)>,
 }
 
 impl<S, M, I> AutarkieMutationalStage<S, M, I> {
     /// Create a `AutarkieMutationalStage`
-    pub fn new(inner: M, stack: usize) -> Self {
+    pub fn new(inner: M, stack: usize, visitor: Rc<RefCell<Visitor>>,) -> Self {
         Self {
+            visitor,
             inner,
             stack,
             phantom: PhantomData,
@@ -59,6 +61,7 @@ where
             if self.inner.get_and_mutate(idx, state, &mut current)? == MutationResult::Mutated {
                 fuzzer.evaluate_input(state, executor, manager, &current)?;
             }
+            let _ = self.visitor.borrow_mut().serialized();
         }
         Ok(())
     }

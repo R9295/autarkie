@@ -57,8 +57,7 @@ where
         .shmem_provider(shmem_provider)
         .configuration(EventConfig::from_name("default"))
         .build()
-        //.launch_with_hooks(tuple_list!(RareShare::new(opt.skip_count)));
-        .launch_with_hooks(());
+        .launch_with_hooks(tuple_list!(RareShare::new(opt.skip_count),));
     #[cfg(feature = "fuzzbench")]
     {
         let monitor = SimpleMonitor::new(|s| println!("{}", s));

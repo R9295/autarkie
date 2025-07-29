@@ -86,7 +86,7 @@ pub type AutarkieState<I> = StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCo
 
 #[cfg(not(feature = "fuzzbench"))]
 type AutarkieManager<I> =
-    LlmpRestartingEventManager<(), I, AutarkieState<I>, StdShMem, StdShMemProvider>;
+    LlmpRestartingEventManager<(RareShare, ()), I, AutarkieState<I>, StdShMem, StdShMemProvider>;
 #[cfg(feature = "fuzzbench")]
 type AutarkieManager<F, I> = SimpleEventManager<I, SimpleMonitor<F>, AutarkieState<I>>;
 
@@ -447,7 +447,8 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
                 splice_mutator, 
                 AutarkieIterablePopMutator::new(Rc::clone(&visitor))
             ),
-            SPLICE_STACK
+            SPLICE_STACK,
+            Rc::clone(&visitor)
         ),
         MutatingStageWrapper::new(GenerateStage::new(Rc::clone(&visitor)), Rc::clone(&visitor)),
         StatsStage::new(fuzzer_dir),
