@@ -1,7 +1,7 @@
 use super::context::{self, MutationMetadata};
 use super::feedback::register::RegisterFeedback;
 use super::mutators::iterable_pop::AutarkieIterablePopMutator;
-use super::mutators::vecu8::AutarkieVecU8Mutator;
+use super::mutators::recurse::AutarkieRecurseMutator;
 use crate::fuzzer::context::Context;
 #[cfg(feature = "afl")]
 use crate::fuzzer::stages::cmp::CmpLogStage;
@@ -19,7 +19,7 @@ use libafl_bolts::StdTargetArgs;
 
 use crate::fuzzer::mutators::{
     generate_append::AutarkieGenerateAppendMutator,
-    recurse_mutate::{AutarkieRecurseMutator, RECURSE_STACK},
+    random::{AutarkieRandomMutator, RECURSE_STACK},
     splice::{AutarkieSpliceMutator, SPLICE_STACK},
     splice_append::{AutarkieSpliceAppendMutator, SPLICE_APPEND_STACK},
 };
@@ -191,6 +191,12 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
             serde_json::to_string_pretty(visitor.ty_name_map()).expect("invariant"),
         )?;
     }
+    if is_main_node {
+        std::fs::write(
+            opt.output_dir.join("type_generate_map.json"),
+            serde_json::to_string_pretty(visitor.ty_generate_map()).expect("invariant"),
+        )?;
+    }
     let has_recursion = recursive_nodes.len() > 0;
     let visitor = Rc::new(RefCell::new(visitor));
 
@@ -273,9 +279,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         &edges_observer,
         Some(schedule),
     );
-    let mut filter = BloomInputFilter::new(5000, 0.0001);
     let mut fuzzer = StdFuzzerBuilder::new()
-        .input_filter(filter)
         .target_bytes_converter(bytes_converter.clone())
         .scheduler(scheduler)
         .feedback(feedback)
@@ -423,7 +427,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
      -> Result<bool, Error> { Ok(is_main_node) };
     let sync_stage = IfStage::new(cb, tuple_list!(sync_stage));
     let splice_mutator = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
-    let recursion_mutator = AutarkieRecurseMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
+    let random_mutator = AutarkieRandomMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let splice_append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
     #[cfg(feature = "libfuzzer")]
     let i2s = AutarkieBinaryMutatorStage::new(
@@ -431,18 +435,19 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         7,
         MutationMetadata::I2S,
     );
-     let mutator = HavocScheduledMutator::with_max_stack_pow(
-        tuple_list!(splice_append_mutator, recursion_mutator, splice_mutator, AutarkieIterablePopMutator::new(Rc::clone(&visitor))),
-        3,
-    );
     // TODO: I2S for AFL
     #[cfg(feature = "afl")]
     let mut stages = tuple_list!(
         minimization_stage,
         MutatingStageWrapper::new(cmplog, Rc::clone(&visitor)),
-        MutatingStageWrapper::new(
-            StdPowerMutationalStage::new(mutator),
-            Rc::clone(&visitor),
+        AutarkieMutationalStage::new(
+            tuple_list!(
+                splice_append_mutator, 
+                random_mutator, 
+                splice_mutator, 
+                AutarkieIterablePopMutator::new(Rc::clone(&visitor))
+            ),
+            SPLICE_STACK
         ),
         MutatingStageWrapper::new(GenerateStage::new(Rc::clone(&visitor)), Rc::clone(&visitor)),
         StatsStage::new(fuzzer_dir),
@@ -457,9 +462,9 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
             tuple_list!(
                 splice_append_mutator,
                 generate_append_mutator,
-                recursion_mutator,
-                recursion_mutator_two,
-                recursion_mutator_three,
+                random_mutator,
+                random_mutator_two,
+                random_mutator_three,
                 splice_mutator
             ),
             SPLICE_STACK

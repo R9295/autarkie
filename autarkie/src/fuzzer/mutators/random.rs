@@ -15,13 +15,13 @@ use super::commons::calculate_subslice_bounds;
 
 pub const RECURSE_STACK: usize = 1000;
 
-pub struct AutarkieRecurseMutator<I> {
+pub struct AutarkieRandomMutator<I> {
     max_subslice_size: usize,
     visitor: Rc<RefCell<Visitor>>,
     phantom: PhantomData<I>,
 }
 
-impl<I, S> Mutator<I, S> for AutarkieRecurseMutator<I>
+impl<I, S> Mutator<I, S> for AutarkieRandomMutator<I>
 where
     I: Node,
     S: HasCorpus<I> + HasRand + HasMetadata,
@@ -33,11 +33,7 @@ where
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &mut fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().expect("YjBYG4Fr____");
-        let mut bias = if self.visitor.borrow_mut().coinflip() {
-            self.visitor.borrow().generate_depth()
-        } else {
-            0
-        };
+        let mut bias = self.visitor.borrow().generate_depth();
         if let crate::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
             if *field_len < 3 {
                 return Ok(MutationResult::Skipped);
@@ -54,12 +50,12 @@ where
                 #[cfg(feature = "debug_mutators")]
                 println!("recursive_mutate | subslice | {:?}", field);
                 input.__autarkie_mutate(
-                    &mut MutationType::GenerateReplace(bias),
+                    &mut MutationType::GenerateReplace(bias / 2),
                     &mut self.visitor.borrow_mut(),
                     path,
                 );
             }
-            metadata.add_mutation(crate::fuzzer::context::MutationMetadata::RecurseMutateSubsplice);
+            metadata.add_mutation(crate::fuzzer::context::MutationMetadata::RandomMutateSubsplice);
         } else {
             let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
             #[cfg(feature = "debug_mutators")]
@@ -69,7 +65,7 @@ where
                 &mut self.visitor.borrow_mut(),
                 path,
             );
-            metadata.add_mutation(crate::fuzzer::context::MutationMetadata::RecurseMutateSingle);
+            metadata.add_mutation(crate::fuzzer::context::MutationMetadata::RandomMutateSingle);
         }
         Ok(MutationResult::Mutated)
     }
@@ -83,12 +79,12 @@ where
     }
 }
 
-impl<I> Named for AutarkieRecurseMutator<I> {
+impl<I> Named for AutarkieRandomMutator<I> {
     fn name(&self) -> &std::borrow::Cow<'static, str> {
-        &Cow::Borrowed("AutarkieRecurseMutator")
+        &Cow::Borrowed("AutarkieRandomMutator")
     }
 }
-impl<I> AutarkieRecurseMutator<I> {
+impl<I> AutarkieRandomMutator<I> {
     pub fn new(visitor: Rc<RefCell<Visitor>>, max_subslice_size: usize) -> Self {
         Self {
             visitor,

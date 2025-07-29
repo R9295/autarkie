@@ -45,6 +45,7 @@ pub struct Visitor {
     pub type_input_map: HashMap<Id, Vec<PathBuf>>,
     /// State of randomnes
     rng: StdRand,
+    has_recursive_types: bool,
 }
 
 impl Visitor {
@@ -237,6 +238,7 @@ impl Visitor {
                 .get(ty)
                 .unwrap_or(&BTreeSet::default())
                 .clone();
+            self.has_recursive_types = true;
             self.ty_generate_map.insert(
                 ty.clone(),
                 BTreeMap::from_iter([(GenerateType::Recursive, r_variants.clone())]),
@@ -343,9 +345,16 @@ impl Visitor {
     pub fn ty_name_map(&self) -> &BTreeMap<Id, String> {
         &self.ty_name_map
     }
+    pub fn ty_generate_map(&self) -> &BTreeMap<Id, BTreeMap<GenerateType, BTreeSet<usize>>> {
+        &self.ty_generate_map
+    }
+    pub fn has_recursive_types(&self) -> bool {
+        return self.has_recursive_types
+    }
 
     pub fn new(seed: u64, depth: DepthInfo, string_num: usize) -> Self {
         let mut visitor = Self {
+            has_recursive_types: false,
             type_input_map: HashMap::new(),
             ty_generate_map: BTreeMap::default(),
             ty_name_map: BTreeMap::default(),
@@ -367,7 +376,7 @@ impl Visitor {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 pub enum NodeType {
     ///  A normal node
     NonRecursive,
@@ -405,8 +414,8 @@ pub struct DepthInfo {
     pub iterate: usize,
 }
 
-#[derive(Ord, PartialEq, Eq, PartialOrd, Debug, Clone)]
-enum GenerateType {
+#[derive(Ord, PartialEq, Eq, PartialOrd, Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum GenerateType {
     Recursive,
     NonRecursive,
 }
