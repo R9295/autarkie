@@ -92,14 +92,7 @@ where
     };
 }
 
-#[cfg(feature = "bincode")]
 node!(serde::ser::Serialize + DeserializeOwned + 'static);
-
-#[cfg(feature = "scale")]
-node!(parity_scale_codec::Encode + parity_scale_codec::Decode + 'static);
-
-#[cfg(feature = "borsh")]
-node!(borsh::BorshSerialize + borsh::BorshDeserialize + 'static);
 
 impl<T: 'static> Node for PhantomData<T> {
     fn __autarkie_generate(
@@ -129,11 +122,9 @@ impl<T: 'static + Node + Clone> Node for Cow<'static, T> {
     // TODO: fields / mutate
 }
 
-// TODO: fix and make the same as Vec
-#[cfg(any(feature = "borsh", feature = "scale"))]
-impl<T, const N: usize> Node for [T; N]
+impl<T> Node for Cow<'static, [T]>
 where
-    T: Node + std::fmt::Debug,
+    T: Node + Clone,
 {
     fn __autarkie_generate(
         visitor: &mut Visitor,
@@ -141,23 +132,21 @@ where
         cur_depth: usize,
         settings: Option<GenerateSettings>,
     ) -> Option<Self> {
-        // TODO: optimize?
-        let res = (0..N)
-            .filter_map(|_| {
-                T::__autarkie_generate(visitor, &mut visitor.generate_depth(), cur_depth, None)
-            })
-            .collect::<Vec<T>>();
-        Some(res.try_into().expect("err"))
-    }
-    fn __autarkie_serialized(&self, visitor: &mut Visitor) {
-        for item in self {
-            visitor.add_serialized(serialize(&item), T::__autarkie_id());
-            item.__autarkie_serialized(visitor);
+        let element_count = if let Some(GenerateSettings::Length(len)) = settings {
+            len
+        } else if let Some(GenerateSettings::Range(range)) = settings {
+            visitor.random_range(*range.start(), *range.end() + 1)
+        } else {
+            visitor.random_range(0, visitor.iterate_depth())
+        };
+        if element_count == 0 {
+            return Some(vec![].into());
         }
-    }
-
-    fn __autarkie_node_ty(&self, visitor: &Visitor) -> NodeType {
-        NodeType::Iterable(true, N, T::__autarkie_id())
+        let mut vector = Vec::with_capacity(element_count);
+        for i in 0..element_count {
+            vector.push(T::__autarkie_generate(visitor, &mut 0, cur_depth, None)?);
+        }
+        Some(vector.into())
     }
 
     fn __autarkie_register(v: &mut Visitor, parent: Option<(Id, String)>, variant: usize) {
@@ -169,6 +158,21 @@ where
         }
     }
 
+    fn __autarkie_node_ty(&self, visitor: &Visitor) -> NodeType {
+        NodeType::Iterable(false, self.len(), Self::inner_id())
+    }
+
+    fn inner_id() -> Id {
+        T::__autarkie_id()
+    }
+
+    fn __autarkie_serialized(&self, visitor: &mut Visitor) {
+        for item in self.as_ref() {
+            visitor.add_serialized(serialize(&item), T::__autarkie_id());
+            item.__autarkie_serialized(visitor);
+        }
+    }
+
     fn __autarkie_mutate(
         &mut self,
         ty: &mut MutationType,
@@ -176,9 +180,12 @@ where
         mut path: VecDeque<usize>,
     ) {
         if let Some(popped) = path.pop_front() {
-            self.get_mut(popped)
-                .expect("mdNWnhI6____")
+            let mut cloned = self.as_ref().to_vec();
+            cloned
+                .get_mut(popped)
+                .expect("UbEi1VMg____")
                 .__autarkie_mutate(ty, visitor, path);
+            *self = cloned.into();
         } else {
             match ty {
                 MutationType::Splice(other) => {
@@ -190,10 +197,33 @@ where
                         self.__autarkie_serialized(visitor);
                     }
                 }
-                _ => unreachable!("tAL6LPUb____"),
+                MutationType::SpliceAppend(other) => {
+                    // TODO: make more performant
+                    let mut cloned = self.as_ref().to_vec();
+                    cloned.push(deserialize(other));
+                    *self = cloned.into();
+                }
+                MutationType::GenerateAppend(bias) => {
+                    if let Some(generated) = T::__autarkie_generate(visitor, bias, 0, None) {
+                        // TODO: make more performant
+                        let mut cloned = self.as_ref().to_vec();
+                        cloned.push(generated);
+                        *self = cloned.into();
+                    }
+                }
+                MutationType::IterablePop(ref mut bias) => {
+                    // TODO: make more performant
+                    let mut cloned = self.as_ref().to_vec();
+                    cloned.remove(*bias);
+                    *self = cloned.into();
+                }
+                MutationType::RecursiveReplace => {
+                    // TODO
+                }
             }
         }
     }
+
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
         for (index, child) in self.iter().enumerate() {
             visitor.register_field_stack((
@@ -284,9 +314,9 @@ where
                     *self = deserialize(other);
                 }
                 MutationType::GenerateReplace(ref mut bias) => {
-                        if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0, None) {
-                            *self = generated;
-                            self.__autarkie_serialized(visitor);
+                    if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0, None) {
+                        *self = generated;
+                        self.__autarkie_serialized(visitor);
                     }
                 }
                 MutationType::SpliceAppend(other) => {
@@ -640,7 +670,6 @@ impl Node for std::string::String {
         Some(visitor.get_string())
     }
 }
-#[cfg(feature = "bincode")]
 impl Node for char {
     fn __autarkie_generate(
         visitor: &mut Visitor,
@@ -931,12 +960,9 @@ impl_generate_simple!(i16, 2);
 impl_generate_simple!(i32, 4);
 impl_generate_simple!(i64, 8);
 impl_generate_simple!(i128, 32);
-#[cfg(feature = "bincode")]
 impl_generate_simple!(isize, 8);
-#[cfg(feature = "bincode")]
 impl_generate_simple!(usize, 8);
 
-#[cfg(feature = "bincode")]
 pub fn serialize<T>(data: &T) -> Vec<u8>
 where
     T: serde::Serialize,
@@ -944,7 +970,6 @@ where
     bincode::serialize(data).expect("invariant; we must always be able to serialize")
 }
 
-#[cfg(feature = "bincode")]
 pub fn deserialize<T>(data: &mut &[u8]) -> T
 where
     T: DeserializeOwned,
@@ -952,77 +977,10 @@ where
     crate::maybe_deserialize(data).expect("invariant; we must always be able to deserialize")
 }
 
-#[cfg(feature = "bincode")]
 pub fn serialize_vec_len(len: usize) -> Vec<u8> {
     bincode::serialize(&(len as u64)).expect("invariant; we must always be able to serialize")
 }
 
-#[cfg(feature = "scale")]
-pub fn serialize<T>(data: &T) -> Vec<u8>
-where
-    T: parity_scale_codec::Encode,
-{
-    T::encode(data)
-}
-
-#[cfg(feature = "scale")]
-pub fn deserialize<T>(data: &mut &[u8]) -> T
-where
-    T: parity_scale_codec::Decode,
-{
-    crate::maybe_deserialize(data).expect("invariant; we must always be able to deserialize")
-}
-
-#[cfg(feature = "scale")]
-pub fn serialize_vec_len(len: usize) -> Vec<u8> {
-    use parity_scale_codec::Encode;
-    (parity_scale_codec::Compact(len as u32)).encode()
-}
-
-#[cfg(feature = "borsh")]
-pub fn serialize<T>(data: &T) -> Vec<u8>
-where
-    T: borsh::BorshSerialize,
-{
-    borsh::to_vec(&data).expect("invariant; we must always be able to deserialize")
-}
-
-#[cfg(feature = "borsh")]
-pub fn deserialize<T>(data: &mut &[u8]) -> T
-where
-    T: borsh::BorshDeserialize,
-{
-    crate::maybe_deserialize(data).expect("invariant; we must always be able to deserialize")
-}
-
-#[cfg(feature = "borsh")]
-pub fn serialize_vec_len(len: usize) -> Vec<u8> {
-    borsh::to_vec(&(len as u32)).expect("invariant; we must always be able to serialize")
-}
-
-#[cfg(feature = "borsh")]
-pub fn maybe_deserialize<T>(data: &mut &[u8]) -> Option<T>
-where
-    T: borsh::BorshDeserialize,
-{
-    let Ok(res) = T::deserialize(data) else {
-        return None;
-    };
-    Some(res)
-}
-
-#[cfg(feature = "scale")]
-pub fn maybe_deserialize<T>(data: &mut &[u8]) -> Option<T>
-where
-    T: parity_scale_codec::Decode,
-{
-    let Ok(res) = T::decode(data) else {
-        return None;
-    };
-    Some(res)
-}
-
-#[cfg(feature = "bincode")]
 pub fn maybe_deserialize<T>(data: &[u8]) -> Option<T>
 where
     T: DeserializeOwned,

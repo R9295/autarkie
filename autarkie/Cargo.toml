@@ -5,12 +5,10 @@ edition = "2021"
 
 [dependencies]
 # different encodings
-bincode = { version = "1.3.3", optional = true}
+bincode = { version = "1.3.3"}
 serde = { version = "1.0.0", features = ["derive"] }
 
 autarkie_derive = {path = "../autarkie_derive", optional = true}
-parity-scale-codec = { version = "3.6.12", features = ["derive"], optional = true }
-borsh = { version = "1.5.3", features = ["derive"], optional = true }
 
 libafl = {workspace = true}
 libafl_bolts = {workspace = true}
@@ -34,9 +32,6 @@ harness = false
 
 [features]
 derive = ["autarkie_derive"]
-bincode = ["dep:bincode"]
-scale = ["dep:parity-scale-codec"]
-borsh = ["dep:borsh"]
 introspection = ["libafl/introspection"]
 libfuzzer = [] 
 afl = []

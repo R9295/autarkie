@@ -19,15 +19,9 @@ pub use visitor::*;
 
 mod graph;
 
-#[cfg(feature = "bincode")]
 pub mod serde;
-#[cfg(feature = "bincode")]
 pub use serde::*;
 
-#[cfg(feature = "scale")]
-pub mod scale;
-#[cfg(feature = "scale")]
-pub use scale::*;
 pub mod fuzzer;
 pub use fuzzer::afl;
 pub use fuzzer::libfuzzer;
