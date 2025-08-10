@@ -75,13 +75,15 @@ where
             };
             &data.list
         };
-        for i in data {
-            if let Some((left, right, _is_const)) = i.to_u64_tuple() {
-                reduced.insert((left, right));
-            } else {
-                if let CmpValues::Bytes((left, right)) = i {
-                    reduced_bytes.insert(left.as_slice().to_vec());
-                    reduced_bytes.insert(right.as_slice().to_vec());
+        for item in data {
+            for i in item.into_iter() {
+                if let Some((left, right, _is_const)) = i.to_u64_tuple() {
+                    reduced.insert((left, right));
+                } else {
+                    if let CmpValues::Bytes((left, right)) = i {
+                        reduced_bytes.insert(left.as_slice().to_vec());
+                        reduced_bytes.insert(right.as_slice().to_vec());
+                    }
                 }
             }
         }

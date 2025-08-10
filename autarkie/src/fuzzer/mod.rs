@@ -114,11 +114,6 @@ pub(crate) struct Opt {
     #[arg(short = 'p', default_value_t = 4000)]
     broker_port: u16,
 
-    #[cfg(feature = "afl")]
-    /// AFL_DUMP_MAP_SIZE + x where x = map bias
-    #[arg(short = 'm')]
-    map_bias: usize,
-
     /// Amount of initial inputs to generate
     #[arg(short = 'i', default_value_t = 100)]
     initial_generated_inputs: usize,
@@ -129,9 +124,6 @@ pub(crate) struct Opt {
 
     #[arg(short = 'c', value_parser=Cores::from_cmdline)]
     cores: Cores,
-
-    #[arg(short = 'n')]
-    novelty_minimization: bool,
 
     #[arg(short = 'F')]
     foreign_sync_dirs: Vec<PathBuf>,

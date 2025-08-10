@@ -142,7 +142,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         let map_size = String::from_utf8(map_size.stdout)
             .expect("target returned illegal mapsize")
             .replace("\n", "");
-        map_size.parse::<usize>().expect("illegal mapsize output") + opt.map_bias
+        map_size.parse::<usize>().expect("illegal mapsize output")
     };
 
     let fuzzer_dir = opt.output_dir.join(format!("{}", core.core_id().0));
@@ -212,21 +212,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
 
     // Create a MapFeedback for coverage guided fuzzin'
     let map_feedback = MaxMapFeedback::new(&edges_observer);
-
     let time_observer = TimeObserver::new("time");
-    let cb = |_fuzzer: &mut _,
-              _executor: &mut _,
-              state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
-              _event_manager: &mut _|
-     -> Result<bool, Error> { Ok(opt.novelty_minimization) };
-    let novelty_minimization_stage = IfStage::new(
-        cb,
-        tuple_list!(
-            NoveltyMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
-            MinimizationStage::new(Rc::clone(&visitor), &map_feedback),
-            RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
-        ),
-    );
     let cb = |_fuzzer: &mut _,
               _executor: &mut _,
               state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
@@ -234,8 +220,14 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
      -> Result<bool, Error> {
         Ok(state.current_testcase_mut()?.scheduled_count() == 0)
     };
-
-    let minimization_stage = IfStage::new(cb, tuple_list!(novelty_minimization_stage,));
+    let minimization_stage = IfStage::new(
+        cb,
+        tuple_list!(
+            NoveltyMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
+            MinimizationStage::new(Rc::clone(&visitor), &map_feedback),
+            RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
+        ),
+    );
     let mut feedback = feedback_or!(
         map_feedback,
         TimeFeedback::new(&time_observer),

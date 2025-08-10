@@ -51,29 +51,25 @@ where
             }
             if let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) {
                 // calculate subsplice size
-                let iter_count = self.visitor.borrow().iterate_depth();
-                let append_count = self.visitor.borrow_mut().random_range(1, iter_count);
                 let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                for _ in 0..append_count {
-                    let random_splice = possible_splices
-                        .get(
-                            self.visitor
-                                .borrow_mut()
-                                .random_range(0, possible_splices.len() - 1),
-                        )
-                        .expect("2T4FO2ig____");
-                    let data = self
-                        .file_cache
-                        .read_cached(random_splice)
-                        .expect("4phGbftw____");
-                    #[cfg(feature = "debug_mutators")]
-                    println!("splice | splice_append | {:?}", (&field, &path));
-                    input.__autarkie_mutate(
-                        &mut crate::MutationType::SpliceAppend(&mut data.as_slice()),
-                        &mut self.visitor.borrow_mut(),
-                        path.clone(),
-                    );
-                }
+                let random_splice = possible_splices
+                    .get(
+                        self.visitor
+                            .borrow_mut()
+                            .random_range(0, possible_splices.len() - 1),
+                    )
+                    .expect("2T4FO2ig____");
+                let data = self
+                    .file_cache
+                    .read_cached(random_splice)
+                    .expect("4phGbftw____");
+                #[cfg(feature = "debug_mutators")]
+                println!("splice | splice_append | {:?}", (&field, &path));
+                input.__autarkie_mutate(
+                    &mut crate::MutationType::SpliceAppend(&mut data.as_slice()),
+                    &mut self.visitor.borrow_mut(),
+                    path.clone(),
+                );
                 metadata.add_mutation(crate::fuzzer::context::MutationMetadata::SpliceAppend);
                 return Ok(MutationResult::Mutated);
             } else {
