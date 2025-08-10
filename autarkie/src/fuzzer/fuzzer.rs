@@ -2,6 +2,8 @@ use super::context::{self, MutationMetadata};
 use super::feedback::register::RegisterFeedback;
 use super::mutators::iterable_pop::AutarkieIterablePopMutator;
 use super::mutators::recurse::AutarkieRecurseMutator;
+#[cfg(any(feature = "libfuzzer", feature = "afl"))]
+use super::stages::autarkie_cmp::AutarkieCmpLogStage;
 use crate::fuzzer::context::Context;
 #[cfg(feature = "afl")]
 use crate::fuzzer::stages::cmp::CmpLogStage;
@@ -91,24 +93,31 @@ type AutarkieManager<I> =
 type AutarkieManager<F, I> = SimpleEventManager<I, SimpleMonitor<F>, AutarkieState<I>>;
 
 macro_rules! define_run_client {
-    ($state: ident, $mgr: ident, $core: ident, $bytes_converter: ident, $opt: ident, $body:block) => {
+    ($state: ident, $mgr: ident, $core: ident, $bytes_converter: ident, $opt: ident, $harness: ident, $body:block) => {
         #[cfg(not(feature = "fuzzbench"))]
-        pub fn run_client<I: Node + Input, TC: ToTargetBytes<I> + Clone>(
+        pub fn run_client<I: Node + Input, TC: ToTargetBytes<I> + Clone, HF: Fn(&I) -> ExitKind>(
             $state: Option<AutarkieState<I>>,
             mut $mgr: AutarkieManager<I>,
             $core: ClientDescription,
             $bytes_converter: TC,
             $opt: &super::Opt,
+            $harness: Option<HF>,
         ) -> Result<(), Error> {
             $body
         }
         #[cfg(feature = "fuzzbench")]
-        pub fn run_client<F, I: Node + Input, TC: ToTargetBytes<I> + Clone>(
+        pub fn run_client<
+            F,
+            HF: Fn(&I) -> ExitKind,
+            I: Node + Input,
+            TC: ToTargetBytes<I> + Clone,
+        >(
             $state: Option<AutarkieState<I>>,
             mut $mgr: AutarkieManager<F, I>,
             $core: ClientDescription,
             $bytes_converter: TC,
             $opt: &super::Opt,
+            $harness: Option<HF>,
         ) -> Result<(), Error>
         where
             F: FnMut(&str),
@@ -118,7 +127,8 @@ macro_rules! define_run_client {
     };
 }
 
-define_run_client!(state, mgr, core, bytes_converter, opt, {
+#[cfg(any(feature = "libfuzzer", feature = "afl"))]
+define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     let is_main_node = opt.cores.position(core.core_id()).unwrap() == 0;
     if !opt.output_dir.exists() {
         std::fs::create_dir(&opt.output_dir).unwrap();
@@ -144,8 +154,8 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
             }
         }
     };
-    /* #[cfg(feature = "libfuzzer")]
-    let cmplog_observer = CmpLogObserver::new("cmplog", true); */
+    #[cfg(feature = "libfuzzer")]
+    let cmplog_observer = CmpLogObserver::new("cmplog", true);
     // Create the shared memory map for comms with the forkserver
     #[cfg(feature = "afl")]
     let mut shmem_provider = UnixShMemProvider::new().unwrap();
@@ -234,7 +244,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
 
     let mut objective = feedback_or_fast!(
         CrashFeedback::new(),
-/*         TimeoutFeedback::new(), */
+        TimeoutFeedback::new(),
         RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone(), true),
     );
 
@@ -265,7 +275,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     }
 
     let mut context = Context::new(fuzzer_dir.clone(), opt.render);
-    let schedule =  match core.core_id().0 % 6 {
+    let schedule = match core.core_id().0 % 6 {
         0 => PowerSchedule::explore(),
         1 => PowerSchedule::exploit(),
         2 => PowerSchedule::quad(),
@@ -273,12 +283,9 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         4 => PowerSchedule::lin(),
         5 => PowerSchedule::fast(),
         _ => unreachable!(),
-    }; 
-    let scheduler = StdWeightedScheduler::with_schedule(
-        &mut state,
-        &edges_observer,
-        Some(schedule),
-    );
+    };
+    let scheduler =
+        StdWeightedScheduler::with_schedule(&mut state, &edges_observer, Some(schedule));
     let mut fuzzer = StdFuzzerBuilder::new()
         .target_bytes_converter(bytes_converter.clone())
         .scheduler(scheduler)
@@ -303,14 +310,14 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     #[cfg(feature = "libfuzzer")]
     let mut executor = InProcessExecutor::with_timeout(
         &mut harness,
-        observers,
+        tuple_list!(edges_observer, time_observer),
         &mut fuzzer,
         &mut state,
         &mut mgr,
         Duration::from_millis(opt.hang_timeout * 1000),
     )?;
-    /* #[cfg(feature = "libfuzzer")]
-    let mut executor = ShadowExecutor::new(executor, tuple_list!(cmplog_observer)); */
+    #[cfg(feature = "libfuzzer")]
+    let mut executor = ShadowExecutor::new(executor, tuple_list!(cmplog_observer));
     // Setup a tracing stage in which we log comparisons
     #[cfg(feature = "libfuzzer")]
     let tracing = ShadowTracingStage::new();
@@ -379,11 +386,14 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
         println!("We imported {} inputs from disk.", state.corpus().count());
     }
     // The cmplog map shared between observer and executor
+    #[cfg(feature = "afl")]
     let mut cmplog_shmem = shmem_provider.uninit_on_shmem::<AflppCmpLogMap>().unwrap();
     // let the forkserver know the shmid
+    #[cfg(feature = "afl")]
     unsafe {
         cmplog_shmem.write_to_env(SHM_CMPLOG_ENV_VAR).unwrap();
     }
+    #[cfg(feature = "afl")]
     let cmpmap = unsafe { OwnedRefMut::from_shmem(&mut cmplog_shmem) };
     #[cfg(feature = "afl")]
     let mut cmplog = {
@@ -440,17 +450,17 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     let mut stages = tuple_list!(
         minimization_stage,
         MutatingStageWrapper::new(cmplog, Rc::clone(&visitor)),
+        AutarkieCmpLogStage::new(Rc::clone(&visitor)),
         AutarkieMutationalStage::new(
             tuple_list!(
-                splice_append_mutator, 
-                random_mutator, 
-                splice_mutator, 
+                splice_append_mutator,
+                random_mutator,
+                splice_mutator,
                 AutarkieIterablePopMutator::new(Rc::clone(&visitor))
             ),
             SPLICE_STACK,
             Rc::clone(&visitor)
         ),
-        MutatingStageWrapper::new(GenerateStage::new(Rc::clone(&visitor)), Rc::clone(&visitor)),
         StatsStage::new(fuzzer_dir),
         sync_stage,
     );
@@ -458,23 +468,24 @@ define_run_client!(state, mgr, core, bytes_converter, opt, {
     let mut stages = tuple_list!(
         minimization_stage,
         tracing,
-        MutatingStageWrapper::new(i2s, Rc::clone(&visitor)),
+        AutarkieCmpLogStage::new(Rc::clone(&visitor)),
         AutarkieMutationalStage::new(
             tuple_list!(
                 splice_append_mutator,
-                generate_append_mutator,
                 random_mutator,
-                random_mutator_two,
-                random_mutator_three,
-                splice_mutator
+                splice_mutator,
+                AutarkieIterablePopMutator::new(Rc::clone(&visitor))
             ),
-            SPLICE_STACK
+            SPLICE_STACK,
+            Rc::clone(&visitor)
         ),
-        MutatingStageWrapper::new(generate_stage, Rc::clone(&visitor)),
+        MutatingStageWrapper::new(i2s, Rc::clone(&visitor)),
         StatsStage::new(fuzzer_dir),
+        sync_stage,
     );
     let res = fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr);
     Err(Error::shutting_down())
 });
+
 #[cfg(feature = "afl")]
 const SHMEM_ENV_VAR: &str = "__AFL_SHM_ID";

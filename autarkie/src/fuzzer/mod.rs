@@ -22,7 +22,8 @@ use libafl_bolts::shmem::ShMemProvider;
 use libafl_bolts::shmem::StdShMemProvider;
 use libafl_bolts::tuples::tuple_list;
 use std::path::{Path, PathBuf};
-
+#[cfg(feature = "libfuzzer")]
+use std::{io::Write, str::FromStr};
 #[cfg(any(feature = "libfuzzer", feature = "afl"))]
 pub fn run_fuzzer<I, TC, F>(bytes_converter: TC, harness: Option<F>)
 where
@@ -42,7 +43,7 @@ where
     let opt = Opt::parse();
     #[cfg(feature = "libfuzzer")]
     let opt = {
-        let mut opt = args().collect::<Vec<_>>();
+        let mut opt = std::env::args().collect::<Vec<_>>();
         opt.remove(1);
         opt.remove(opt.len() - 1);
         Opt::parse_from(opt)
@@ -52,7 +53,9 @@ where
     Launcher::builder()
         .cores(&opt.cores)
         .monitor(monitor)
-        .run_client(|s, mgr, core| fuzzer::run_client(s, mgr, core, bytes_converter.clone(), &opt))
+        .run_client(|s, mgr, core| {
+            fuzzer::run_client(s, mgr, core, bytes_converter.clone(), &opt, harness)
+        })
         .broker_port(opt.broker_port)
         .shmem_provider(shmem_provider)
         .configuration(EventConfig::from_name("default"))
@@ -68,6 +71,7 @@ where
             ClientDescription::new(0, 0, 0.into()),
             bytes_converter.clone(),
             &opt,
+            harness,
         );
     }
 }

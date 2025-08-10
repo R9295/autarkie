@@ -33,7 +33,7 @@ harness = false
 [features]
 derive = ["autarkie_derive"]
 introspection = ["libafl/introspection"]
-libfuzzer = [] 
+libfuzzer = []
 afl = []
 debug_mutators = []
 fuzzbench = []

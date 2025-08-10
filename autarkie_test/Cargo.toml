@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-autarkie = {path = "../autarkie", features = ["derive", "bincode"]}
+autarkie = {path = "../autarkie", features = ["derive"]}
 serde = { version = "1.0.217", features = ["derive"] }

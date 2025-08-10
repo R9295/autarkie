@@ -349,7 +349,7 @@ impl Visitor {
         &self.ty_generate_map
     }
     pub fn has_recursive_types(&self) -> bool {
-        return self.has_recursive_types
+        return self.has_recursive_types;
     }
 
     pub fn new(seed: u64, depth: DepthInfo, string_num: usize) -> Self {

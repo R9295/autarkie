@@ -279,7 +279,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .arg("--redefine-syms")
         .arg(redefined_symbols)
         .args([&archive_path, &redefined_archive_path]);
-
     assert!(
         objcopy_command.status().is_ok_and(|s| s.success()),
         "Couldn't rename allocators in the runtime crate! Do you have the llvm-tools component installed? (`rustup component add llvm-tools-preview` to install)"

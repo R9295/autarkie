@@ -1,6 +1,6 @@
 use crate::fuzzer::stages::minimization::shuffle;
-use crate::{NodeType, Visitor};
 use crate::{MutationType, Node};
+use crate::{NodeType, Visitor};
 use libafl::{
     corpus::Corpus,
     mutators::{MutationResult, Mutator},
@@ -29,7 +29,7 @@ where
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
         if !self.visitor.borrow().has_recursive_types() {
-            return Ok(MutationResult::Skipped)
+            return Ok(MutationResult::Skipped);
         }
         let mut metadata = state.metadata_mut::<Context>()?;
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
@@ -39,9 +39,9 @@ where
         // find the first recursive node;
         let mut recursive_node = None;
         for node in &fields {
-           if matches!(node.last().expect("____LqG7SD18").0.1, NodeType::Recursive)  {
+            if matches!(node.last().expect("____LqG7SD18").0 .1, NodeType::Recursive) {
                 recursive_node = Some(node);
-           }
+            }
         }
         println!("{:?}", recursive_node);
         let mut all = Vec::new();
@@ -53,12 +53,10 @@ where
                         all.push(fields.get(index).unwrap());
                         start = Some(index)
                     }
-                    
                 }
             }
-            
         }
-        return Ok(MutationResult::Skipped)
+        return Ok(MutationResult::Skipped);
     }
 
     fn post_exec(
@@ -85,7 +83,11 @@ impl<I> AutarkieRecurseMutator<I> {
     }
 }
 
-fn find_subsequence<T: PartialEq>(haystack: &[T], needle: &[T], start: Option<usize>) -> Option<usize> {
+fn find_subsequence<T: PartialEq>(
+    haystack: &[T],
+    needle: &[T],
+    start: Option<usize>,
+) -> Option<usize> {
     haystack[start.unwrap_or(0)..]
         .windows(needle.len())
         .position(|window| window == needle)

@@ -27,7 +27,7 @@ pub struct AutarkieMutationalStage<S, M, I> {
 
 impl<S, M, I> AutarkieMutationalStage<S, M, I> {
     /// Create a `AutarkieMutationalStage`
-    pub fn new(inner: M, stack: usize, visitor: Rc<RefCell<Visitor>>,) -> Self {
+    pub fn new(inner: M, stack: usize, visitor: Rc<RefCell<Visitor>>) -> Self {
         Self {
             visitor,
             inner,
