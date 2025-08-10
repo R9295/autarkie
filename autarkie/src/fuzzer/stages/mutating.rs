@@ -1,14 +1,14 @@
 //! Stage that wraps mutating stages for stats and cleanup
-use crate::fuzzer::Context;
+use crate::fuzzer::context::Context;
 use crate::Visitor;
 use core::{marker::PhantomData, time::Duration};
-use libafl_bolts::{current_time, Error};
+use libafl_bolts::current_time;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use libafl::{
     stages::{Restartable, Stage},
-    HasMetadata,
+    Error, HasMetadata,
 };
 /// Track an inner Stage's execution time
 #[derive(Debug)]
@@ -42,7 +42,10 @@ where
         manager: &mut M,
     ) -> Result<(), Error> {
         self.inner.perform(fuzzer, executor, state, manager)?;
-        let _ = state.metadata_mut::<Context>().unwrap().clear_mutations();
+        let _ = state
+            .metadata_mut::<Context>()
+            .expect("773RwiGF____")
+            .clear_mutations();
         let _ = self.visitor.borrow_mut().serialized();
         Ok(())
     }

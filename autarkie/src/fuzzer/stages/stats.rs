@@ -51,7 +51,7 @@ where
         executor: &mut E,
         state: &mut S,
         manager: &mut EM,
-    ) -> Result<(), libafl_bolts::Error> {
+    ) -> Result<(), libafl::Error> {
         if Instant::now() - self.last_run > Duration::from_secs(5) {
             let mut metadata = state.metadata_mut::<AutarkieStats>()?;
             std::fs::write(
@@ -75,7 +75,7 @@ impl<I, S> Restartable<S> for StatsStage<I> {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, libafl::SerdeAny, Default)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, libafl_bolts::SerdeAny, Default)]
 pub struct AutarkieStats {
     mutations: BTreeMap<MutationMetadata, usize>,
 }

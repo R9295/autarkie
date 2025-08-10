@@ -1,13 +1,13 @@
 //! Stage that wraps mutating stages for stats and cleanup
 use crate::fuzzer::context::MutationMetadata;
 use crate::Visitor;
-use crate::{fuzzer::Context, Node};
+use crate::{fuzzer::context::Context, Node};
 use core::{marker::PhantomData, time::Duration};
 use libafl::inputs::BytesInput;
 use libafl::mutators::MutatorsTuple;
 use libafl::state::HasRand;
+use libafl_bolts::current_time;
 use libafl_bolts::rands::Rand;
-use libafl_bolts::{current_time, Error};
 use std::cell::RefCell;
 use std::num::NonZero;
 use std::rc::Rc;
@@ -18,7 +18,7 @@ use libafl::{
     mutators::{MutationResult, Mutator},
     stages::{Restartable, Stage},
     state::HasCurrentTestcase,
-    Evaluator, HasMetadata,
+    Error, Evaluator, HasMetadata,
 };
 
 #[derive(Debug)]
@@ -58,8 +58,8 @@ where
         manager: &mut EM,
     ) -> Result<(), Error> {
         let mut metadata = state.metadata_mut::<Context>().expect("fxeZamEw____");
-        let mut input = crate::serialize(&state.current_input_cloned().unwrap());
-        let mut metadata = state.metadata_mut::<Context>().unwrap();
+        let mut input = crate::serialize(&state.current_input_cloned().expect("9ILr4PEQ____"));
+        let mut metadata = state.metadata_mut::<Context>().expect("kW2fTRId____");
         metadata.generated_input();
         for _ in 0..self.stack {
             let mutation = state
@@ -67,15 +67,10 @@ where
                 .below(unsafe { NonZero::new(self.inner.len()).unwrap_unchecked() })
                 .into();
             self.inner.get_and_mutate(mutation, state, &mut input);
-            #[cfg(not(feature = "scale"))]
             let Some(deserialized) = crate::maybe_deserialize(&input) else {
                 return Ok(());
             };
-            #[cfg(feature = "scale")]
-            let Some(deserialized) = crate::maybe_deserialize(&mut input.as_slice()) else {
-                return Ok(());
-            };
-            let mut metadata = state.metadata_mut::<Context>().unwrap();
+            let mut metadata = state.metadata_mut::<Context>().expect("oBusH4xj____");
             metadata.add_mutation(self.mutation_ty.clone());
             fuzzer.evaluate_input(state, executor, manager, &deserialized)?;
         }

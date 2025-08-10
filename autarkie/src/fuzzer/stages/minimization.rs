@@ -21,7 +21,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::fuzzer::Context;
+use crate::fuzzer::context::Context;
 
 #[derive(Debug)]
 pub struct MinimizationStage<C, E, O, OT, S, I> {
@@ -71,21 +71,17 @@ where
         executor: &mut E,
         state: &mut S,
         manager: &mut EM,
-    ) -> Result<(), libafl_bolts::Error> {
-        if state.current_testcase()?.scheduled_count() > 0 {
-            return Ok(());
-        }
-
-        let metadata = state.metadata::<Context>().unwrap();
+    ) -> Result<(), libafl::Error> {
+        let metadata = state.metadata::<Context>().expect("DPY5DSqO____");
         let novelties = state
             .current_testcase()
-            .unwrap()
+            .expect("94ebojGT____")
             .borrow()
             .metadata::<MapIndexesMetadata>()
-            .unwrap()
+            .expect("8brpxaUP____")
             .list
             .clone();
-        let mut current = state.current_input_cloned().unwrap();
+        let mut current = state.current_input_cloned().expect("y4XOxKLh____");
         current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut skip = 0;
         let mut fields = self.visitor.borrow_mut().fields();
@@ -96,8 +92,8 @@ where
             if field.is_none() {
                 break;
             }
-            let field = field.unwrap();
-            let ((id, node_ty), ty) = field.last().unwrap();
+            let field = field.expect("pN1np3WD____");
+            let ((id, node_ty), ty) = field.last().expect("Wg7NIEGf____");
             if let NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
                 let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
                 // NOTE: -1 because we zero index
@@ -135,7 +131,7 @@ where
         if found {
             let metadata = state
                 .metadata_mut::<AutarkieStats>()
-                .unwrap()
+                .expect("bqoSNJp4____")
                 .add_new_input_mutation(
                     crate::fuzzer::context::MutationMetadata::IterableMinimization,
                 );

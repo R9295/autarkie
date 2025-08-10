@@ -1,6 +1,7 @@
 use crate::{FieldLocation, Id, Node, Visitor};
-use libafl::{corpus::CorpusId, SerdeAny};
+use libafl::{corpus::CorpusId, inputs::ToTargetBytes, SerdeAny};
 use libafl_bolts::current_time;
+use libafl_bolts::AsSlice;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -17,16 +18,23 @@ pub enum InputCause {
 }
 #[derive(Debug, Clone, SerdeAny, Serialize, Deserialize)]
 pub struct Context {
+    render: bool,
     mutations: HashSet<MutationMetadata>,
     out_dir: PathBuf,
-    type_input_map: HashMap<Id, Vec<PathBuf>>,
+    pub type_input_map: HashMap<Id, Vec<PathBuf>>,
     input_cause: InputCause,
 }
 
 // TODO: chunk & cmp reloading
 impl Context {
-    pub fn register_input<I>(&mut self, input: &I, visitor: &mut Visitor)
-    where
+    pub fn register_input<I, TC>(
+        &mut self,
+        input: &I,
+        visitor: &mut Visitor,
+        converter: &mut TC,
+        is_solution: bool,
+    ) where
+        TC: ToTargetBytes<I>,
         I: Node,
     {
         let generated_fields = match &self.input_cause {
@@ -36,8 +44,12 @@ impl Context {
                 visitor.serialized()
             }
         };
+        let string_ty = String::__autarkie_id();
         for field in generated_fields {
             let (data, ty) = field;
+            if ty == string_ty {
+                visitor.register_string(crate::deserialize(&mut data.as_slice()));
+            }
             // todo: optimize this
             let path = self.out_dir.join("chunks").join(ty.to_string());
             match std::fs::create_dir(&path) {
@@ -58,6 +70,18 @@ impl Context {
                     self.type_input_map.insert(ty, vec![path]);
                 }
             }
+        }
+        let rendered = converter.to_target_bytes(&input);
+        let path = if is_solution {
+            self.out_dir.join("rendered_crashes")
+        } else {
+            self.out_dir.join("rendered_corpus")
+        };
+        let hash = blake3::hash(&rendered);
+        let path = path.join(hash.to_string());
+        if !std::fs::exists(&path).unwrap() {
+            // warn that the same input gave new coverage == instability!
+            std::fs::write(&path, rendered.as_slice()).unwrap();
         }
         self.input_cause = InputCause::Default;
     }
@@ -93,13 +117,14 @@ impl Context {
 }
 
 impl Context {
-    pub fn new(out_dir: PathBuf) -> Self {
+    pub fn new(out_dir: PathBuf, render: bool) -> Self {
         let type_input_map = HashMap::default();
         Self {
             mutations: HashSet::new(),
             input_cause: InputCause::Default,
             out_dir,
             type_input_map,
+            render,
         }
     }
 
@@ -136,14 +161,18 @@ pub enum MutationMetadata {
     SpliceSubSplice,
     /// Splice Append
     SpliceAppend,
+    /// Generate Append
+    GenerateAppend,
     /// Splice Single Node (never an iterable)
-    RecurseMutateSingle,
+    RandomMutateSingle,
     /// Random Generate Partial Iterable
-    RecurseMutateSubsplice,
+    RandomMutateSubsplice,
     /// RecursiveMinimization
     RecursiveMinimization,
     /// Iterable Minimization
     IterableMinimization,
+    /// Iterable Pop
+    IterablePop,
     /// Novelty Minimization
     NoveltyMinimization,
     /// Afl
@@ -152,6 +181,9 @@ pub enum MutationMetadata {
     Generate,
     /// Cmplog
     Cmplog,
+    /// CmplogBytes
+    CmplogBytes,
     /// I2S
     I2S,
+    Random,
 }

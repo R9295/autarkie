@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! impl_converter {
     ($t:ty) => {
-        #[derive(Clone)]
+        #[derive(Debug, Clone)]
         pub struct FuzzDataTargetBytesConverter;
 
         impl FuzzDataTargetBytesConverter {
@@ -10,7 +10,7 @@ macro_rules! impl_converter {
             }
         }
 
-        impl autarkie::TargetBytesConverter<$t> for FuzzDataTargetBytesConverter {
+        impl autarkie::ToTargetBytes<$t> for FuzzDataTargetBytesConverter {
             fn to_target_bytes<'a>(&mut self, input: &'a $t) -> autarkie::OwnedSlice<'a, u8> {
                 let bytes = autarkie::serialize(input);
                 let bytes = if bytes.len() == 0 {
@@ -24,7 +24,7 @@ macro_rules! impl_converter {
     };
     // We may want to render to bytes manually (eg: to_string) so we offer the possibility of a closure too.
     ($t:ty, $closure:expr) => {
-        #[derive(Clone)]
+        #[derive(Debug, Clone)]
         pub struct FuzzDataTargetBytesConverter;
 
         impl FuzzDataTargetBytesConverter {
@@ -33,7 +33,7 @@ macro_rules! impl_converter {
             }
         }
 
-        impl autarkie::TargetBytesConverter<$t> for FuzzDataTargetBytesConverter {
+        impl autarkie::ToTargetBytes<$t> for FuzzDataTargetBytesConverter {
             fn to_target_bytes<'a>(&mut self, input: &'a $t) -> autarkie::OwnedSlice<'a, u8> {
                 let bytes = $closure(input);
                 let bytes = if bytes.len() == 0 {

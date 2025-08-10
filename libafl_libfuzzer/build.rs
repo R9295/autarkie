@@ -80,6 +80,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         eprintln!("Autarkie: missing path to grammar source (AUTARKIE_GRAMMAR_SRC)");
         panic!("Autarkie: missing path to grammar source (AUTARKIE_GRAMMAR_SRC)");
     };
+    println!("cargo:rerun-if-changed={}", grammar_source);
 
     let grammar_source = PathBuf::from_str(&grammar_source)?;
     assert!(
@@ -278,7 +279,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .arg("--redefine-syms")
         .arg(redefined_symbols)
         .args([&archive_path, &redefined_archive_path]);
-
     assert!(
         objcopy_command.status().is_ok_and(|s| s.success()),
         "Couldn't rename allocators in the runtime crate! Do you have the llvm-tools component installed? (`rustup component add llvm-tools-preview` to install)"

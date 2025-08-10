@@ -6,26 +6,22 @@ use libafl::{
     state::{HasCorpus, HasRand},
     HasMetadata,
 };
-#[cfg(feature = "introspection")]
-use libafl::{mark_feature_time, start_timer};
 use libafl_bolts::{current_time, AsSlice, Named};
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
 
-use crate::fuzzer::Context;
+use crate::fuzzer::context::Context;
 
-use super::commons::calculate_subslice_bounds;
+use super::commons::{calculate_subslice_bounds, FileCache};
 
-pub const SPLICE_STACK: usize = 100;
+pub const SPLICE_STACK: usize = 1000;
+
 pub struct AutarkieSpliceMutator<I> {
     visitor: Rc<RefCell<Visitor>>,
     max_subslice_size: usize,
+    file_cache: FileCache,
     phantom: PhantomData<I>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[repr(u8)]
-pub enum Data {
-    Fields,
 }
 
 impl<I, S> Mutator<I, S> for AutarkieSpliceMutator<I>
@@ -35,12 +31,11 @@ where
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, libafl::Error> {
         let mut metadata = state.metadata_mut::<Context>()?;
-        let mut mutated_path = None;
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
-        let ((id, node_ty), ty) = field.last().unwrap();
+        let ((id, node_ty), ty) = field.last().expect("EfxPNdQ0____");
         if let crate::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
             let subslice = self.visitor.borrow_mut().coinflip_with_prob(0.6);
             if subslice && *field_len > 3 {
@@ -48,7 +43,6 @@ where
                     return Ok(MutationResult::Skipped);
                 };
                 let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                mutated_path = Some(path.clone());
                 let subslice_bounds = calculate_subslice_bounds(
                     *field_len,
                     self.max_subslice_size,
@@ -63,10 +57,12 @@ where
                                 .borrow_mut()
                                 .random_range(0, possible_splices.len() - 1),
                         )
-                        .unwrap();
-                    // TODO: cache this in memory
-                    let data = std::fs::read(random_splice).unwrap();
-                    #[cfg(debug_assertions)]
+                        .expect("BCUHhFol____");
+                    let data = self
+                        .file_cache
+                        .read_cached(random_splice)
+                        .expect("4phGbftw____");
+                    #[cfg(feature = "debug_mutators")]
                     println!("splice | subslice | {:?}", (&field, &path));
                     input.__autarkie_mutate(
                         &mut MutationType::Splice(&mut data.as_slice()),
@@ -79,32 +75,27 @@ where
                 let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) else {
                     return Ok(MutationResult::Skipped);
                 };
-                // unfortunately we need to replace the exact amount.
-                // cause we don't differentiate between vec and slice
                 let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                let items = (0..*field_len)
-                    .into_iter()
-                    .map(|_| {
-                        std::fs::read(
-                            possible_splices
-                                .get(
-                                    self.visitor
-                                        .borrow_mut()
-                                        .random_range(0, possible_splices.len() - 1),
-                                )
-                                .expect("NZkjgWib____"),
-                        )
-                        .expect("could not read splice file")
-                    })
-                    .collect::<Vec<_>>();
                 let mut data = if !*is_fixed_len {
                     crate::serialize_vec_len(if *field_len > 0 { *field_len } else { 0 })
                 } else {
                     vec![]
                 };
-                data.extend(items.iter().flatten());
-                mutated_path = Some(path.clone());
-                #[cfg(debug_assertions)]
+                // unfortunately we need to replace the exact amount.
+                // cause we don't differentiate between vec and slice
+                for _ in (0..*field_len) {
+                    let path = possible_splices
+                        .get(
+                            self.visitor
+                                .borrow_mut()
+                                .random_range(0, possible_splices.len() - 1),
+                        )
+                        .expect("NZkjgWib____");
+                    data.extend_from_slice(
+                        self.file_cache.read_cached(path).expect("____gJaxjQmU"),
+                    );
+                }
+                #[cfg(feature = "debug_mutators")]
                 println!("splice | full | {:?}", field);
                 input.__autarkie_mutate(
                     &mut MutationType::Splice(&mut data.as_slice()),
@@ -124,10 +115,12 @@ where
                         .borrow_mut()
                         .random_range(0, possible_splices.len() - 1),
                 )
-                .unwrap();
-            let data = std::fs::read(random_splice).unwrap();
-            mutated_path = Some(path.clone());
-            #[cfg(debug_assertions)]
+                .expect("____zyUpz0uu");
+            let data = self
+                .file_cache
+                .read_cached(random_splice)
+                .expect("____gJaxjQmU");
+            #[cfg(feature = "debug_mutators")]
             println!("splice | one | {:?} {:?}", field, path);
             input.__autarkie_mutate(
                 &mut MutationType::Splice(&mut data.as_slice()),
@@ -158,6 +151,7 @@ impl<I> AutarkieSpliceMutator<I> {
         Self {
             visitor,
             max_subslice_size,
+            file_cache: FileCache::new(256),
             phantom: PhantomData,
         }
     }

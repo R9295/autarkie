@@ -39,8 +39,9 @@ where
         executor: &mut E,
         state: &mut S,
         manager: &mut EM,
-    ) -> Result<(), libafl_bolts::Error> {
+    ) -> Result<(), libafl::Error> {
         let mut metadata = state.metadata_mut::<Context>()?;
+        self.visitor.borrow_mut().type_input_map = metadata.type_input_map.clone();
         metadata.generated_input();
         let Some(generated) = generate(&mut self.visitor.borrow_mut()) else {
             metadata.default_input();
@@ -58,7 +59,7 @@ pub fn generate<I>(visitor: &mut Visitor) -> Option<I>
 where
     I: Node,
 {
-    I::__autarkie_generate(visitor, &mut visitor.generate_depth(), &mut 0)
+    I::__autarkie_generate(visitor, &mut visitor.generate_depth(), 0, None)
 }
 
 impl<I, S> Restartable<S> for GenerateStage<I> {

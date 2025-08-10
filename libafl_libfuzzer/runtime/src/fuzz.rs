@@ -1,10 +1,9 @@
-use autarkie::TargetBytesConverter;
+use autarkie::ToTargetBytes;
 use core::ffi::c_int;
 use grammar_source::{FuzzData, FuzzDataTargetBytesConverter};
 use libafl::executors::ExitKind;
 use libafl::Error;
 use libafl_bolts::AsSlice;
-
 fn fuzz_many_forking(harness: &extern "C" fn(*const u8, usize) -> c_int) -> Result<(), Error> {
     let harness = |input: &FuzzData| {
         let target = FuzzDataTargetBytesConverter::new().to_target_bytes(input);

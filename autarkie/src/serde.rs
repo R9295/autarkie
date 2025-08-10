@@ -11,11 +11,12 @@ macro_rules! impl_node_serde_array {
             fn __autarkie_generate(
                 visitor: &mut Visitor,
                 depth: &mut usize,
-                cur_depth: &mut usize,
+                cur_depth: usize,
+                settings: Option<crate::GenerateSettings>,
             ) -> Option<Self> {
                 Some(
                     (0..$n)
-                        .map(|_| T::__autarkie_generate(visitor, depth, cur_depth))
+                        .map(|_| T::__autarkie_generate(visitor, depth, cur_depth, None))
                         .filter_map(|i| i)
                         .collect::<Vec<T>>()
                         .try_into()
@@ -34,11 +35,15 @@ macro_rules! impl_node_serde_array {
                 crate::NodeType::Iterable(true, $n, T::__autarkie_id())
             }
 
-            fn __autarkie_register(v: &mut Visitor, parent: Option<crate::Id>, variant: usize) {
+            fn __autarkie_register(
+                v: &mut Visitor,
+                parent: Option<(crate::Id, String)>,
+                variant: usize,
+            ) {
                 if !v.is_recursive(T::__autarkie_id()) {
                     T::__autarkie_register(v, parent, variant);
                 } else {
-                    v.register_ty(parent, T::__autarkie_id(), variant);
+                    v.register_ty(parent, T::__autarkie_id_tuple(), variant);
                     v.pop_ty();
                 }
             }
@@ -60,7 +65,7 @@ macro_rules! impl_node_serde_array {
                         }
                         MutationType::GenerateReplace(ref mut bias) => {
                             if let Some(generated) =
-                                Self::__autarkie_generate(visitor, bias, &mut 0)
+                                Self::__autarkie_generate(visitor, bias, 0, None)
                             {
                                 *self = generated;
                                 self.__autarkie_serialized(visitor);

@@ -21,7 +21,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::fuzzer::Context;
+use crate::fuzzer::context::Context;
 
 #[derive(Debug)]
 pub struct NoveltyMinimizationStage<C, E, O, OT, S, I> {
@@ -72,11 +72,7 @@ where
         executor: &mut E,
         state: &mut S,
         manager: &mut EM,
-    ) -> Result<(), libafl_bolts::Error> {
-        if state.current_testcase()?.scheduled_count() > 0 {
-            return Ok(());
-        }
-
+    ) -> Result<(), libafl::Error> {
         let metadata = state.metadata::<Context>().unwrap();
         let novelties = state
             .current_testcase()

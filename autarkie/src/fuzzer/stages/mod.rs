@@ -1,9 +1,9 @@
+#[cfg(any(feature = "libfuzzer", feature = "afl"))]
+pub mod autarkie_cmp;
 pub mod binary_mutator;
 #[cfg(feature = "afl")]
 pub mod cmp;
 pub mod generate;
-#[cfg(feature = "libfuzzer")]
-pub mod libfuzzer_cmp;
 pub mod minimization;
 pub mod mutating;
 pub mod mutational;

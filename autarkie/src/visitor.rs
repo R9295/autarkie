@@ -8,7 +8,10 @@ use petgraph::{
     graphmap::DiGraphMap,
     Directed,
 };
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap},
+    path::PathBuf,
+};
 
 /// The `Visitor` struct is the primary way to communicate with the Fuzz-ed type during runtime.
 /// Unforuntately procedural macros are rather limiting, so we must delegate effort to the runtime.
@@ -31,6 +34,7 @@ pub struct Visitor {
     /// a struct will be { Struct: {0: { usize, u32 } } }
     /// an enum will be { Enum: {variant_0: { usize, u32 },  variant_1: {u8}} }
     ty_map: BTreeMap<Id, BTreeMap<usize, BTreeSet<Id>>>,
+    ty_name_map: BTreeMap<Id, String>,
     /// Types we have already analyzed. to prevent infinite recursion
     ty_done: BTreeSet<Id>,
     /// A stack of types we are analyzing, to prevent infinite recursion
@@ -38,8 +42,10 @@ pub struct Visitor {
     /// Fields which are serialized by the Fuzz-ed type's instance. Used to save to corpora for splicing
     serialized: Vec<(Vec<u8>, Id)>,
     ty_generate_map: BTreeMap<Id, BTreeMap<GenerateType, BTreeSet<usize>>>,
+    pub type_input_map: HashMap<Id, Vec<PathBuf>>,
     /// State of randomnes
     rng: StdRand,
+    has_recursive_types: bool,
 }
 
 impl Visitor {
@@ -67,6 +73,10 @@ impl Visitor {
 
     pub fn random_range(&mut self, min: usize, max: usize) -> usize {
         self.rng.between(min, max)
+    }
+
+    pub fn set_seed(&mut self, seed: u64) {
+        self.rng.set_seed(seed);
     }
 
     pub fn register_field(&mut self, item: FieldLocation) {
@@ -116,28 +126,38 @@ impl Visitor {
         self.depth.iterate
     }
 
+    pub fn rand_asd(&mut self, t: &Id) -> Option<Vec<u8>> {
+        let maybe = self.coinflip_with_prob(0.3);
+        if maybe {
+            return None;
+        }
+        let Some(items) = self.type_input_map.get(t) else {
+            return None;
+        };
+        let items = items.clone();
+        Some(std::fs::read(items.get(self.random_range(0, items.len() - 1)).unwrap()).unwrap())
+    }
     /// This function adds a type to the type map
-    pub fn register_ty(&mut self, parent: Option<Id>, id: Id, variant: usize) {
-        self.ty_map_stack.push(id.clone());
-        #[cfg(debug_assertions)]
-        let parent = parent.unwrap_or("AutarkieInternalFuzzData".to_string());
-        #[cfg(not(debug_assertions))]
+    pub fn register_ty(&mut self, parent: Option<(Id, String)>, id: (Id, String), variant: usize) {
+        self.ty_map_stack.push(id.0.clone());
         // Let's hope we get no collisions!
-        let parent = parent.unwrap_or(u128::MIN);
-        if !self.ty_map.get(&parent).is_some() {
+        let parent = parent.unwrap_or((u128::MIN, "AutarkieRootFuzzData".to_string()));
+        if !self.ty_map.get(&parent.0).is_some() {
             self.ty_map.insert(
-                parent.clone(),
+                parent.0.clone(),
                 BTreeMap::from_iter([(variant, BTreeSet::new())]),
             );
+            self.ty_name_map.insert(parent.0.clone(), parent.1.clone());
         }
+        self.ty_name_map.insert(id.0.clone(), id.1.clone());
         self.ty_map
-            .get_mut(&parent)
+            .get_mut(&parent.0)
             .expect("____rwBG5LkVKH")
             .entry(variant)
             .and_modify(|i| {
-                i.insert(id.clone());
+                i.insert(id.0.clone());
             })
-            .or_insert(BTreeSet::from_iter([id.clone()]));
+            .or_insert(BTreeSet::from_iter([id.0.clone()]));
     }
 
     pub fn pop_ty(&mut self) {
@@ -218,6 +238,7 @@ impl Visitor {
                 .get(ty)
                 .unwrap_or(&BTreeSet::default())
                 .clone();
+            self.has_recursive_types = true;
             self.ty_generate_map.insert(
                 ty.clone(),
                 BTreeMap::from_iter([(GenerateType::Recursive, r_variants.clone())]),
@@ -261,9 +282,10 @@ impl Visitor {
     /// If not, we MAY NOT pick a recursive variant
     /// If we do not have any non-recursive variants we return None and the Input
     /// generation/mutation fails.
-    pub fn generate(&mut self, id: &Id, depth: &usize) -> Option<(usize, bool)> {
-        let consider_recursive = *depth < self.depth.generate;
+    pub fn generate(&mut self, id: &Id, depth: usize) -> Option<(usize, bool)> {
+        let consider_recursive = depth < self.depth.generate;
         let (variant, is_recursive) = if consider_recursive {
+            let consider_recursive_bias = self.random_range(0, 35) < 35;
             let variants = self.ty_generate_map.get(id).expect("____VbO3rGYTSf");
             let nr_variants = variants
                 .get(&GenerateType::NonRecursive)
@@ -273,7 +295,15 @@ impl Visitor {
                 .expect("____q154Wl5zf2");
             let nr_variants_len = nr_variants.len().saturating_sub(1);
             let r_variants_len = r_variants.len().saturating_sub(1);
-            let id = self.rng.between(0, nr_variants_len + r_variants_len);
+            let id = self.rng.between(
+                0,
+                nr_variants_len
+                    + if consider_recursive_bias {
+                        r_variants_len
+                    } else {
+                        0
+                    },
+            );
             if id <= nr_variants_len {
                 if let Some(nr_variant) = nr_variants.iter().nth(id) {
                     (nr_variant.clone(), false)
@@ -312,10 +342,22 @@ impl Visitor {
         };
         Some((variant, is_recursive))
     }
+    pub fn ty_name_map(&self) -> &BTreeMap<Id, String> {
+        &self.ty_name_map
+    }
+    pub fn ty_generate_map(&self) -> &BTreeMap<Id, BTreeMap<GenerateType, BTreeSet<usize>>> {
+        &self.ty_generate_map
+    }
+    pub fn has_recursive_types(&self) -> bool {
+        return self.has_recursive_types;
+    }
 
-    pub fn new(seed: u64, depth: DepthInfo) -> Self {
+    pub fn new(seed: u64, depth: DepthInfo, string_num: usize) -> Self {
         let mut visitor = Self {
+            has_recursive_types: false,
+            type_input_map: HashMap::new(),
             ty_generate_map: BTreeMap::default(),
+            ty_name_map: BTreeMap::default(),
             ty_done: BTreeSet::default(),
             ty_map_stack: vec![],
             depth,
@@ -327,12 +369,14 @@ impl Visitor {
             ty_map: BTreeMap::new(),
             rng: StdRand::with_seed(seed),
         };
-        visitor.strings.add_strings(&mut visitor.rng, 100, 10);
+        visitor
+            .strings
+            .add_strings(&mut visitor.rng, string_num, 10);
         return visitor;
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 pub enum NodeType {
     ///  A normal node
     NonRecursive,
@@ -370,8 +414,8 @@ pub struct DepthInfo {
     pub iterate: usize,
 }
 
-#[derive(Ord, PartialEq, Eq, PartialOrd, Debug, Clone)]
-enum GenerateType {
+#[derive(Ord, PartialEq, Eq, PartialOrd, Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum GenerateType {
     Recursive,
     NonRecursive,
 }

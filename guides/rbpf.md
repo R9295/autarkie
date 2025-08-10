@@ -15,12 +15,12 @@ Usually, the grammar is already defined for us.
 For example, ``sbpf`` already has an ``Insn`` struct but it includes the ``ptr`` field which we do not need. So we need to re-define it slightly.
 
 1. Add ``autarkie`` and ``serde`` as a dependency
-For autarkie, we need to pick a serialization primtive. Autarkie supports ``serde``, ``borsh`` and ``scale``.
-We will use ``serde`` as our serialization primitive.
+Since we are fuzzing with ``libfuzzer``, we add libfuzzer as a feature.
+
 ```
 # there are some dumb conflicts with the package libc 
 rm Cargo.lock
-cargo add autarkie --git https://github.com/R9295/autarkie --features bincode --features derive
+cargo add autarkie --git https://github.com/R9295/autarkie --features derive --features libfuzzer
 cargo add serde --features derive
 ```
 
@@ -252,10 +252,11 @@ For more cores, use ``-c 0-7`` for 8 cores and cores ``-c 0-15`` for 16 cores et
 
 We also give autarkie the path to the crate which contains the grammar (which exports ``FuzzData``). 
 It is ``pwd`` since we are in the root directory of the project.
+``cargo-fuzz`` does not play nice with ``LTO``, so we disable it. ``CARGO_PROFILE_RELEASE_LTO=false``
 ```bash
 $ pwd
 /fuzz/sbpf
-AUTARKIE_GRAMMAR_SRC=$(pwd) cargo fuzz run autarkie_harness -- -o ./output_dir -c0
+CARGO_PROFILE_RELEASE_LTO=false AUTARKIE_GRAMMAR_SRC=$(pwd) cargo fuzz run autarkie_harness -- -o ./output_dir -c0
 ```
 ## Important Note
 The fuzzing target MAY have autarkie as a dependency (in this case, it does). This means that autarkie, and all it's dependencies will also be instrumented for coverage, but they won't ever be run. So the "edges discovered" metric will be rather low.
@@ -271,7 +272,7 @@ Autarkie is working hard, it's just that many edges will be unreachable!
 $ pwd
 /fuzz/sbpf
 # For help
-AUTARKIE_GRAMMAR_SRC=$(pwd) cargo fuzz run autarkie_harness -- --help
+CARGO_PROFILE_RELEASE_LTO=false AUTARKIE_GRAMMAR_SRC=$(pwd) cargo fuzz run autarkie_harness -- --help
 ```
 
 ## Further work

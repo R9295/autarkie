@@ -12,16 +12,13 @@ use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData
 
 use crate::fuzzer::context::Context;
 
-use super::commons::FileCache;
-
 pub const SPLICE_APPEND_STACK: usize = 1000;
-pub struct AutarkieSpliceAppendMutator<I> {
+pub struct AutarkieGenerateAppendMutator<I> {
     visitor: Rc<RefCell<Visitor>>,
-    file_cache: FileCache,
     phantom: PhantomData<I>,
 }
 
-impl<I, S> Mutator<I, S> for AutarkieSpliceAppendMutator<I>
+impl<I, S> Mutator<I, S> for AutarkieGenerateAppendMutator<I>
 where
     I: Node,
     S: HasCorpus<I> + HasRand + HasMetadata,
@@ -49,32 +46,26 @@ where
             if *is_fixed_len {
                 return Ok(MutationResult::Skipped);
             }
-            if let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) {
-                // calculate subsplice size
+            let iter_count = self.visitor.borrow().iterate_depth();
+            let append_count = self.visitor.borrow_mut().random_range(1, iter_count);
+            let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
+            for _ in 0..append_count {
                 let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                let random_splice = possible_splices
-                    .get(
-                        self.visitor
-                            .borrow_mut()
-                            .random_range(0, possible_splices.len() - 1),
-                    )
-                    .expect("2T4FO2ig____");
-                let data = self
-                    .file_cache
-                    .read_cached(random_splice)
-                    .expect("4phGbftw____");
-                #[cfg(feature = "debug_mutators")]
-                println!("splice | splice_append | {:?}", (&field, &path));
+                let mut bias = if self.visitor.borrow_mut().coinflip() {
+                    self.visitor.borrow().generate_depth()
+                } else {
+                    0
+                };
                 input.__autarkie_mutate(
-                    &mut crate::MutationType::SpliceAppend(&mut data.as_slice()),
+                    &mut crate::MutationType::GenerateAppend(bias),
                     &mut self.visitor.borrow_mut(),
                     path.clone(),
                 );
-                metadata.add_mutation(crate::fuzzer::context::MutationMetadata::SpliceAppend);
-                return Ok(MutationResult::Mutated);
-            } else {
-                return Ok(MutationResult::Skipped);
             }
+            metadata.add_mutation(crate::fuzzer::context::MutationMetadata::GenerateAppend);
+            return Ok(MutationResult::Mutated);
+        } else {
+            return Ok(MutationResult::Skipped);
         }
         Ok(MutationResult::Skipped)
     }
@@ -88,15 +79,14 @@ where
     }
 }
 
-impl<I> Named for AutarkieSpliceAppendMutator<I> {
+impl<I> Named for AutarkieGenerateAppendMutator<I> {
     fn name(&self) -> &std::borrow::Cow<'static, str> {
-        &Cow::Borrowed("AutarkieSpliceAppendMutator")
+        &Cow::Borrowed("AutarkieGenerateAppendMutator")
     }
 }
-impl<I> AutarkieSpliceAppendMutator<I> {
+impl<I> AutarkieGenerateAppendMutator<I> {
     pub fn new(visitor: Rc<RefCell<Visitor>>) -> Self {
         Self {
-            file_cache: FileCache::new(256),
             visitor,
             phantom: PhantomData,
         }
