@@ -143,6 +143,9 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
             .expect("target returned illegal mapsize")
             .replace("\n", "");
         map_size.parse::<usize>().expect("illegal mapsize output")
+         if map_size % 64 != 0 {
+            map_size = = ((actual_map_size + 63) >> 6) << 6;
+        }
     };
 
     let fuzzer_dir = opt.output_dir.join(format!("{}", core.core_id().0));
