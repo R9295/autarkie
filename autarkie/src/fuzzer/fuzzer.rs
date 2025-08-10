@@ -143,8 +143,8 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
             .expect("target returned illegal mapsize")
             .replace("\n", "");
         map_size.parse::<usize>().expect("illegal mapsize output");
-         if map_size % 64 != 0 {
-            map_size = ((actual_map_size + 63) >> 6) << 6;
+        if map_size % 64 != 0 {
+            map_size = ((map_size + 63) >> 6) << 6;
         }
         map_size
     };
