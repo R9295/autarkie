@@ -15,8 +15,8 @@ Autarkie has several features that other grammar fuzzers do not have:
 - No grammar maintenance; because the grammar is part of the code, if the project is updated, the grammar updates too.
 - Grammar is completely exhaustive; the compiler will make sure that every necessary type is included. No more guesswork.
 - Corpus is re-usable. If you stop the fuzzer, you can re-start it and it will be able to re-use the corpus!
-- Can learn from other fuzzers! (TODO: almost implemented)
-- Has native [cmplog](https://www.ndss-symposium.org/ndss-paper/redqueen-fuzzing-with-input-to-state-correspondence/) support (TODO: almost implemented)
+- Can learn from other fuzzers! ``use -F to sync``
+- Has native [cmplog](https://www.ndss-symposium.org/ndss-paper/redqueen-fuzzing-with-input-to-state-correspondence/) support.
 
 # How to Use
 There are two main walkthroughs:
