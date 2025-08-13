@@ -1,4 +1,6 @@
 # Autarkie - Instant Grammar Fuzzing Using Rust Macros
+ <img align="right" src="image.jpeg" alt="LibAFL logo" width="250" heigh="250">
+
 Autarkie is a native grammar fuzzer built in Rust. Using procedural macros, it (almost completely) automatically creates a grammar fuzzer. 
 Autarkie is heavily inspired by [nautilus](https://github.com/nautilus-fuzz/nautilus).
 

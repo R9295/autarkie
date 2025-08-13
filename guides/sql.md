@@ -134,7 +134,7 @@ For more cores, use ``-c 0-7`` for 8 cores and cores ``-c 0-15`` for 16 cores et
 ```
 cd /tmp/sql-fuzzer/
 cargo build --release
-./target/release/sql-fuzzer  -o ./output_dir -c0 -m100 ./ossfuzz 
+./target/release/sql-fuzzer  -o ./output_dir -c0 ./ossfuzz 
 ```
 :)
 
@@ -142,7 +142,7 @@ cargo build --release
 Since Autarkie stores the input in it's internal format, if you want to view the actual input for the fuzzer. you can use the ``-r`` flag. 
 This will create the ``rendered_corpus`` and ``rendered_crashes`` directory, which will contain the actual SQL string.
 ```
-./target/release/sql-fuzzer  -o ./output_dir -c0 -m100 ./ossfuzz -r
+./target/release/sql-fuzzer  -o ./output_dir -c0 ./ossfuzz -r
 ```
 
 
