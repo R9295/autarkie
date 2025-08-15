@@ -49,7 +49,7 @@ where
     }
 
     fn __autarkie_id_name() -> String {
-        std::intrinsics::type_name::<Self>().to_string()
+        std::any::type_name::<Self>().to_string()
     }
 
     fn __autarkie_id_tuple() -> (Id, String) {
