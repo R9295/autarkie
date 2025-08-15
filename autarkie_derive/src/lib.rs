@@ -553,12 +553,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
             // If we do not have a literal attribute, we use the inner generate function of the type.
             if generator.is_none() {
                 generator = Some(quote! {
-                    let #name = if let Some(data) = v.rand_asd(&Self::__autarkie_id()) {        
-                        autarkie::maybe_deserialize(&mut data.as_slice())
-                        
-                    } else {
-                        <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth}, None)
-                    }?;
+                    let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth}, None)?;
                 });
             }
             // this should never happen, cause we either have a literal attribute or not.

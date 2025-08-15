@@ -41,7 +41,6 @@ where
         manager: &mut EM,
     ) -> Result<(), libafl::Error> {
         let mut metadata = state.metadata_mut::<Context>()?;
-        self.visitor.borrow_mut().type_input_map = metadata.type_input_map.clone();
         metadata.generated_input();
         let Some(generated) = generate(&mut self.visitor.borrow_mut()) else {
             metadata.default_input();
