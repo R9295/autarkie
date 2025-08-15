@@ -1,12 +1,14 @@
 use crate::{visitor, NodeType, Visitor};
 use serde::de::DeserializeOwned;
+use std::any::TypeId;
 use std::borrow::Cow;
+use std::hash::{Hasher, Hash};
 use std::{
     collections::{BTreeMap, VecDeque},
     marker::PhantomData,
 };
 
-pub type Id = u128;
+pub type Id = u64;
 
 #[derive(Debug)]
 pub enum MutationType<'a> {
@@ -40,7 +42,10 @@ where
 
 
     fn __autarkie_id() -> Id {
-        std::intrinsics::type_id::<Self>()
+        let mut hasher = twox_hash::XxHash64::default();
+        let type_id = std::any::TypeId::of::<Self>();
+        type_id.hash(&mut hasher);
+        hasher.finish()
     }
 
     fn __autarkie_id_name() -> String {
