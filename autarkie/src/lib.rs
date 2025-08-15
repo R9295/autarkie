@@ -25,7 +25,4 @@ pub mod fuzzer;
 pub use fuzzer::afl;
 pub use fuzzer::libfuzzer;
 
-
-pub fn hash(data: &[u8]) -> u64 {
-    twox_hash::XxHash64::oneshot(0, data)
-}
+pub use blake3::hash;
