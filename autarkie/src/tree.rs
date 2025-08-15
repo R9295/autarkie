@@ -2,7 +2,7 @@ use crate::{visitor, NodeType, Visitor};
 use serde::de::DeserializeOwned;
 use std::any::TypeId;
 use std::borrow::Cow;
-use std::hash::{Hasher, Hash};
+use std::hash::{Hash, Hasher};
 use std::{
     collections::{BTreeMap, VecDeque},
     marker::PhantomData,

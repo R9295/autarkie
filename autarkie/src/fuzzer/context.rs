@@ -60,7 +60,7 @@ impl Context {
                     }
                 }
             };
-            let hash = blake3::hash(&data);
+            let hash = twox_hash::XxHash64::oneshot(0, &data);
             let path = path.join(hash.to_string());
             if !std::fs::exists(&path).unwrap() {
                 std::fs::write(&path, data).unwrap();
@@ -77,7 +77,7 @@ impl Context {
         } else {
             self.out_dir.join("rendered_corpus")
         };
-        let hash = blake3::hash(&rendered);
+        let hash = twox_hash::XxHash64::oneshot(0, &rendered);
         let path = path.join(hash.to_string());
         if !std::fs::exists(&path).unwrap() {
             // warn that the same input gave new coverage == instability!
