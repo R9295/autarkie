@@ -133,6 +133,7 @@ version = "0.1.0"
 dependencies = [
  "autarkie_derive",
  "bincode 1.3.3",
+ "blake3",
  "clap",
  "colored",
  "criterion",
