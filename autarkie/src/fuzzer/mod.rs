@@ -7,7 +7,7 @@ mod fuzzer;
 mod hooks;
 pub mod libfuzzer;
 pub mod mutators;
-mod stages;
+pub mod stages;
 
 use crate::fuzzer::hooks::rare_share::RareShare;
 use crate::{Input, Node, ToTargetBytes};

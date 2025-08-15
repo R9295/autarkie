@@ -446,7 +446,7 @@ where
                 visitor, depth, cur_depth, None,
             )?))
         } else {
-            None
+            Some(None)
         }
     }
 
