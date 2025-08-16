@@ -1,5 +1,4 @@
 #![allow(warnings)]
-#![feature(core_intrinsics)]
 
 #[cfg(feature = "autarkie_derive")]
 pub use autarkie_derive::Grammar;

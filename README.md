@@ -43,11 +43,9 @@ This example fuzzes Solana's ``sbpf`` interpreter which is implemented in Rust. 
 Autarkie is in beta - expect issues, do not tread lightly. 
 
 ### Static Lifetimes
-The type MUST own all it's data; it cannot use lifetimes. This is due to the use of ``std::intrinsics::type_id`` which require types to have a ``'static`` lifetime.
+The type MUST own all it's data; it cannot use lifetimes. This is due to the use of ``std::any::type_id`` which require types to have a ``'static`` lifetime.
 
 Note: that you can simply write a wrapper type that owns all the data and converts it to the native type
-### Nightly only
-Limited to ``nightly`` due to the usage of  the ``#![feature(compiler_intrinsics)]`` feature.
 
 # Contributions
 Contributions, questions and feedback welcome. 

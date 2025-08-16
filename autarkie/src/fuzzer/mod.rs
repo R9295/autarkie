@@ -1,5 +1,4 @@
 #![allow(warnings)]
-#![feature(core_intrinsics)]
 pub mod afl;
 pub mod context;
 mod feedback;
