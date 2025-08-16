@@ -146,6 +146,12 @@ impl Visitor {
                 i.insert(id.0.clone());
             })
             .or_insert(BTreeSet::from_iter([id.0.clone()]));
+
+        // so types without members also get registered
+        if !self.ty_map.contains_key(&id.0) {
+            self.ty_map.insert(id.0.clone(), BTreeMap::new());
+            self.ty_name_map.insert(id.0.clone(), id.1.clone());
+        }
     }
 
     pub fn pop_ty(&mut self) {

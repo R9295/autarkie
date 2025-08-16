@@ -83,7 +83,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let node_impl = quote! {
                 impl #impl_generics ::autarkie::Node for #root_name #ty_generics #where_clause {
                     fn __autarkie_generate(v: &mut autarkie::Visitor, depth: &mut usize, cur_depth : usize, settings: Option<autarkie::GenerateSettings>) -> Option<Self> {
-                        let (_, is_recursive) = v.generate(&Self::__autarkie_id(), cur_depth)?;
+                        let is_recursive = false;
                         #generate
                     }
 
