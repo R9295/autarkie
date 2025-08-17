@@ -287,26 +287,19 @@ impl Visitor {
             let r_variants = variants
                 .get(&GenerateType::Recursive)
                 .expect("____q154Wl5zf2");
-            let nr_variants_len = nr_variants.len().saturating_sub(1);
-            let r_variants_len = r_variants.len().saturating_sub(1);
+            let nr_variants_len = nr_variants.len();
+            let r_variants_len = r_variants.len();
             let id = self.rng.between(
                 0,
-                nr_variants_len
+                (nr_variants_len
                     + if consider_recursive_bias {
                         r_variants_len
                     } else {
                         0
-                    },
+                    }).checked_sub(1)?,
             );
-            if id <= nr_variants_len {
-                if let Some(nr_variant) = nr_variants.iter().nth(id) {
-                    (nr_variant.clone(), false)
-                } else {
-                    (
-                        r_variants.iter().nth(id).expect("nd5oh1G2____").clone(),
-                        true,
-                    )
-                }
+            if id < nr_variants_len {
+                (nr_variants.iter().nth(id).expect("nd5oh1G2____").clone(), false)
             } else {
                 (
                     r_variants
