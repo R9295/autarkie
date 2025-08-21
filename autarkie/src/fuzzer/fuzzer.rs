@@ -41,7 +41,7 @@ use libafl::{
     executors::{
         ExitKind, ForkserverExecutor, InProcessExecutor, InProcessForkExecutor, ShadowExecutor,
     },
-    feedback_or, feedback_or_fast,
+    feedback_or, feedback_or_fast, feedback_and_fast, feedback_and
     feedbacks::{
         CrashFeedback, MaxMapFeedback, MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, TimeFeedback,
         TimeoutFeedback,
@@ -238,9 +238,14 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone(), false),
     );
 
-    let mut objective = feedback_or_fast!(
-        CrashFeedback::new(),
-        TimeoutFeedback::new(),
+    let mut objective = feedback_or!(
+        feedback_and_fast!(
+            CrashFeedback::new(),
+            feedback_and!(
+                ConstFeedback::new(!opt.ignore_timeouts),
+                TimeoutFeedback::new(),
+            )
+        ),
         RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone(), true),
     );
 
