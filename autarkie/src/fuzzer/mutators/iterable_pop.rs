@@ -15,7 +15,7 @@ use crate::fuzzer::context::Context;
 
 use super::commons::{calculate_subslice_bounds, FileCache};
 
-pub const SPLICE_STACK: usize = 1000;
+pub const SPLICE_STACK: usize = 500;
 
 pub struct AutarkieIterablePopMutator<I> {
     visitor: Rc<RefCell<Visitor>>,
