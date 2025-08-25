@@ -459,7 +459,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
                 splice_mutator,
                 AutarkieIterablePopMutator::new(Rc::clone(&visitor))
             ),
-            SPLICE_STACK,
+            opt.mutation_stack_size,
             Rc::clone(&visitor)
         ),
         StatsStage::new(fuzzer_dir),
