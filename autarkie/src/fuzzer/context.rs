@@ -40,9 +40,12 @@ impl Context {
         let generated_fields = match &self.input_cause {
             InputCause::Default => visitor.serialized(),
             InputCause::Generated => {
-                input.__autarkie_serialized(visitor);
-                visitor.serialized()
+                vec![]
             }
+        };
+        let generated_fields = {
+            input.__autarkie_serialized(visitor);
+            visitor.serialized()
         };
         let string_ty = String::__autarkie_id();
         for field in generated_fields {
