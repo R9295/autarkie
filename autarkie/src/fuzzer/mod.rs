@@ -104,7 +104,7 @@ pub(crate) struct Opt {
     /// debug the child
     #[arg(short = 'd')]
     debug_child: bool,
-    
+
     /// Ignore timeouts
     #[arg(long)]
     ignore_timeouts: bool,
@@ -158,6 +158,10 @@ pub(crate) struct Opt {
     /// capture strings from the binary (only useful if you have a lot of String nodes)
     #[arg(short = 'S')]
     get_strings: bool,
+
+    /// Amount of mutations per input
+    #[arg(long, default_value_t = 500)]
+    mutation_stack_size: usize,
 }
 
 #[macro_export]

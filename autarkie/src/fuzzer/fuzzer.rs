@@ -41,10 +41,10 @@ use libafl::{
     executors::{
         ExitKind, ForkserverExecutor, InProcessExecutor, InProcessForkExecutor, ShadowExecutor,
     },
-    feedback_or, feedback_or_fast, feedback_and_fast, feedback_and,
+    feedback_and, feedback_and_fast, feedback_or, feedback_or_fast,
     feedbacks::{
-        CrashFeedback, MaxMapFeedback, MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, TimeFeedback, ConstFeedback,
-        TimeoutFeedback,
+        ConstFeedback, CrashFeedback, MaxMapFeedback, MaxMapOneOrFilledFeedback,
+        MaxMapPow2Feedback, TimeFeedback, TimeoutFeedback,
     },
     inputs::{BytesInput, HasTargetBytes, InputConverter, ToTargetBytes},
     monitors::MultiMonitor,
@@ -459,7 +459,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
                 splice_mutator,
                 AutarkieIterablePopMutator::new(Rc::clone(&visitor))
             ),
-            SPLICE_STACK,
+            opt.mutation_stack_size,
             Rc::clone(&visitor)
         ),
         StatsStage::new(fuzzer_dir),
