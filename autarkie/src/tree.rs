@@ -97,7 +97,11 @@ where
     };
 }
 
+#[cfg(not(feature = "scale"))]
 node!(serde::ser::Serialize + DeserializeOwned + 'static);
+
+#[cfg(feature = "scale")]
+node!(parity_scale_codec::Encode + parity_scale_codec::Decode + 'static);
 
 impl<T: 'static> Node for PhantomData<T> {
     fn __autarkie_generate(
@@ -233,6 +237,95 @@ where
         for (index, child) in self.iter().enumerate() {
             visitor.register_field_stack((
                 (index, child.__autarkie_node_ty(visitor)),
+                T::__autarkie_id(),
+            ));
+            child.__autarkie_fields(visitor, 0);
+            visitor.pop_field();
+        }
+    }
+
+    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
+        for (index, child) in self.iter().enumerate() {
+            visitor.register_field_stack((
+                ((index, child.__autarkie_node_ty(visitor))),
+                T::__autarkie_id(),
+            ));
+            child.__autarkie_cmps(visitor, index, val);
+            visitor.pop_field();
+        }
+    }
+}
+
+#[cfg(feature = "scale")]
+impl<T, const N: usize> Node for [T; N]
+where
+    T: Node,
+{
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: usize,
+        settings: Option<crate::GenerateSettings>,
+    ) -> Option<Self> {
+        Some(
+            (0..N)
+                .map(|_| T::__autarkie_generate(visitor, depth, cur_depth, None))
+                .filter_map(|i| i)
+                .collect::<Vec<T>>()
+                .try_into()
+                .ok()?,
+        )
+    }
+
+    fn __autarkie_serialized(&self, visitor: &mut Visitor) {
+        for item in self {
+            visitor.add_serialized(serialize(&item), T::__autarkie_id());
+            item.__autarkie_serialized(visitor);
+        }
+    }
+
+    fn __autarkie_node_ty(&self, visitor: &Visitor) -> crate::NodeType {
+        crate::NodeType::Iterable(true, N, T::__autarkie_id())
+    }
+
+    fn __autarkie_register(v: &mut Visitor, parent: Option<(crate::Id, String)>, variant: usize) {
+        if !v.is_recursive(T::__autarkie_id()) {
+            T::__autarkie_register(v, parent, variant);
+        } else {
+            v.register_ty(parent, T::__autarkie_id_tuple(), variant);
+            v.pop_ty();
+        }
+    }
+
+    fn __autarkie_mutate(
+        &mut self,
+        ty: &mut MutationType,
+        visitor: &mut Visitor,
+        mut path: VecDeque<usize>,
+    ) {
+        if let Some(popped) = path.pop_front() {
+            self.get_mut(popped)
+                .expect("mdNWnhI6____")
+                .__autarkie_mutate(ty, visitor, path);
+        } else {
+            match ty {
+                MutationType::Splice(other) => {
+                    *self = deserialize(other);
+                }
+                MutationType::GenerateReplace(ref mut bias) => {
+                    if let Some(generated) = Self::__autarkie_generate(visitor, bias, 0, None) {
+                        *self = generated;
+                        self.__autarkie_serialized(visitor);
+                    }
+                }
+                _ => unreachable!("tAL6LPUb____"),
+            }
+        }
+    }
+    fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
+        for (index, child) in self.iter().enumerate() {
+            visitor.register_field_stack((
+                ((index, child.__autarkie_node_ty(visitor))),
                 T::__autarkie_id(),
             ));
             child.__autarkie_fields(visitor, 0);
@@ -675,6 +768,8 @@ impl Node for std::string::String {
         Some(visitor.get_string())
     }
 }
+
+#[cfg(not(feature = "scale"))]
 impl Node for char {
     fn __autarkie_generate(
         visitor: &mut Visitor,
@@ -965,9 +1060,12 @@ impl_generate_simple!(i16, 2);
 impl_generate_simple!(i32, 4);
 impl_generate_simple!(i64, 8);
 impl_generate_simple!(i128, 32);
+#[cfg(not(feature = "scale"))]
 impl_generate_simple!(isize, 8);
+#[cfg(not(feature = "scale"))]
 impl_generate_simple!(usize, 8);
 
+#[cfg(not(feature = "scale"))]
 pub fn serialize<T>(data: &T) -> Vec<u8>
 where
     T: serde::Serialize,
@@ -975,6 +1073,7 @@ where
     bincode::serialize(data).expect("invariant; we must always be able to serialize")
 }
 
+#[cfg(not(feature = "scale"))]
 pub fn deserialize<T>(data: &mut &[u8]) -> T
 where
     T: DeserializeOwned,
@@ -982,11 +1081,46 @@ where
     crate::maybe_deserialize(data).expect("invariant; we must always be able to deserialize")
 }
 
+#[cfg(not(feature = "scale"))]
 pub fn serialize_vec_len(len: usize) -> Vec<u8> {
     bincode::serialize(&(len as u64)).expect("invariant; we must always be able to serialize")
 }
 
-pub fn maybe_deserialize<T>(data: &[u8]) -> Option<T>
+#[cfg(feature = "scale")]
+pub fn serialize<T>(data: &T) -> Vec<u8>
+where
+    T: parity_scale_codec::Encode,
+{
+    T::encode(data)
+}
+
+#[cfg(feature = "scale")]
+pub fn serialize_vec_len(len: usize) -> Vec<u8> {
+    use parity_scale_codec::Encode;
+    (parity_scale_codec::Compact(len as u32)).encode()
+}
+
+#[cfg(feature = "scale")]
+pub fn maybe_deserialize<T>(data: &mut &[u8]) -> Option<T>
+where
+    T: parity_scale_codec::Decode,
+{
+    let Ok(res) = T::decode(data) else {
+        return None;
+    };
+
+    Some(res)
+}
+#[cfg(feature = "scale")]
+pub fn deserialize<T>(data: &mut &[u8]) -> T
+where
+    T: parity_scale_codec::Decode,
+{
+    crate::maybe_deserialize(data).expect("invariant; we must always be able to deserialize")
+}
+
+#[cfg(not(feature = "scale"))]
+pub fn maybe_deserialize<T>(data: &mut &[u8]) -> Option<T>
 where
     T: DeserializeOwned,
 {
