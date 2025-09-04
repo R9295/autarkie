@@ -67,7 +67,7 @@ where
                 .below(unsafe { NonZero::new(self.inner.len()).unwrap_unchecked() })
                 .into();
             self.inner.get_and_mutate(mutation, state, &mut input);
-            let Some(deserialized) = crate::maybe_deserialize(&input) else {
+            let Some(deserialized) = crate::maybe_deserialize(&mut input.as_slice()) else {
                 return Ok(());
             };
             let mut metadata = state.metadata_mut::<Context>().expect("oBusH4xj____");
