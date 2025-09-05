@@ -17,6 +17,9 @@ pub use visitor::*;
 
 mod graph;
 
+#[cfg(feature = "scale")]
+pub mod scale;
+
 #[cfg(not(feature = "scale"))]
 pub mod serde;
 #[cfg(not(feature = "scale"))]
