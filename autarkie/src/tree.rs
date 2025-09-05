@@ -60,10 +60,6 @@ where
         Self::__autarkie_id()
     }
 
-    fn autarkie_deserialize(data: &mut &[u8]) -> Option<Self> {
-        crate::maybe_deserialize(data)
-    }
-
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {}
 
     fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {}
@@ -1116,7 +1112,11 @@ pub fn deserialize<T>(data: &mut &[u8]) -> T
 where
     T: parity_scale_codec::Decode,
 {
-    crate::maybe_deserialize(data).expect("invariant; we must always be able to deserialize")
+    let res = crate::maybe_deserialize(data);
+    if res.is_none() {
+        println!("{:?}", (std::any::type_name::<T>().to_string(), data));
+    }
+    res.expect("invariant; we must always be able to deserialize")
 }
 
 #[cfg(not(feature = "scale"))]
