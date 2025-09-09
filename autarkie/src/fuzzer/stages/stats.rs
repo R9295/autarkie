@@ -4,16 +4,18 @@ use crate::{
 };
 use libafl::{
     corpus::Corpus,
-    events::EventFirer,
+    events::{Event, EventFirer, EventWithStats},
     executors::Executor,
+    monitors::stats::{UserStats, UserStatsValue},
     stages::{Restartable, Stage},
-    state::{HasCorpus, HasCurrentTestcase},
+    state::{HasCorpus, HasCurrentTestcase, HasExecutions},
     Evaluator, HasMetadata,
 };
 use serde::Serialize;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashSet},
+    fmt::format,
     marker::PhantomData,
     path::PathBuf,
     rc::Rc,
@@ -40,7 +42,7 @@ impl<I> StatsStage<I> {
 impl<E, EM, Z, S, I> Stage<E, EM, S, Z> for StatsStage<I>
 where
     I: Node + Serialize,
-    S: HasCurrentTestcase<I> + HasCorpus<I> + HasMetadata,
+    S: HasCurrentTestcase<I> + HasCorpus<I> + HasMetadata + HasExecutions,
     E: Executor<EM, I, S, Z>,
     EM: EventFirer<I, S>,
     Z: Evaluator<E, EM, I, S>,
@@ -53,12 +55,25 @@ where
         manager: &mut EM,
     ) -> Result<(), libafl::Error> {
         if Instant::now() - self.last_run > Duration::from_secs(5) {
-            let mut metadata = state.metadata_mut::<AutarkieStats>()?;
-            std::fs::write(
-                self.out_dir.join("stats.json"),
-                serde_json::to_string_pretty(&metadata).expect("____YR5BenN6"),
-            )
-            .expect("____weNooV3S");
+            let mut metadata = state.metadata::<AutarkieStats>()?.clone();
+            let data = serde_json::to_string_pretty(&metadata).expect("____YR5BenN6");
+            std::fs::write(self.out_dir.join("stats.json"), &data).expect("____weNooV3S");
+            for (mutation, count) in metadata.mutations.iter() {
+                manager.fire(
+                    state,
+                    EventWithStats::with_current_time(
+                        Event::UpdateUserStats {
+                            name: format!("{:?}", mutation).into(),
+                            value: UserStats::new(
+                                UserStatsValue::Number(*count as u64),
+                                libafl::monitors::stats::AggregatorOps::Sum,
+                            ),
+                            phantom: PhantomData,
+                        },
+                        *state.executions(),
+                    ),
+                )?;
+            }
             self.last_run = Instant::now();
         }
         Ok(())
@@ -98,5 +113,8 @@ impl AutarkieStats {
                 *v += 1;
             })
             .or_insert(1);
+    }
+    pub fn mutations<'a>(&'a self) -> &BTreeMap<MutationMetadata, usize> {
+        &self.mutations
     }
 }

@@ -341,6 +341,17 @@ where
     }
 }
 
+impl Node for () {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: usize,
+        settings: Option<GenerateSettings>,
+    ) -> Option<Self> {
+        Some(())
+    }
+}
+
 impl<T> Node for Vec<T>
 where
     T: Node,

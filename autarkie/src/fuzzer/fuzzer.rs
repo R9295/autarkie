@@ -1,5 +1,6 @@
 use super::context::{self, MutationMetadata};
 use super::feedback::register::RegisterFeedback;
+use super::monitor::AutarkieMonitor;
 use super::mutators::iterable_pop::AutarkieIterablePopMutator;
 use super::mutators::recurse::AutarkieRecurseMutator;
 #[cfg(any(feature = "libfuzzer", feature = "afl"))]
@@ -90,7 +91,7 @@ pub type AutarkieState<I> = StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCo
 type AutarkieManager<I> =
     LlmpRestartingEventManager<(RareShare, ()), I, AutarkieState<I>, StdShMem, StdShMemProvider>;
 #[cfg(feature = "fuzzbench")]
-type AutarkieManager<F, I> = SimpleEventManager<I, SimpleMonitor<F>, AutarkieState<I>>;
+type AutarkieManager<F, I> = SimpleEventManager<I, AutarkieMonitor<F>, AutarkieState<I>>;
 
 macro_rules! define_run_client {
     ($state: ident, $mgr: ident, $core: ident, $bytes_converter: ident, $opt: ident, $harness: ident, $body:block) => {
@@ -384,7 +385,6 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         }
         let mut metadata = state.metadata_mut::<Context>().expect("fxeZamEw____");
         metadata.default_input();
-        println!("We imported {} inputs from disk.", state.corpus().count());
     }
     // The cmplog map shared between observer and executor
     #[cfg(feature = "afl")]

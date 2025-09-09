@@ -274,6 +274,9 @@ impl Visitor {
         let consider_recursive = depth < self.depth.generate;
         let (variant, is_recursive) = if consider_recursive {
             let consider_recursive_bias = self.random_range(0, 35) < 35;
+            if self.ty_generate_map.get(id).is_none() {
+                println!("{:?}", self.ty_name_map.get(id));
+            }
             let variants = self.ty_generate_map.get(id).expect("____VbO3rGYTSf");
             let nr_variants = variants
                 .get(&GenerateType::NonRecursive)
