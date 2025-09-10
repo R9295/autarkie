@@ -228,8 +228,8 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     let minimization_stage = IfStage::new(
         cb,
         tuple_list!(
-            NoveltyMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
             MinimizationStage::new(Rc::clone(&visitor), &map_feedback),
+            NoveltyMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
             RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
         ),
     );
@@ -289,6 +289,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     let scheduler =
         StdWeightedScheduler::with_schedule(&mut state, &edges_observer, Some(schedule));
     let mut fuzzer = StdFuzzerBuilder::new()
+        .input_filter(BloomInputFilter::new(1_000, 1e-4))
         .target_bytes_converter(bytes_converter.clone())
         .scheduler(scheduler)
         .feedback(feedback)
@@ -437,9 +438,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
               _event_manager: &mut _|
      -> Result<bool, Error> { Ok(is_main_node) };
     let sync_stage = IfStage::new(cb, tuple_list!(sync_stage));
-    let splice_mutator = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
-    let random_mutator = AutarkieRandomMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
-    let splice_append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
+
     #[cfg(feature = "libfuzzer")]
     let i2s = AutarkieBinaryMutatorStage::new(
         tuple_list!(I2SRandReplace::new()),
@@ -454,10 +453,36 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         AutarkieCmpLogStage::new(Rc::clone(&visitor)),
         AutarkieMutationalStage::new(
             tuple_list!(
-                splice_append_mutator,
-                random_mutator,
-                splice_mutator,
+                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size, 0, 25),
+                AutarkieRandomMutator::new(Rc::clone(&visitor), opt.max_subslice_size, 0, 25),
+                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
                 AutarkieIterablePopMutator::new(Rc::clone(&visitor))
+            ),
+            opt.mutation_stack_size,
+            Rc::clone(&visitor)
+        ),
+        AutarkieMutationalStage::new(
+            tuple_list!(
+                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size, 0, 50),
+                AutarkieRandomMutator::new(Rc::clone(&visitor), opt.max_subslice_size, 0, 50),
+                AutarkieSpliceAppendMutator::new(Rc::clone(&visitor)),
+                AutarkieIterablePopMutator::new(Rc::clone(&visitor)),
+            ),
+            opt.mutation_stack_size,
+            Rc::clone(&visitor)
+        ),
+        AutarkieMutationalStage::new(
+            tuple_list!(
+                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size, 50, 75),
+                AutarkieRandomMutator::new(Rc::clone(&visitor), opt.max_subslice_size, 50, 75),
+            ),
+            opt.mutation_stack_size,
+            Rc::clone(&visitor)
+        ),
+        AutarkieMutationalStage::new(
+            tuple_list!(
+                AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size, 75, 100),
+                AutarkieRandomMutator::new(Rc::clone(&visitor), opt.max_subslice_size, 75, 100),
             ),
             opt.mutation_stack_size,
             Rc::clone(&visitor)

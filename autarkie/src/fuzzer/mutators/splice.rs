@@ -21,6 +21,8 @@ pub struct AutarkieSpliceMutator<I> {
     visitor: Rc<RefCell<Visitor>>,
     max_subslice_size: usize,
     file_cache: FileCache,
+    min: usize,
+    max: usize,
     phantom: PhantomData<I>,
 }
 
@@ -33,7 +35,11 @@ where
         let mut metadata = state.metadata_mut::<Context>()?;
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
-        let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
+        fields.sort_by(|a, b| a.len().cmp(&b.len()));
+        let field_len = fields.len() - 1;
+        let start = field_len / 100 * self.min;
+        let end = field_len / 100 * self.max;
+        let field_splice_index = self.visitor.borrow_mut().random_range(start, end);
         let field = &fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().expect("EfxPNdQ0____");
         if let crate::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
@@ -147,8 +153,10 @@ impl<I> Named for AutarkieSpliceMutator<I> {
     }
 }
 impl<I> AutarkieSpliceMutator<I> {
-    pub fn new(visitor: Rc<RefCell<Visitor>>, max_subslice_size: usize) -> Self {
+    pub fn new(visitor: Rc<RefCell<Visitor>>, max_subslice_size: usize, min: usize, max: usize) -> Self {
         Self {
+            min,
+            max,
             visitor,
             max_subslice_size,
             file_cache: FileCache::new(256),
