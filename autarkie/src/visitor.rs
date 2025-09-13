@@ -45,6 +45,8 @@ pub struct Visitor {
     /// State of randomnes
     rng: StdRand,
     has_recursive_types: bool,
+    recursive_counter: HashMap<Id, usize>,
+    generate_stack: Vec<Vec<Id>>,
 }
 
 impl Visitor {
@@ -261,6 +263,11 @@ impl Visitor {
             .contains(&variant)
     }
 
+    pub fn generated(&mut self) {
+        self.generate_stack.pop();
+        self.recursive_counter = HashMap::new();
+    }
+
     #[inline]
     // TODO: refactor
     /// This function is used by enums to determine which variant to generate.
@@ -271,8 +278,30 @@ impl Visitor {
     /// If we do not have any non-recursive variants we return None and the Input
     /// generation/mutation fails.
     pub fn generate(&mut self, id: &Id, depth: usize) -> Option<(usize, bool)> {
-        let consider_recursive = depth < self.depth.generate;
-        let (variant, is_recursive) = if consider_recursive {
+        if let Some(current_stack) = self.generate_stack.last_mut() {
+            current_stack.push(*id);
+        } else {
+            self.generate_stack.push(vec![*id]);
+        };
+        let is_recursive = |frames: &Vec<Vec<Id>>, id: &Id| {
+            for frame in frames {
+                if frame.contains(id) {
+                    return true;
+                }
+            }
+            false
+        };
+        if is_recursive(&self.generate_stack, id) {
+            if let Some(count) = self.recursive_counter.get_mut(id) {
+                *count = count.checked_add(1).expect("invariant bruh");
+                if *count > self.generate_depth() {
+                    return None;
+                }
+            } else {
+                self.recursive_counter.insert(id.clone(), 1);
+            }
+        }
+        let (variant, is_recursive) = {
             let consider_recursive_bias = self.random_range(0, 35) < 35;
             if self.ty_generate_map.get(id).is_none() {
                 println!("{:?}", self.ty_name_map.get(id));
@@ -314,22 +343,6 @@ impl Visitor {
                     true,
                 )
             }
-        } else {
-            let variants = self
-                .ty_generate_map
-                .get(id)
-                .expect("____clESlzqUbX")
-                .get(&GenerateType::NonRecursive)
-                .expect("____ffxyyA6Nub");
-            if variants.len() == 0 {
-                return None;
-            }
-            let variants_len = variants.len().saturating_sub(1);
-            let nth = self.rng.between(0, variants_len);
-            (
-                variants.iter().nth(nth).expect("____pvPK973BLH").clone(),
-                false,
-            )
         };
         Some((variant, is_recursive))
     }
@@ -345,6 +358,8 @@ impl Visitor {
 
     pub fn new(seed: u64, depth: DepthInfo, string_num: usize) -> Self {
         let mut visitor = Self {
+            generate_stack: vec![],
+            recursive_counter: HashMap::new(),
             has_recursive_types: false,
             ty_generate_map: BTreeMap::default(),
             ty_name_map: BTreeMap::default(),
