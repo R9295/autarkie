@@ -286,9 +286,8 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         5 => PowerSchedule::fast(),
         _ => unreachable!(),
     };
-    /* let scheduler =
-        StdWeightedScheduler::with_schedule(&mut state, &edges_observer, Some(schedule)); */
-    let scheduler = QueueScheduler::new();
+    let scheduler =
+        StdWeightedScheduler::with_schedule(&mut state, &edges_observer, Some(schedule));
     let mut fuzzer = StdFuzzerBuilder::new()
         .input_filter(BloomInputFilter::new(1_000, 1e-4))
         .target_bytes_converter(bytes_converter.clone())
