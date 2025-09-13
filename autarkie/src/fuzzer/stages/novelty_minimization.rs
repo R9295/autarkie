@@ -86,6 +86,7 @@ where
         current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut skip = 0;
         let mut fields = self.visitor.borrow_mut().fields();
+        fields.reverse();
         let mut found = false;
         loop {
             let field = fields.pop();
