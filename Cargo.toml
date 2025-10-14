@@ -3,6 +3,7 @@ edition = "2021"
 
 members = [
 	"autarkie", 
+	"rl-bandit",
 	"autarkie_derive", 
 	"autarkie_test",
 	"libafl_libfuzzer",

@@ -1,4 +1,4 @@
-use crate::{fuzzer::stages::stats::AutarkieStats, MutationType, Node, NodeType, Visitor};
+use crate::{fuzzer::stages::stats::AutarkieStats, MutationType, Node, NodeType, Visitor, Id};
 use libafl::{
     corpus::Corpus,
     events::EventFirer,
@@ -11,6 +11,7 @@ use libafl::{
 };
 use libafl_bolts::{tuples::Handle, AsIter, Named};
 use num_traits::Bounded;
+use rl_bandit::bandits::ucb::UCB;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::{Borrow, Cow},

@@ -57,16 +57,10 @@ where
                 for index in subslice_bounds {
                     let mut child_path = path.clone();
                     child_path.push_back(index);
-                    let random_splice = possible_splices
-                        .get(
-                            self.visitor
-                                .borrow_mut()
-                                .random_range(0, possible_splices.len() - 1),
-                        )
-                        .expect("BCUHhFol____");
+                    let random_splice = metadata.get_input_for_type(&inner_ty).unwrap();
                     let data = self
                         .file_cache
-                        .read_cached(random_splice)
+                        .read_cached(&random_splice)
                         .expect("4phGbftw____");
                     #[cfg(feature = "debug_mutators")]
                     println!("splice | subslice | {:?}", (&field, &path));
@@ -90,15 +84,9 @@ where
                 // unfortunately we need to replace the exact amount.
                 // cause we don't differentiate between vec and slice
                 for _ in (0..*field_len) {
-                    let path = possible_splices
-                        .get(
-                            self.visitor
-                                .borrow_mut()
-                                .random_range(0, possible_splices.len() - 1),
-                        )
-                        .expect("NZkjgWib____");
+                    let path = metadata.get_input_for_type(&inner_ty).unwrap();
                     data.extend_from_slice(
-                        self.file_cache.read_cached(path).expect("____gJaxjQmU"),
+                        self.file_cache.read_cached(&path).expect("____gJaxjQmU"),
                     );
                 }
                 #[cfg(feature = "debug_mutators")]
@@ -115,16 +103,10 @@ where
                 return Ok(MutationResult::Skipped);
             };
             let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-            let random_splice = possible_splices
-                .get(
-                    self.visitor
-                        .borrow_mut()
-                        .random_range(0, possible_splices.len() - 1),
-                )
-                .expect("____zyUpz0uu");
+            let random_splice = metadata.get_input_for_type(&ty).unwrap();
             let data = self
                 .file_cache
-                .read_cached(random_splice)
+                .read_cached(&random_splice)
                 .expect("____gJaxjQmU");
             #[cfg(feature = "debug_mutators")]
             println!("splice | one | {:?} {:?}", field, path);

@@ -2,6 +2,7 @@ use crate::{FieldLocation, Id, Node, Visitor};
 use libafl::{corpus::CorpusId, inputs::ToTargetBytes, SerdeAny};
 use libafl_bolts::current_time;
 use libafl_bolts::AsSlice;
+use rl_bandit::{bandit::Bandit, bandits::ucb::UCB};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -22,6 +23,7 @@ pub struct Context {
     mutations: HashSet<MutationMetadata>,
     out_dir: PathBuf,
     pub type_input_map: HashMap<Id, Vec<PathBuf>>,
+    pub type_input_ucb: HashMap<Id, (UCB, Vec<PathBuf>)>,
     input_cause: InputCause,
 }
 
@@ -68,9 +70,21 @@ impl Context {
             if !std::fs::exists(&path).unwrap() {
                 std::fs::write(&path, data).unwrap();
                 if let Some(e) = self.type_input_map.get_mut(&ty) {
-                    e.push(path);
+                    e.push(path.clone());
                 } else {
-                    self.type_input_map.insert(ty, vec![path]);
+                    self.type_input_map.insert(ty, vec![path.clone()]);
+                }
+                if let Some(e) = self.type_input_ucb.get_mut(&ty) {
+                    e.1.push(path.clone());
+                    e.0.increment_arm();
+                } else {
+                    self.type_input_ucb.insert(ty, (UCB::new(1, 1.0), vec![path] ) );
+                }
+            } else {
+                if let Some(e) = self.type_input_ucb.get_mut(&ty) {
+                    e.0.update(self.type_input_map.get(&ty).unwrap().iter().position(|i| *i == path).unwrap(), 1.0);
+                } else {
+                    panic!("invariant ucb");
                 }
             }
         }
@@ -117,6 +131,11 @@ impl Context {
     pub fn get_inputs_for_type(&self, t: &Id) -> Option<&Vec<PathBuf>> {
         self.type_input_map.get(t)
     }
+    
+    pub fn get_input_for_type(&mut self, t: &Id) -> Option<PathBuf> {
+        let opts = self.type_input_ucb.get_mut(t)?;
+        Some(opts.1.get(opts.0.choose_new()).unwrap().clone())
+    }
 }
 
 impl Context {
@@ -127,6 +146,7 @@ impl Context {
             input_cause: InputCause::Default,
             out_dir,
             type_input_map,
+            type_input_ucb: HashMap::default(),
             render,
         }
     }

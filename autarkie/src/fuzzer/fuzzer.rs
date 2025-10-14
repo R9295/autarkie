@@ -9,7 +9,7 @@ use crate::fuzzer::context::Context;
 #[cfg(feature = "afl")]
 use crate::fuzzer::stages::cmp::CmpLogStage;
 use crate::fuzzer::stages::generate::generate;
-use crate::{DepthInfo, Visitor};
+use crate::{DepthInfo, Visitor, Id, GenerateType};
 use clap::Parser;
 use libafl::executors::forkserver::SHM_CMPLOG_ENV_VAR;
 use libafl::executors::StdChildArgs;
@@ -77,6 +77,7 @@ use libafl_targets::{AflppCmpLogMap, AflppCmpLogObserver, AflppCmplogTracingStag
 use regex::Regex;
 
 use crate::fuzzer::hooks::rare_share::RareShare;
+use std::collections::HashMap;
 use std::io::{stderr, stdout, Write};
 use std::os::fd::AsRawFd;
 use std::path::Path;

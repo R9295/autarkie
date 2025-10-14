@@ -35,6 +35,7 @@ where
 
     #[cfg(feature = "afl")]
     let monitor = MultiMonitor::new(|s| println!("{s}"));
+/*     let monitor = MultiMonitor::new(|s| println!("{s}")); */
     // TODO: -close_fd_mask from libfuzzer
     #[cfg(feature = "libfuzzer")]
     let monitor = MultiMonitor::new(create_monitor_closure());

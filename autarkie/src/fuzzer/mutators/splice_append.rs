@@ -52,16 +52,10 @@ where
             if let Some(possible_splices) = metadata.get_inputs_for_type(&inner_ty) {
                 // calculate subsplice size
                 let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                let random_splice = possible_splices
-                    .get(
-                        self.visitor
-                            .borrow_mut()
-                            .random_range(0, possible_splices.len() - 1),
-                    )
-                    .expect("2T4FO2ig____");
+                let random_splice = metadata.get_input_for_type(&inner_ty).unwrap();
                 let data = self
                     .file_cache
-                    .read_cached(random_splice)
+                    .read_cached(&random_splice)
                     .expect("4phGbftw____");
                 #[cfg(feature = "debug_mutators")]
                 println!("splice | splice_append | {:?}", (&field, &path));

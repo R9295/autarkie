@@ -8,6 +8,7 @@ use petgraph::{
     graphmap::DiGraphMap,
     Directed,
 };
+use rl_bandit::{bandit::Bandit, bandits::ucb::UCB};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     path::PathBuf,
@@ -47,6 +48,8 @@ pub struct Visitor {
     has_recursive_types: bool,
     recursive_counter: HashMap<Id, usize>,
     generate_stack: Vec<Vec<Id>>,
+    gen_data: HashMap<Id, UCB>,
+    variants: Vec<(Id, usize)>,
 }
 
 impl Visitor {
@@ -250,6 +253,16 @@ impl Visitor {
                     nr_variants,
                 )]));
         }
+        let gen_map = self.ty_generate_map().clone();
+        for (id, map) in gen_map.iter() {
+            let non_recursive = map.get(&GenerateType::NonRecursive).unwrap().len();
+            let recursive = map.get(&GenerateType::Recursive).unwrap().len();
+            if self.gen_data.get(id).is_none() {
+                println!("{:?}", non_recursive + recursive);
+                self.gen_data
+                    .insert(*id, UCB::new(non_recursive + recursive, 1.0));
+            }
+        }
         return recursive_nodes;
     }
 
@@ -268,7 +281,6 @@ impl Visitor {
         self.recursive_counter = HashMap::new();
     }
 
-    #[inline]
     // TODO: refactor
     /// This function is used by enums to determine which variant to generate.
     /// Since some variant are recursive, we check whether our depth is under the recursive depth
@@ -302,49 +314,23 @@ impl Visitor {
             }
         }
         let (variant, is_recursive) = {
-            let consider_recursive_bias = self.random_range(0, 35) < 35;
             if self.ty_generate_map.get(id).is_none() {
                 println!("{:?}", self.ty_name_map.get(id));
             }
-            let variants = self.ty_generate_map.get(id).expect("____VbO3rGYTSf");
-            let nr_variants = variants
-                .get(&GenerateType::NonRecursive)
-                .expect("____lCAftArdHS");
-            let r_variants = variants
-                .get(&GenerateType::Recursive)
-                .expect("____q154Wl5zf2");
-            let nr_variants_len = nr_variants.len().saturating_sub(1);
-            let r_variants_len = r_variants.len().saturating_sub(1);
-            let id = self.rng.between(
-                0,
-                nr_variants_len
-                    + if consider_recursive_bias {
-                        r_variants_len
-                    } else {
-                        0
-                    },
-            );
-            if id <= nr_variants_len {
-                if let Some(nr_variant) = nr_variants.iter().nth(id) {
-                    (nr_variant.clone(), false)
-                } else {
-                    (
-                        r_variants.iter().nth(id).expect("nd5oh1G2____").clone(),
-                        true,
-                    )
-                }
-            } else {
-                (
-                    r_variants
-                        .iter()
-                        .nth(id.checked_sub(nr_variants_len).expect("____ibvCjQB5oX"))
-                        .expect("____LaawYczeqc")
-                        .clone(),
-                    true,
-                )
-            }
+            let res = self.gen_data.get(id).unwrap().choose();
+            self.variants.push((*id, res));
+            (res, false)
         };
         Some((variant, is_recursive))
+    }
+    pub fn done_input(&mut self, data: bool) {
+        for (id, variant) in &self.variants {
+            self.gen_data
+                .get_mut(id)
+                .unwrap()
+                .update(*variant, if data { 1.0 } else { 0.0 })
+        }
+        self.variants = vec![];
     }
     pub fn ty_name_map(&self) -> &BTreeMap<Id, String> {
         &self.ty_name_map
@@ -373,6 +359,8 @@ impl Visitor {
             strings: StringPool::new(),
             ty_map: BTreeMap::new(),
             rng: StdRand::with_seed(seed),
+            gen_data: HashMap::default(),
+            variants: vec![],
         };
         visitor
             .strings

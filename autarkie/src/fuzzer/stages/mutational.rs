@@ -59,7 +59,10 @@ where
                 .below(unsafe { NonZero::new(self.inner.len()).unwrap_unchecked() })
                 .into();
             if self.inner.get_and_mutate(idx, state, &mut current)? == MutationResult::Mutated {
-                fuzzer.evaluate_input(state, executor, manager, &current)?;
+                let res = fuzzer.evaluate_input(state, executor, manager, &current)?;
+                if res.1.is_some() {
+                    self.visitor.borrow_mut().done_input(true);
+                }
             }
             let _ = self.visitor.borrow_mut().serialized();
         }
