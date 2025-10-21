@@ -82,6 +82,7 @@ macro_rules! impl_input {
 macro_rules! fuzz_afl_inner {
     ($t: ty) => {
         fn main() {
+/*             unsafe { backtrace_on_stack_overflow::enable() }; */
             let harness: Option<fn(&$t) -> autarkie::LibAFLExitKind> = None;
             $crate::fuzzer::run_fuzzer(FuzzDataTargetBytesConverter::new(), harness);
         }

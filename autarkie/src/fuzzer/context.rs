@@ -84,7 +84,7 @@ impl Context {
                 if let Some(e) = self.type_input_ucb.get_mut(&ty) {
                     e.0.update(self.type_input_map.get(&ty).unwrap().iter().position(|i| *i == path).unwrap(), 1.0);
                 } else {
-                    panic!("invariant ucb");
+                    self.type_input_ucb.insert(ty, (UCB::new(1, 1.0), vec![path] ) );
                 }
             }
         }

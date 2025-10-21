@@ -230,6 +230,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         cb,
         tuple_list!(
             MinimizationStage::new(Rc::clone(&visitor), &map_feedback),
+            RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
             NoveltyMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
         ),
     );

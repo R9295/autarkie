@@ -277,8 +277,6 @@ impl Visitor {
     }
 
     pub fn generated(&mut self) {
-        self.generate_stack.pop();
-        self.recursive_counter = HashMap::new();
     }
 
     // TODO: refactor
@@ -290,28 +288,8 @@ impl Visitor {
     /// If we do not have any non-recursive variants we return None and the Input
     /// generation/mutation fails.
     pub fn generate(&mut self, id: &Id, depth: usize) -> Option<(usize, bool)> {
-        if let Some(current_stack) = self.generate_stack.last_mut() {
-            current_stack.push(*id);
-        } else {
-            self.generate_stack.push(vec![*id]);
-        };
-        let is_recursive = |frames: &Vec<Vec<Id>>, id: &Id| {
-            for frame in frames {
-                if frame.contains(id) {
-                    return true;
-                }
-            }
-            false
-        };
-        if is_recursive(&self.generate_stack, id) {
-            if let Some(count) = self.recursive_counter.get_mut(id) {
-                *count = count.checked_add(1).expect("invariant bruh");
-                if *count > self.generate_depth() {
-                    return None;
-                }
-            } else {
-                self.recursive_counter.insert(id.clone(), 1);
-            }
+        if depth > self.generate_depth() {
+            return None;
         }
         let (variant, is_recursive) = {
             if self.ty_generate_map.get(id).is_none() {
@@ -319,11 +297,13 @@ impl Visitor {
             }
             let res = self.gen_data.get(id).unwrap().choose();
             self.variants.push((*id, res));
-            (res, false)
+            let is_recursive = self.is_recursive_variant(*id, res);
+            (res, is_recursive)
         };
         Some((variant, is_recursive))
     }
     pub fn done_input(&mut self, data: bool) {
+        self.generate_stack = vec![];
         for (id, variant) in &self.variants {
             self.gen_data
                 .get_mut(id)
