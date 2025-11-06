@@ -239,7 +239,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     );
 
     let mut objective = feedback_or!(
-        feedback_and_fast!(
+        feedback_or_fast!(
             CrashFeedback::new(),
             feedback_and!(
                 ConstFeedback::new(!opt.ignore_timeouts),
