@@ -41,10 +41,10 @@ use libafl::{
     executors::{
         ExitKind, ForkserverExecutor, InProcessExecutor, InProcessForkExecutor, ShadowExecutor,
     },
-    feedback_or, feedback_or_fast, feedback_and_fast, feedback_and
+    feedback_and, feedback_and_fast, feedback_or, feedback_or_fast,
     feedbacks::{
-        CrashFeedback, MaxMapFeedback, MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, TimeFeedback,
-        TimeoutFeedback,
+        ConstFeedback, CrashFeedback, MaxMapFeedback, MaxMapOneOrFilledFeedback,
+        MaxMapPow2Feedback, TimeFeedback, TimeoutFeedback,
     },
     inputs::{BytesInput, HasTargetBytes, InputConverter, ToTargetBytes},
     monitors::MultiMonitor,

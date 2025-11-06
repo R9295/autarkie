@@ -104,7 +104,7 @@ pub(crate) struct Opt {
     /// debug the child
     #[arg(short = 'd')]
     debug_child: bool,
-    
+
     /// Ignore timeouts
     #[arg(long)]
     ignore_timeouts: bool,

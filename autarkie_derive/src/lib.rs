@@ -535,7 +535,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
                         }
                             let item = literals.first().unwrap();
                             generator = Some(quote! {
-                                let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth}, 
+                                let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth},
                                 Some(autarkie::GenerateSettings::Length(#item))
                             )?;
                             });
@@ -543,7 +543,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
                     else if ident == "autarkie_range" {
                         let range: syn::ExprRange = syn::parse(list.tokens.clone().into()).unwrap();
                             generator = Some(quote! {
-                                let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth}, 
+                                let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth},
                                 Some(autarkie::GenerateSettings::Range(#range))
                             )?;
                             });

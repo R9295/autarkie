@@ -62,21 +62,30 @@ where
         let mut reduced = HashSet::new();
         let mut reduced_bytes = HashSet::new();
         #[cfg(feature = "afl")]
-        let data = {
+        {
             let Ok(data) = state.metadata::<AflppCmpValuesMetadata>() else {
                 return Ok(());
             };
-            data.orig_cmpvals().values()
+            let values = data.orig_cmpvals().values();
+            for item in values {
+                for i in item.into_iter() {
+                    if let Some((left, right, _is_const)) = i.to_u64_tuple() {
+                        reduced.insert((left, right));
+                    } else {
+                        if let CmpValues::Bytes((left, right)) = i {
+                            reduced_bytes.insert(left.as_slice().to_vec());
+                            reduced_bytes.insert(right.as_slice().to_vec());
+                        }
+                    }
+                }
+            }
         };
         #[cfg(feature = "libfuzzer")]
-        let data = {
+        {
             let Ok(data) = state.metadata::<CmpValuesMetadata>() else {
                 return Ok(());
             };
-            &data.list
-        };
-        for item in data {
-            for i in item.into_iter() {
+            for i in data.list.iter() {
                 if let Some((left, right, _is_const)) = i.to_u64_tuple() {
                     reduced.insert((left, right));
                 } else {
@@ -86,7 +95,7 @@ where
                     }
                 }
             }
-        }
+        };
         let mut unmutated_input_bytes = crate::serialize(&unmutated_input);
         for cmp_chunk in reduced_bytes {
             let mut start = None;
