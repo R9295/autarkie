@@ -304,7 +304,7 @@ impl Visitor {
                 .expect("____q154Wl5zf2");
             let nr_variants_len = nr_variants.len().saturating_sub(1);
             let r_variants_len = r_variants.len().saturating_sub(1);
-            let nth = self.gen_data.get(id).unwrap().choose();
+            let nth = self.gen_data.get(id).unwrap().choose().saturating_sub(1);
             self.variants.push((*id, nth));
             if nth <= nr_variants_len {
                 if let Some(nr_variant) = nr_variants.iter().nth(nth) {
@@ -335,7 +335,7 @@ impl Visitor {
             if variants.len() == 0 {
                 return None;
             }
-            let nth = self.gen_data.get(id).unwrap().choose();
+            let nth = self.gen_data.get(id).unwrap().choose().saturating_sub(1);
             let ret = (variants.iter().nth(nth)?.clone(), false);
             self.variants.push((*id, nth));
             ret
