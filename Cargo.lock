@@ -988,8 +988,6 @@ name = "libafl_libfuzzer_runtime"
 version = "0.15.1"
 dependencies = [
  "ahash",
- "aut",
- "autarkie",
  "bindgen 0.71.1",
  "cc",
  "env_logger",

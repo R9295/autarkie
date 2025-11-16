@@ -68,7 +68,7 @@ where
         NodeType::NonRecursive
     }
 
-    fn __autarkie_serialized(&self, visitor: &mut Visitor){}
+    fn __autarkie_serialized(&self, visitor: &mut Visitor) {}
 
     fn __autarkie_mutate(&mut self, ty: &mut MutationType, visitor: &mut Visitor, path: VecDeque<usize>) {
         debug_assert!(path.len() == 0);
@@ -125,6 +125,18 @@ impl<T: 'static + Node + Clone> Node for Cow<'static, T> {
         self.as_ref().__autarkie_serialized(visitor);
     }
     // TODO: fields / mutate
+}
+
+impl Node for () {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: usize,
+        settings: Option<GenerateSettings>,
+    ) -> Option<Self> {
+        Some(())
+    }
+    fn __autarkie_serialized(&self, visitor: &mut Visitor) {}
 }
 
 impl<T> Node for Cow<'static, [T]>
