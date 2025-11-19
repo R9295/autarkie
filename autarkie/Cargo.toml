@@ -35,8 +35,17 @@ harness = false
 [features]
 derive = ["autarkie_derive"]
 introspection = ["libafl/introspection"]
-libfuzzer = []
+libfuzzer = ["libafl_targets/pointer_maps", "libafl_targets/sancov_8bit", "libafl_targets/cmplog"]
 afl = []
+llvm-fuzzer-no-link = [
+	"libafl_targets/std",
+	"libafl_targets/sancov_8bit",
+	"libafl_targets/observers",
+	"libafl_targets/libfuzzer",
+	"libafl_targets/cmplog",
+	"libafl_targets/sancov_cmplog",
+	"libafl_targets/sancov_pcguard_hitcounts",
+]
 debug_mutators = []
 fuzzbench = []
 scale = ["dep:parity-scale-codec"]

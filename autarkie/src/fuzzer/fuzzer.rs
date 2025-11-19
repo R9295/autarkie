@@ -2,7 +2,11 @@ use super::context::{self, MutationMetadata};
 use super::feedback::register::RegisterFeedback;
 use super::mutators::iterable_pop::AutarkieIterablePopMutator;
 use super::mutators::recurse::AutarkieRecurseMutator;
-#[cfg(any(feature = "libfuzzer", feature = "afl"))]
+#[cfg(any(
+    feature = "libfuzzer",
+    feature = "llvm-fuzzer-no-link",
+    feature = "afl"
+))]
 use super::stages::autarkie_cmp::AutarkieCmpLogStage;
 use crate::fuzzer::context::Context;
 #[cfg(feature = "afl")]
@@ -13,7 +17,7 @@ use clap::Parser;
 use libafl::executors::forkserver::SHM_CMPLOG_ENV_VAR;
 use libafl::executors::StdChildArgs;
 use libafl::monitors::SimpleMonitor;
-#[cfg(feature = "libfuzzer")]
+#[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
 use libafl::stages::ShadowTracingStage;
 use libafl::stages::{SyncFromDiskStage, TracingStage};
 use libafl::{events::LlmpRestartingEventManager, mutators::I2SRandReplace};
@@ -69,19 +73,21 @@ use libafl_bolts::{
     AsSliceMut, Error,
 };
 use libafl_bolts::{shmem::StdShMem, tuples::Merge};
-#[cfg(feature = "libfuzzer")]
-use libafl_targets::{extra_counters, CmpLogObserver};
+#[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
+use libafl_targets::{extra_counters, CmpLogObserver, COUNTERS_MAPS};
+#[cfg(any(feature = "llvm-fuzzer-no-link"))]
+use libafl_targets::{libfuzzer_initialize, libfuzzer_test_one_input};
 #[cfg(feature = "afl")]
 use libafl_targets::{AflppCmpLogMap, AflppCmpLogObserver, AflppCmplogTracingStage};
 use regex::Regex;
 
 use crate::fuzzer::hooks::rare_share::RareShare;
+use std::ffi::c_int;
 use std::io::{stderr, stdout, Write};
 use std::os::fd::AsRawFd;
 use std::path::Path;
 use std::str::FromStr;
 use std::{cell::RefCell, io::ErrorKind, path::PathBuf, process::Command, rc::Rc, time::Duration};
-use std::{env::args, ffi::c_int};
 
 use crate::{Input, Node};
 pub type AutarkieState<I> = StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>;
@@ -127,7 +133,11 @@ macro_rules! define_run_client {
     };
 }
 
-#[cfg(any(feature = "libfuzzer", feature = "afl"))]
+#[cfg(any(
+    feature = "libfuzzer",
+    feature = "afl",
+    feature = "llvm-fuzzer-no-link"
+))]
 define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     let is_main_node = opt.cores.position(core.core_id()).unwrap() == 0;
     if !opt.output_dir.exists() {
@@ -157,8 +167,8 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
                 panic!("{:?}", e)
             }
         }
-    };
-    #[cfg(feature = "libfuzzer")]
+    }
+    #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let cmplog_observer = CmpLogObserver::new("cmplog", true);
     // Create the shared memory map for comms with the forkserver
     #[cfg(feature = "afl")]
@@ -179,9 +189,15 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
             .track_indices()
             .track_novelties()
     };
-    #[cfg(feature = "libfuzzer")]
+    let counters_map_len = unsafe { COUNTERS_MAPS.len() };
+    assert!(
+        (counters_map_len == 1),
+        "{}",
+        format!("Unexpected COUNTERS_MAPS length: {counters_map_len}")
+    );
+    #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let edges = unsafe { extra_counters() };
-    #[cfg(feature = "libfuzzer")]
+    #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let edges_observer = StdMapObserver::from_mut_slice("edges", edges.into_iter().next().unwrap())
         .track_indices()
         .track_novelties();
@@ -306,9 +322,10 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         .shmem_provider(&mut shmem_provider)
         .build_dynamic_map(edges_observer, tuple_list!(time_observer))
         .unwrap();
-    #[cfg(feature = "libfuzzer")]
+
+    #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let mut harness = harness.unwrap();
-    #[cfg(feature = "libfuzzer")]
+    #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let mut executor = InProcessExecutor::with_timeout(
         &mut harness,
         tuple_list!(edges_observer, time_observer),
@@ -317,10 +334,10 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         &mut mgr,
         Duration::from_millis(opt.hang_timeout * 1000),
     )?;
-    #[cfg(feature = "libfuzzer")]
+    #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let mut executor = ShadowExecutor::new(executor, tuple_list!(cmplog_observer));
     // Setup a tracing stage in which we log comparisons
-    #[cfg(feature = "libfuzzer")]
+    #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let tracing = ShadowTracingStage::new();
 
     if let Some(dict_file) = &opt.dict_file {
@@ -440,7 +457,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     let splice_mutator = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let random_mutator = AutarkieRandomMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let splice_append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
-    #[cfg(feature = "libfuzzer")]
+    #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let i2s = AutarkieBinaryMutatorStage::new(
         tuple_list!(I2SRandReplace::new()),
         7,
@@ -465,7 +482,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         StatsStage::new(fuzzer_dir),
         sync_stage,
     );
-    #[cfg(feature = "libfuzzer")]
+    #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let mut stages = tuple_list!(
         minimization_stage,
         tracing,

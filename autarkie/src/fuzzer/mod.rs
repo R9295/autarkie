@@ -23,7 +23,11 @@ use libafl_bolts::tuples::tuple_list;
 use std::path::{Path, PathBuf};
 #[cfg(feature = "libfuzzer")]
 use std::{io::Write, str::FromStr};
-#[cfg(any(feature = "libfuzzer", feature = "afl"))]
+#[cfg(any(
+    feature = "libfuzzer",
+    feature = "afl",
+    feature = "llvm-fuzzer-no-link"
+))]
 pub fn run_fuzzer<I, TC, F>(bytes_converter: TC, harness: Option<F>)
 where
     I: Node + Input,
@@ -32,13 +36,13 @@ where
 {
     use libafl::monitors::SimpleMonitor;
 
-    #[cfg(feature = "afl")]
+    #[cfg(any(feature = "llvm-fuzzer-no-link", feature = "afl"))]
     let monitor = MultiMonitor::new(|s| println!("{s}"));
     // TODO: -close_fd_mask from libfuzzer
     #[cfg(feature = "libfuzzer")]
     let monitor = MultiMonitor::new(create_monitor_closure());
     let shmem_provider = StdShMemProvider::new().expect("Failed to init shared memory");
-    #[cfg(feature = "afl")]
+    #[cfg(any(feature = "afl", feature = "llvm-fuzzer-no-link"))]
     let opt = Opt::parse();
     #[cfg(feature = "libfuzzer")]
     let opt = {
