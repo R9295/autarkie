@@ -44,6 +44,12 @@ where
     let shmem_provider = StdShMemProvider::new().expect("Failed to init shared memory");
     #[cfg(any(feature = "afl", feature = "llvm-fuzzer-no-link"))]
     let opt = Opt::parse();
+    {
+        if let Some(run_path) = opt.run {
+            run_file_libfuzzer(run_path);
+            return;
+        }
+    }
     #[cfg(feature = "libfuzzer")]
     let opt = {
         let mut opt = std::env::args().collect::<Vec<_>>();
@@ -166,6 +172,10 @@ pub(crate) struct Opt {
     /// Amount of mutations per input
     #[arg(long, default_value_t = 500)]
     mutation_stack_size: usize,
+    
+    #[cfg(feature = "llvm-fuzzer-no-link")]
+    #[arg(long)]
+    run: Option<PathBuf>,
 }
 
 #[macro_export]
@@ -217,3 +227,34 @@ fn create_monitor_closure() -> impl Fn(&str) + Clone {
 #[cfg(feature = "libfuzzer")]
 /// Communicate the stderr duplicated fd to subprocesses
 pub const STDERR_FD_VAR: &str = "_LIBAFL_LIBFUZZER_STDERR_FD";
+
+#[cfg(feature = "llvm-fuzzer-no-link")]
+fn run_file_libfuzzer(input: PathBuf) {
+    let files = if input.is_dir() {
+        input
+            .read_dir()
+            .expect("Unable to read dir")
+            .filter_map(core::result::Result::ok)
+            .map(|e| e.path())
+            .collect()
+    } else {
+        vec![input]
+    };
+
+    // Call LLVMFuzzerInitialize() if present.
+    let args: Vec<String> = std::env::args().collect();
+    if unsafe { libafl_targets::libfuzzer_initialize(&args) } == -1 {
+        println!("Warning: LLVMFuzzerInitialize failed with -1");
+    }
+
+    for f in &files {
+        println!("\x1b[33mRunning: {}\x1b[0m", f.display());
+        let inp =
+            std::fs::read(f).unwrap_or_else(|_| panic!("Unable to read file {}", &f.display()));
+        if inp.len() > 1 {
+            unsafe {
+                libafl_targets::libfuzzer_test_one_input(&inp);
+            }
+        }
+    }
+}
