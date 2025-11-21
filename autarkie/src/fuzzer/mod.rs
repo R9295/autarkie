@@ -99,6 +99,9 @@ pub(crate) struct Opt {
     #[arg(short = 'o')]
     output_dir: PathBuf,
 
+    #[arg(short = 'n')]
+    disable_novelty_minimization: bool,
+
     /// Timeout in seconds
     #[arg(short = 't', default_value_t = 1)]
     hang_timeout: u64,
@@ -172,7 +175,7 @@ pub(crate) struct Opt {
     /// Amount of mutations per input
     #[arg(long, default_value_t = 500)]
     mutation_stack_size: usize,
-    
+
     #[cfg(feature = "llvm-fuzzer-no-link")]
     #[arg(long)]
     run: Option<PathBuf>,

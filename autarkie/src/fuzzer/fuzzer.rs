@@ -237,13 +237,25 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
               _executor: &mut _,
               state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
               _event_manager: &mut _|
+     -> Result<bool, Error> { Ok(!opt.disable_novelty_minimization) };
+    let novelty_minimization_stage = IfStage::new(
+        cb,
+        tuple_list!(NoveltyMinimizationStage::new(
+            Rc::clone(&visitor),
+            &map_feedback
+        ),),
+    );
+    let cb = |_fuzzer: &mut _,
+              _executor: &mut _,
+              state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
+              _event_manager: &mut _|
      -> Result<bool, Error> {
         Ok(state.current_testcase_mut()?.scheduled_count() == 0)
     };
     let minimization_stage = IfStage::new(
         cb,
         tuple_list!(
-            NoveltyMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
+            novelty_minimization_stage,
             MinimizationStage::new(Rc::clone(&visitor), &map_feedback),
             RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
         ),
