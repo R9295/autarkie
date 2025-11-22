@@ -44,6 +44,7 @@ where
     let shmem_provider = StdShMemProvider::new().expect("Failed to init shared memory");
     #[cfg(any(feature = "afl", feature = "llvm-fuzzer-no-link"))]
     let opt = Opt::parse();
+    #[cfg(any(feature = "llvm-fuzzer-no-link"))]
     {
         if let Some(run_path) = opt.run {
             run_file_libfuzzer(run_path);

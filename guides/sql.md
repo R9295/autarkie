@@ -20,7 +20,7 @@ git reset --hard 7703fd0d3180c2e8b347c11394084c3a2458be14
 1. Add ``autarkie`` as a dependency.
 Since the project already has serde serialization and deserialization support, we do not need to add it as a dependency.
 ``` bash
-cargo add autarkie --git https://github.com/R9295/autarkie --features derive --features afl
+cargo add autarkie --features derive --features afl
 ```
 2. Derive ``autarkie::Grammar`` macro for the AST.
 Since the parser already has serde support, we can simply find all places which have the ``Serialize`` macro and add autarkie's ``Grammar`` macro too.
@@ -63,7 +63,7 @@ The grammar source is the macro instrumented ``datafusion-sqlparser-rs``
 #  we add serde
 cargo add serde --features derive
 # we add autarkie with the afl, bincode and derive features
-cargo add autarkie --git https://github.com/R9295/autarkie --features derive --features afl
+cargo add autarkie --features derive --features afl
 # we add the grammar source WITH the serde feature
 cargo add sqlparser --path /tmp/datafusion-sqlparser-rs --features serde
 ```
