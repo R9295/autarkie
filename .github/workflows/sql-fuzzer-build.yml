@@ -26,46 +26,27 @@ jobs:
         git clone https://github.com/apache/datafusion-sqlparser-rs
         cd datafusion-sqlparser-rs
         git reset --hard 7703fd0d3180c2e8b347c11394084c3a2458be14
-
-    - name: Add autarkie as dependency to sqlparser
-      run: |
-        cd /tmp/datafusion-sqlparser-rs
         rm -f Cargo.lock
-        cargo add autarkie --path ${{ github.workspace }}/autarkie --features derive --features afl
-
-    - name: Derive Grammar macro for AST
-      run: |
-        cd /tmp/datafusion-sqlparser-rs
         rg "Serialize" --files-with-matches
         rg "Serialize" --files-with-matches | xargs -r sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g'
-
-    - name: Debug with SSH
-      uses: mxschmitt/action-tmate@v3
-    
-    - name: Modify grammar for fuzzing
-      run: |
-        cd /tmp/datafusion-sqlparser-rs
+        cargo add autarkie --path ${{ github.workspace }}/autarkie --features derive --features afl
         sed -i '390d' ./src/ast/mod.rs
         # Use perl for easier escape handling
         rg 'panic!\("unexpected quote style"\)' --files-with-matches | xargs -r perl -i -pe 's/panic!\("unexpected quote style"\)/write!(f, "\\"{}\\\"", value::escape_quoted_string(\&self.value, \x27"\x27))/g'
 
+
+    - name: Debug with SSH
+      uses: mxschmitt/action-tmate@v3
+    
     - name: Create fuzzer project
       run: |
         cd /tmp
         mkdir sql-fuzzer
         cd sql-fuzzer
         cargo init
-
-    - name: Add fuzzer dependencies
-      run: |
-        cd /tmp/sql-fuzzer
         cargo add serde --features derive
         cargo add autarkie --path ${{ github.workspace }}/autarkie --features derive --features afl
         cargo add sqlparser --path /tmp/datafusion-sqlparser-rs --features serde
-
-    - name: Create fuzzer code
-      run: |
-        cd /tmp/sql-fuzzer
         cat > src/main.rs << 'EOF'
         use sqlparser::ast::Statement;
 
@@ -88,10 +69,6 @@ jobs:
             ret
         });
         EOF
-    
-    - name: Build SQL fuzzer
-      run: |
-        cd /tmp/sql-fuzzer
         cargo build --release
 
     - name: Verify fuzzer binary exists
