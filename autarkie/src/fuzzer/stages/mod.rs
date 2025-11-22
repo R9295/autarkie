@@ -1,4 +1,8 @@
-#[cfg(any(feature = "libfuzzer", feature = "afl"))]
+#[cfg(any(
+    feature = "libfuzzer",
+    feature = "llvm-fuzzer-no-link",
+    feature = "afl"
+))]
 pub mod autarkie_cmp;
 pub mod binary_mutator;
 #[cfg(feature = "afl")]

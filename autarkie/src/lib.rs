@@ -10,6 +10,9 @@ pub use libafl::inputs::ToTargetBytes;
 pub use libafl::Error as LibAFLError;
 pub use libafl_bolts::ownedref::OwnedSlice;
 
+#[cfg(feature = "llvm-fuzzer-no-link")]
+pub use libafl_targets::{libfuzzer_initialize, libfuzzer_test_one_input};
+
 pub mod tree;
 pub mod visitor;
 pub use tree::*;

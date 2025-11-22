@@ -1,7 +1,7 @@
 use crate::{fuzzer::context::MutationMetadata, MutationType, Node, Visitor};
 #[cfg(feature = "afl")]
 use libafl::observers::{AflppCmpValuesMetadata, CmpValues, ObserversTuple};
-#[cfg(feature = "libfuzzer")]
+#[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
 use libafl::observers::{CmpValues, CmpValuesMetadata, ObserversTuple};
 use libafl::{
     corpus::Corpus,
@@ -80,7 +80,7 @@ where
                 }
             }
         };
-        #[cfg(feature = "libfuzzer")]
+        #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
         {
             let Ok(data) = state.metadata::<CmpValuesMetadata>() else {
                 return Ok(());
