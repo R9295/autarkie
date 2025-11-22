@@ -36,10 +36,7 @@ jobs:
     - name: Derive Grammar macro for AST
       run: |
         cd /tmp/datafusion-sqlparser-rs
-        # Use a for loop to avoid xargs escaping issues
-        rg 'Serialize' --files-with-matches | while read -r file; do
-          sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g' "$file"
-        done
+        rg "Serialize" --files-with-matches \| xargs -r sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g'
 
     - name: Debug with SSH
       uses: mxschmitt/action-tmate@v3
@@ -49,7 +46,7 @@ jobs:
         cd /tmp/datafusion-sqlparser-rs
         sed -i '390d' ./src/ast/mod.rs
         # Use perl for easier escape handling
-        rg 'panic!\("unexpected quote style"\)' --files-with-matches | xargs -r perl -i -pe 's/panic!\("unexpected quote style"\)/write!(f, "\\"{}\\\"", value::escape_quoted_string(\&self.value, \x27"\x27))/g'
+        rg 'panic!\("unexpected quote style"\)' --files-with-matches \| xargs -r perl -i -pe 's/panic!\("unexpected quote style"\)/write!(f, "\\"{}\\\"", value::escape_quoted_string(\&self.value, \x27"\x27))/g'
 
     - name: Create fuzzer project
       run: |
