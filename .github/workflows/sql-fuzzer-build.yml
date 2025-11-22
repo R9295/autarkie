@@ -38,7 +38,8 @@ jobs:
       run: |
         cd /tmp/datafusion-sqlparser-rs
         sed -i '390d' ./src/ast/mod.rs
-        rg "panic!\(\"unexpected quote style\"\)" --files-with-matches | xargs -r sed -i 's/panic!("unexpected quote style")/write!(f, "\\\"{}\\\"", value::escape_quoted_string(\&self.value, \'"\'))/g'
+        # Use perl for easier escape handling
+        rg 'panic!\("unexpected quote style"\)' --files-with-matches | xargs -r perl -i -pe 's/panic!\("unexpected quote style"\)/write!(f, "\\"{}\\\"", value::escape_quoted_string(\&self.value, \x27"\x27))/g'
 
     - name: Build instrumented sqlparser
       run: |
