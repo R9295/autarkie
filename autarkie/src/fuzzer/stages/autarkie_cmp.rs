@@ -1,8 +1,9 @@
 use crate::{fuzzer::context::MutationMetadata, MutationType, Node, Visitor};
 #[cfg(feature = "afl")]
-use libafl::observers::{AflppCmpValuesMetadata, CmpValues, ObserversTuple};
+use libafl::observers::AflppCmpValuesMetadata;
 #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
-use libafl::observers::{CmpValues, CmpValuesMetadata, ObserversTuple};
+use libafl::observers::CmpValuesMetadata;
+use libafl::observers::{CmpValues, ObserversTuple};
 use libafl::{
     corpus::Corpus,
     events::EventFirer,

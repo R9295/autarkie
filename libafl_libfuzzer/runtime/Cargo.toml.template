@@ -1,6 +1,6 @@
 [package]
-name = "libafl_libfuzzer_runtime"
-version = "0.15.1"
+name = "autarkie_libfuzzer_runtime"
+version = "0.3.0"
 edition = "2021"
 publish = false
 

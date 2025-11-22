@@ -22,22 +22,22 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if cfg!(not(any(target_os = "linux", target_os = "macos"))) {
         println!(
-            "cargo:warning=The libafl_libfuzzer runtime may only be built for linux or macos; failing fast."
+            "cargo:warning=The autarkie_libfuzzer runtime may only be built for linux or macos; failing fast."
         );
         return Ok(());
     }
 
-    println!("cargo:rerun-if-changed=libafl_libfuzzer_runtime/src");
-    println!("cargo:rerun-if-changed=libafl_libfuzzer_runtime/build.rs");
+    println!("cargo:rerun-if-changed=autarkie_libfuzzer_runtime/src");
+    println!("cargo:rerun-if-changed=autarkie_libfuzzer_runtime/build.rs");
 
     let custom_lib_dir =
-        AsRef::<Path>::as_ref(&std::env::var_os("OUT_DIR").unwrap()).join("libafl_libfuzzer");
+        AsRef::<Path>::as_ref(&std::env::var_os("OUT_DIR").unwrap()).join("autarkie_libfuzzer");
     let custom_lib_target = custom_lib_dir.join("target");
     fs::create_dir_all(&custom_lib_target)
         .expect("Couldn't create the output directory for the fuzzer runtime build");
 
     let lib_src: PathBuf = AsRef::<Path>::as_ref(&std::env::var_os("CARGO_MANIFEST_DIR").unwrap())
-        .join("libafl_libfuzzer_runtime");
+        .join("autarkie_libfuzzer_runtime");
 
     let mut command = Command::new(std::env::var_os("CARGO").unwrap());
     command
@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .arg("--target")
         .arg(std::env::var_os("TARGET").unwrap());
 
-    command.current_dir("../libafl_libfuzzer_runtime");
+    command.current_dir("../autarkie_libfuzzer_runtime");
     // autarkie: make sure we have a grammar source.
     let Ok(grammar_source) = std::env::var("AUTARKIE_GRAMMAR_SRC") else {
         eprintln!("Autarkie: missing path to grammar source (AUTARKIE_GRAMMAR_SRC)");
@@ -101,7 +101,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let name = name.get("name").unwrap().to_string();
 
     let mut template = toml::from_str(&std::fs::read_to_string(
-        "../libafl_libfuzzer_runtime/Cargo.toml",
+        "../autarkie_libfuzzer_runtime/Cargo.toml",
     )?)?;
     let toml::Value::Table(root) = &mut template else {
         unreachable!("Invalid Cargo.toml");
@@ -160,7 +160,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     deps.insert("grammar_source".to_string(), toml::Value::Table(dep));
     deps.insert("autarkie".to_string(), grammar_autarkie);
     let serialized = toml::to_string(&template)?;
-    fs::write("../libafl_libfuzzer_runtime/Cargo.toml", serialized)?;
+    fs::write("../autarkie_libfuzzer_runtime/Cargo.toml", serialized)?;
     assert!(
         command.status().is_ok_and(|s| s.success()),
         "Couldn't build runtime crate! Did you remember to use nightly? (`rustup default nightly` to install)"
@@ -169,7 +169,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut archive_path = custom_lib_target.join(std::env::var_os("TARGET").unwrap());
     archive_path.push("release");
 
-    archive_path.push("libafl_libfuzzer_runtime.a");
+    archive_path.push("autarkie_libfuzzer_runtime.a");
     let target_libdir = Command::new("rustc")
         .args(["--print", "target-libdir"])
         .output()
@@ -272,7 +272,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         objcopy_command
             .arg("--redefine-sym")
-            .arg(format!("{symbol}={symbol}_libafl_libfuzzer_runtime"));
+            .arg(format!("{symbol}={symbol}_autarkie_libfuzzer_runtime"));
     }
 
     objcopy_command
@@ -289,7 +289,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // NOTE: lib, .a are added always on unix-like systems as described in:
         // https://gist.github.com/novafacing/1389cbb2f0a362d7eb103e67b4468e2b
         println!(
-            "cargo:rustc-env=LIBAFL_LIBFUZZER_RUNTIME_PATH={}",
+            "cargo:rustc-env=autarkie_libfuzzer_RUNTIME_PATH={}",
             redefined_archive_path.display()
         );
     }
