@@ -20,7 +20,7 @@ Since we are fuzzing with ``libfuzzer``, we add libfuzzer as a feature.
 ```
 # there are some dumb conflicts with the package libc 
 rm Cargo.lock
-cargo add autarkie --git https://github.com/R9295/autarkie --features derive --features libfuzzer
+cargo add autarkie --features derive --features libfuzzer
 cargo add serde --features derive
 ```
 
@@ -235,8 +235,10 @@ vim fuzz/Cargo.toml
 ``` toml
 # replace
 # libfuzzer-sys = "0.4"
-# add
-libfuzzer-sys = {git = "https://github.com/R9295/autarkie", package = "libafl_libfuzzer"}
+```
+
+``` bash
+cargo add autarkie_libfuzzer --rename libfuzzer-sys
 ```
 2. Let's add bincode to deserialize
 ```
