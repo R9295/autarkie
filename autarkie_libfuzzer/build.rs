@@ -321,7 +321,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut archive_path = custom_lib_target.join(std::env::var_os("TARGET").unwrap());
     archive_path.push("release");
 
-    archive_path.push("autarkie_libfuzzer_runtime.a");
+    archive_path.push("libafl_libfuzzer_runtime.a");
     let target_libdir = Command::new("rustc")
         .args(["--print", "target-libdir"])
         .output()
