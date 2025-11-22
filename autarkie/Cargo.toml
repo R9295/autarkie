@@ -1,6 +1,6 @@
 [package]
 name = "autarkie"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 description = "autarkie - instant grammar fuzzing using rust"
 license = 'Apache-2.0'
@@ -14,7 +14,7 @@ autarkie_derive = {version = "0.2.0", optional = true}
 
 libafl = {workspace = true}
 libafl_bolts = {workspace = true}
-libafl_targets = {workspace = true}
+libafl_targets = {workspace = true, default-features = false}
 colored = "3.0.0"
 petgraph = "0.7.1"
 clap = { version = "4.5.20", features = ["derive"] }

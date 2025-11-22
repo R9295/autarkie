@@ -5,11 +5,8 @@ members = [
 	"autarkie", 
 	"autarkie_derive", 
 	"autarkie_test",
-	"autarkie_libfuzzer",
-]
-
-exclude = [
 	"autarkie_libfuzzer_runtime",
+	"autarkie_libfuzzer",
 ]
 
 [workspace.dependencies]
