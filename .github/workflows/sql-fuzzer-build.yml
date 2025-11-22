@@ -38,6 +38,9 @@ jobs:
         cd /tmp/datafusion-sqlparser-rs
         rg "Serialize" --files-with-matches | xargs -r sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g'
 
+    - name: Debug with SSH
+      uses: mxschmitt/action-tmate@v3
+    
     - name: Modify grammar for fuzzing
       run: |
         cd /tmp/datafusion-sqlparser-rs
