@@ -27,7 +27,7 @@ jobs:
     - name: Add autarkie as dependency to sqlparser
       run: |
         cd /tmp/datafusion-sqlparser-rs
-        cargo add autarkie --path ${{ github.workspace }} --features derive --features afl
+        cargo add autarkie --path ${{ github.workspace }}/autarkie --features derive --features afl
 
     - name: Derive Grammar macro for AST
       run: |
@@ -56,7 +56,7 @@ jobs:
       run: |
         cd /tmp/sql-fuzzer
         cargo add serde --features derive
-        cargo add autarkie --path ${{ github.workspace }} --features derive --features afl
+        cargo add autarkie --path ${{ github.workspace }}/autarkie --features derive --features afl
         cargo add sqlparser --path /tmp/datafusion-sqlparser-rs --features serde
 
     - name: Create fuzzer code

@@ -30,7 +30,7 @@ jobs:
       run: |
         cd /tmp/sbpf
         rm -f Cargo.lock
-        cargo add autarkie --path ${{ github.workspace }} --features derive --features libfuzzer
+        cargo add autarkie --path ${{ github.workspace }}/autarkie --features derive --features libfuzzer
         cargo add serde --features derive
 
     - name: Define Grammar in lib.rs
