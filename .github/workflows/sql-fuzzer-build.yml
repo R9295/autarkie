@@ -36,15 +36,14 @@ jobs:
     - name: Derive Grammar macro for AST
       run: |
         cd /tmp/datafusion-sqlparser-rs
-        rg "Serialize" --files-with-matches | xargs sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g'
+        rg "Serialize" --files-with-matches | xargs -r sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g'
 
     - name: Modify grammar for fuzzing
       run: |
         cd /tmp/datafusion-sqlparser-rs
         sed -i '390d' ./src/ast/mod.rs
-        # Replace panic with write! using bash variable to avoid escaping issues
-        REPLACEMENT='write!(f, "\"{}\"", value::escape_quoted_string(\&self.value, '"'"'\"'"'"'))'
-        rg 'panic!\("unexpected quote style"\)' --files-with-matches | xargs sed -i "s/panic!(\"unexpected quote style\")/$REPLACEMENT/g"
+        # Use perl for easier escape handling
+        rg 'panic!\("unexpected quote style"\)' --files-with-matches | xargs -r perl -i -pe 's/panic!\("unexpected quote style"\)/write!(f, "\\"{}\\\"", value::escape_quoted_string(\&self.value, \x27"\x27))/g'
 
     - name: Create fuzzer project
       run: |
