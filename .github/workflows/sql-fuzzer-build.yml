@@ -36,7 +36,10 @@ jobs:
     - name: Derive Grammar macro for AST
       run: |
         cd /tmp/datafusion-sqlparser-rs
-        rg "Serialize" --files-with-matches | xargs -r sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g'
+        # Use a for loop to avoid xargs escaping issues
+        rg 'Serialize' --files-with-matches | while read -r file; do
+          sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g' "$file"
+        done
 
     - name: Debug with SSH
       uses: mxschmitt/action-tmate@v3
