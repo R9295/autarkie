@@ -27,8 +27,7 @@ jobs:
         cd datafusion-sqlparser-rs
         git reset --hard 7703fd0d3180c2e8b347c11394084c3a2458be14
         rm -f Cargo.lock
-        rg "Serialize" --files-with-matches
-        rg "Serialize" --files-with-matches | xargs -r sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g'
+        grep -rl "Serialize" . | xargs -r sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g'
         cargo add autarkie --path ${{ github.workspace }}/autarkie --features derive --features afl
         sed -i '390d' ./src/ast/mod.rs
         # Use perl for easier escape handling
