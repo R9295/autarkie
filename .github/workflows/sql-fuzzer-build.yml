@@ -17,9 +17,6 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@nightly
 
-    - name: Install ripgrep
-      run: sudo apt-get update && sudo apt-get install -y ripgrep
-
     - name: Clone datafusion-sqlparser-rs
       run: |
         cd /tmp
@@ -27,16 +24,12 @@ jobs:
         cd datafusion-sqlparser-rs
         git reset --hard 7703fd0d3180c2e8b347c11394084c3a2458be14
         rm -f Cargo.lock
-        grep -rl "Serialize" . | xargs -r sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g'
+        grep -rl "Serialize" . | xargs sed -i 's/Serialize,/Serialize, autarkie::Grammar,/g'
         cargo add autarkie --path ${{ github.workspace }}/autarkie --features derive --features afl
         sed -i '390d' ./src/ast/mod.rs
-        # Use perl for easier escape handling
-        rg 'panic!\("unexpected quote style"\)' --files-with-matches | xargs -r perl -i -pe 's/panic!\("unexpected quote style"\)/write!(f, "\\"{}\\\"", value::escape_quoted_string(\&self.value, \x27"\x27))/g'
+        # Replace panic with write!
+        grep -rl 'panic!("unexpected quote style")' . | xargs sed -i 's/panic!("unexpected quote style")/write!(f, "\"{}\"", value::escape_quoted_string(\&self.value, '"'"'\"'"'"'))/g'
 
-
-    - name: Debug with SSH
-      uses: mxschmitt/action-tmate@v3
-    
     - name: Create fuzzer project
       run: |
         cd /tmp
