@@ -15,4 +15,4 @@ exclude = [
 [workspace.dependencies]
 libafl = { version = "0.15.4"}
 libafl_bolts = { version = "0.15.4" }
-libafl_targets = { version = "0.15.4" }
+libafl_targets = { version = "0.15.4", default-features = false}

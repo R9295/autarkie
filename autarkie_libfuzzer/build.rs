@@ -239,7 +239,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             // Handle workspace dependencies
             // NOTE: must be kept up with LibAFL here
-            let version = env!("CARGO_PKG_VERSION");
             for (_dep_name, spec) in deps.iter_mut() {
                 if let toml::Value::Table(spec) = spec {
                     // replace all workspace deps with version deps
