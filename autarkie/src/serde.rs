@@ -86,13 +86,13 @@ macro_rules! impl_node_serde_array {
                 }
             }
 
-            fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
+            fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, __autarkie_val: (u64, u64)) {
                 for (index, child) in self.iter().enumerate() {
                     visitor.register_field_stack((
                         ((index, child.__autarkie_node_ty(visitor))),
                         T::__autarkie_id(),
                     ));
-                    child.__autarkie_cmps(visitor, index, val);
+                    child.__autarkie_cmps(visitor, index, __autarkie_val);
                     visitor.pop_field();
                 }
             }

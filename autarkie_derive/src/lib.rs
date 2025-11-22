@@ -50,7 +50,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 let name = field.get_name(is_named);
                 quote! {
                     v.register_field(((#id, self.#name.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
-                    self.#name.__autarkie_cmps(v, 0, val);
+                    self.#name.__autarkie_cmps(v, 0, __autarkie_val);
                     v.pop_field();
 
                 }
@@ -93,12 +93,12 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         v.pop_ty();
                     }
 
-                    fn __autarkie_fields(&self, v: &mut ::autarkie::Visitor, index: usize) {
+                    fn __autarkie_fields(&self, v: &mut ::autarkie::Visitor, __autarkie_index: usize) {
                         #(#register_field)*;
                     }
 
 
-                    fn __autarkie_cmps(&self, v: &mut ::autarkie::Visitor, index: usize, val: (u64, u64)) {
+                    fn __autarkie_cmps(&self, v: &mut ::autarkie::Visitor, __autarkie_index: usize, __autarkie_val: (u64, u64)) {
                         #(#register_cmps)*
                     }
 
@@ -250,7 +250,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         let id = &field.id;
                         quote! {
                             v.register_field(((#id, #name.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
-                            #name.__autarkie_cmps(v, #id, val);
+                            #name.__autarkie_cmps(v, #id, __autarkie_val);
                             v.pop_field();
                         }
                     });
@@ -380,7 +380,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         #generate_func
                     }
 
-                    fn __autarkie_fields(&self, v: &mut ::autarkie::Visitor, index: usize) {
+                    fn __autarkie_fields(&self, v: &mut ::autarkie::Visitor, __autarkie_index: usize) {
                         #(#fn_fields)*;
                     }
 
@@ -390,7 +390,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         v.pop_ty();
                     }
 
-                    fn __autarkie_cmps(&self, v: &mut ::autarkie::Visitor, index: usize, val: (u64, u64)) {
+                    fn __autarkie_cmps(&self, v: &mut ::autarkie::Visitor, __autarkie_index: usize, __autarkie_val: (u64, u64)) {
                         #(#fn_cmps)*;
                     }
 
