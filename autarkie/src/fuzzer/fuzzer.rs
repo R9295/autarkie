@@ -191,6 +191,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     };
     #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let counters_map_len = unsafe { COUNTERS_MAPS.len() };
+    #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     assert!(
         (counters_map_len == 1),
         "{}",
