@@ -14,6 +14,7 @@ git clone https://github.com/apache/datafusion-sqlparser-rs
 cd datafusion-sqlparser-rs
 # go to a fixed commit
 git reset --hard 7703fd0d3180c2e8b347c11394084c3a2458be14
+rm Cargo.lock
 ```
 
 ##  Deriving the grammar

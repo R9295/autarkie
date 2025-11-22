@@ -17,6 +17,9 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@nightly
 
+    - name: Install ripgrep
+      run: sudo apt-get update && sudo apt-get install -y ripgrep
+
     - name: Clone datafusion-sqlparser-rs
       run: |
         cd /tmp
@@ -27,6 +30,7 @@ jobs:
     - name: Add autarkie as dependency to sqlparser
       run: |
         cd /tmp/datafusion-sqlparser-rs
+        rm -f Cargo.lock
         cargo add autarkie --path ${{ github.workspace }}/autarkie --features derive --features afl
 
     - name: Derive Grammar macro for AST
@@ -40,11 +44,6 @@ jobs:
         sed -i '390d' ./src/ast/mod.rs
         # Use perl for easier escape handling
         rg 'panic!\("unexpected quote style"\)' --files-with-matches | xargs -r perl -i -pe 's/panic!\("unexpected quote style"\)/write!(f, "\\"{}\\\"", value::escape_quoted_string(\&self.value, \x27"\x27))/g'
-
-    - name: Build instrumented sqlparser
-      run: |
-        cd /tmp/datafusion-sqlparser-rs
-        cargo build --features serde
 
     - name: Create fuzzer project
       run: |
