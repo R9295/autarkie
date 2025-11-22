@@ -39,7 +39,7 @@ workspace = true
 [dependencies.libafl_targets]
 workspace = true
 default-features = false
-features = ["sancov_8bit", "libfuzzer", "cmplog", "sancov_cmplog", "sancov_pcguard", "libfuzzer_define_run_driver"]
+features = ["libfuzzer", "cmplog", "sancov_cmplog", "sancov_pcguard", "libfuzzer_define_run_driver"]
 
 [dependencies.ahash]
 version = "0.8.11"

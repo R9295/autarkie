@@ -1,6 +1,6 @@
 [package]
 name = "autarkie"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 description = "autarkie - instant grammar fuzzing using rust"
 license = 'Apache-2.0'
