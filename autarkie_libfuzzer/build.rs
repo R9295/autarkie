@@ -1,4 +1,5 @@
 /// Keep in sync with https://github.com/AFLplusplus/LibAFL/blob/main/libafl_libfuzzer/build.rs
+// NOTE: line 249 must be kept up with LibAFL's version!
 use core::error::Error;
 use std::{
     fs::{self, File},
@@ -236,25 +237,18 @@ fn main() -> Result<(), Box<dyn Error>> {
                 unreachable!("Invalid Cargo.toml");
             };
 
-            // Handle workspace dependencies - read the workspace Cargo.toml for versions
-            let workspace_toml: toml::Value = toml::from_str(&fs::read_to_string("Cargo.toml")?)?;
-            let workspace_deps = workspace_toml
-                .get("workspace")
-                .and_then(|w| w.get("dependencies"))
-                .and_then(|d| d.as_table())
-                .expect("Could not find [workspace.dependencies] in Cargo.toml");
-
-            for (dep_name, spec) in deps.iter_mut() {
+            // Handle workspace dependencies
+            // NOTE: must be kept up with LibAFL here
+            let version = env!("CARGO_PKG_VERSION");
+            for (_dep_name, spec) in deps.iter_mut() {
                 if let toml::Value::Table(spec) = spec {
                     // replace all workspace deps with version deps
                     if spec.contains_key("workspace") {
                         spec.remove("workspace");
-                        // Get version from workspace dependencies
-                        let workspace_dep = workspace_deps.get(dep_name.as_str())
-                            .expect(&format!("Dependency '{}' not found in [workspace.dependencies]", dep_name));
-                        let version = workspace_dep.get("version")
-                            .expect(&format!("Version not found for dependency '{}' in [workspace.dependencies]", dep_name));
-                        spec.insert("version".to_string(), version.clone());
+                        spec.insert(
+                            "version".to_string(),
+                            toml::Value::String("0.15.4".to_string()),
+                        );
                     }
                 }
             }
