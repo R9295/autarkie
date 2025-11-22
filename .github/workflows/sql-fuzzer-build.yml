@@ -28,7 +28,7 @@ jobs:
         cargo add autarkie --path ${{ github.workspace }}/autarkie --features derive --features afl
         sed -i '390d' ./src/ast/mod.rs
         # Replace panic with write!
-        grep -rl 'panic!("unexpected quote style")' . | xargs sed -i 's/panic!("unexpected quote style")/write!(f, "\"{}\"", value::escape_quoted_string(\&self.value, '"'"'\"'"'"'))/g'
+        grep -rl 'panic!("unexpected quote style")' . | xargs sed -i 's/panic!("unexpected quote style")/write!(f, "{}", value::escape_quoted_string(\&self.value, '"'"'\"'"'"'))/g'
 
     - name: Create fuzzer project
       run: |
