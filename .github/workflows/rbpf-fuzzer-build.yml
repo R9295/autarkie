@@ -209,7 +209,7 @@ jobs:
     - name: Build the fuzzer
       run: |
         cd /tmp/sbpf
-        CARGO_PROFILE_RELEASE_LTO=false cargo fuzz build autarkie_harness
+        CARGO_PROFILE_RELEASE_LTO=false AUTARKIE_GRAMMAR_SRC=/tmp/sbpf cargo fuzz build autarkie_harness
 
     - name: Verify fuzzer binary exists
       run: |
