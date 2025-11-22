@@ -197,8 +197,9 @@ jobs:
         cd /tmp/sbpf/fuzz
         # Remove the standard libfuzzer-sys line
         sed -i '/^libfuzzer-sys = "0\./d' Cargo.toml
-        # Add autarkie's libfuzzer from local path
-        cargo add libfuzzer-sys --path ${{ github.workspace }}/libafl_libfuzzer
+        # Add autarkie's libfuzzer from local path with package rename
+        # The package name is autarkie_libfuzzer, but we want it available as libfuzzer-sys
+        cargo add autarkie_libfuzzer --path ${{ github.workspace }}/libafl_libfuzzer --rename libfuzzer-sys
 
     - name: Add bincode dependency to fuzz target
       run: |
