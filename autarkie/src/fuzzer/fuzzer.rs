@@ -22,6 +22,8 @@ use libafl::stages::ShadowTracingStage;
 use libafl::stages::{SyncFromDiskStage, TracingStage};
 use libafl::{events::LlmpRestartingEventManager, mutators::I2SRandReplace};
 use libafl_bolts::StdTargetArgs;
+#[cfg(feature = "afl")]
+use std::collections::HashMap;
 
 use crate::fuzzer::mutators::{
     generate_append::AutarkieGenerateAppendMutator,
@@ -334,6 +336,10 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         .is_deferred_frksrv(true)
         .timeout(Duration::from_millis(opt.hang_timeout * 1000))
         .shmem_provider(&mut shmem_provider)
+        .envs(HashMap::<String, String>::from_iter([(
+            "AUTARKIE_CHILD_ID".to_string(),
+            core.core_id().0.to_string(),
+        )]))
         .build_dynamic_map(edges_observer, tuple_list!(time_observer))
         .unwrap();
 
