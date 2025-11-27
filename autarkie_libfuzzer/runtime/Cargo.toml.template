@@ -66,13 +66,6 @@ features = ["derive"]
 version = "0.14.5"
 default-features = true
 
-[dependencies.grammar_source]
-path = "/tmp/aaaa"
-package = "aaaa"
-
-[dependencies.autarkie]
-path = "/home/aarnav/projects/autarkie/autarkie"
-features = ["derive", "libfuzzer"]
 
 [build-dependencies]
 bindgen = "0.71.1"

@@ -477,22 +477,30 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         7,
         MutationMetadata::I2S,
     );
+    let splice_mutational_stage = AutarkieMutationalStage::new(
+        tuple_list!(HavocScheduledMutator::with_max_stack_pow(
+            tuple_list!(splice_append_mutator, splice_mutator,),
+            3,
+        )),
+        opt.mutation_stack_size,
+        Rc::clone(&visitor),
+    );
+    let random_mutational_stage = AutarkieMutationalStage::new(
+        tuple_list!(HavocScheduledMutator::with_max_stack_pow(
+            tuple_list!(random_mutator,),
+            3
+        )),
+        opt.mutation_stack_size,
+        Rc::clone(&visitor),
+    );
     // TODO: I2S for AFL
     #[cfg(feature = "afl")]
     let mut stages = tuple_list!(
         minimization_stage,
         MutatingStageWrapper::new(cmplog, Rc::clone(&visitor)),
+        splice_mutational_stage,
+        random_mutational_stage,
         AutarkieCmpLogStage::new(Rc::clone(&visitor)),
-        AutarkieMutationalStage::new(
-            tuple_list!(
-                splice_append_mutator,
-                random_mutator,
-                splice_mutator,
-                AutarkieIterablePopMutator::new(Rc::clone(&visitor))
-            ),
-            opt.mutation_stack_size,
-            Rc::clone(&visitor)
-        ),
         StatsStage::new(fuzzer_dir),
         sync_stage,
     );
