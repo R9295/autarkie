@@ -509,16 +509,8 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         minimization_stage,
         tracing,
         AutarkieCmpLogStage::new(Rc::clone(&visitor)),
-        AutarkieMutationalStage::new(
-            tuple_list!(
-                splice_append_mutator,
-                random_mutator,
-                splice_mutator,
-                AutarkieIterablePopMutator::new(Rc::clone(&visitor))
-            ),
-            SPLICE_STACK,
-            Rc::clone(&visitor)
-        ),
+        splice_mutational_stage,
+        random_mutational_stage,
         MutatingStageWrapper::new(i2s, Rc::clone(&visitor)),
         StatsStage::new(fuzzer_dir),
         sync_stage,
