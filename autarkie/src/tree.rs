@@ -777,6 +777,18 @@ impl Node for std::string::String {
     }
 }
 
+impl Node for Box<str> {
+    fn __autarkie_generate(
+        visitor: &mut Visitor,
+        depth: &mut usize,
+        cur_depth: usize,
+        settings: Option<GenerateSettings>,
+    ) -> Option<Self> {
+        std::string::String::__autarkie_generate(visitor, depth, cur_depth, settings)
+            .map(std::string::String::into_boxed_str)
+    }
+}
+
 #[cfg(not(feature = "scale"))]
 impl Node for char {
     fn __autarkie_generate(
