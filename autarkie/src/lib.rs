@@ -3,6 +3,9 @@
 #[cfg(feature = "autarkie_derive")]
 pub use autarkie_derive::Grammar;
 
+pub use libafl_bolts::current_nanos;
+pub use clap::Parser as ClapParser;
+pub use hex::encode as hex_encode;
 pub use libafl::corpus::CorpusId;
 pub use libafl::executors::ExitKind as LibAFLExitKind;
 pub use libafl::inputs::Input;

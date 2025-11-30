@@ -92,7 +92,7 @@ where
     about = "autarkie",
     author = "aarnav <aarnavbos@gmail.com>"
 )]
-pub(crate) struct Opt {
+pub struct Opt {
     /// What we wanna fuzz
     #[cfg(feature = "afl")]
     executable: PathBuf,
@@ -113,7 +113,7 @@ pub(crate) struct Opt {
 
     /// seed for rng
     #[arg(short = 's')]
-    rng_seed: Option<u64>,
+    pub rng_seed: Option<u64>,
 
     /// debug the child
     #[arg(short = 'd')]
@@ -147,7 +147,7 @@ pub(crate) struct Opt {
 
     /// Max iterate depth when generating iterable nodes (advanced)
     #[arg(short = 'I', default_value_t = 5)]
-    iterate_depth: usize,
+    pub iterate_depth: usize,
 
     /// Max subslice length when doing partial iterable splicing (advanced)
     #[arg(short = 'z', default_value_t = 15)]
@@ -155,11 +155,11 @@ pub(crate) struct Opt {
 
     /// string pool size
     #[arg(short = 'l', default_value_t = 50)]
-    string_pool_size: usize,
+    pub string_pool_size: usize,
 
     /// Max generate depth when generating recursive nodes (advanced)
     #[arg(short = 'G', default_value_t = 2)]
-    generate_depth: usize,
+    pub generate_depth: usize,
 
     /// AFL++ LLVM_DICT2FILE
     #[arg(short = 'x')]
@@ -187,24 +187,52 @@ macro_rules! debug_grammar {
     ($t:ty) => {
         fn main() {
             use autarkie::{Node, Visitor};
+            let opt = $crate::fuzzer::Opt::parse();
+            let seed = opt.rng_seed.unwrap_or($crate::current_nanos());
             let mut visitor = Visitor::new(
-                $crate::fuzzer::current_nanos(),
-                $crate::DepthInfo {
-                    generate: 2,
-                    iterate: 5,
+                opt.seed,
+                DepthInfo {
+                    generate: opt.generate_depth,
+                    iterate: opt.iterate_depth,
                 },
-                50,
+                opt.string_pool_size,
             );
             <$t>::__autarkie_register(&mut visitor, None, 0);
             visitor.calculate_recursion();
-            let gen_depth = visitor.generate_depth();
             loop {
                 println!(
                     "{:?}",
-                    <$t>::__autarkie_generate(&mut visitor, &mut gen_depth.clone(), &mut 0)
+                    <$t>::__autarkie_generate(visitor, &mut visitor.generate_depth(), 0, None)
                 );
                 println!("--------------------------------");
-                std::thread::sleep(Duration::from_millis(500))
+                std::thread::sleep(std::time::Duration::from_millis(100))
+            }
+        }
+    };
+    ($t:ty, $closure: expr) => {
+        fn main() {
+            use autarkie::ClapParser;
+            use autarkie::{Node, Visitor};
+            let opt = $crate::fuzzer::Opt::parse();
+            let seed = opt.rng_seed.unwrap_or($crate::current_nanos());
+            let mut visitor = Visitor::new(
+                seed,
+                autarkie::DepthInfo {
+                    generate: opt.generate_depth,
+                    iterate: opt.iterate_depth,
+                },
+                opt.string_pool_size,
+            );
+            <$t>::__autarkie_register(&mut visitor, None, 0);
+            visitor.calculate_recursion();
+            loop {
+                if let Some(ret) =
+                    <$t>::__autarkie_generate(&mut visitor, &mut 0, 0, None)
+                {
+                    println!("{:?}", autarkie::hex_encode(&$closure(&ret)));
+                }
+                println!("--------------------------------");
+                std::thread::sleep(std::time::Duration::from_millis(100))
             }
         }
     };
