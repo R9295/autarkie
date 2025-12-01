@@ -6,7 +6,15 @@ mod trait_bounds;
 mod utils;
 use syn::{spanned::Spanned, token::Comma, *};
 
-#[proc_macro_derive(Grammar, attributes(autarkie_literal, autarkie_length, autarkie_range))]
+#[proc_macro_derive(
+    Grammar,
+    attributes(
+        autarkie_literal,
+        autarkie_length,
+        autarkie_skip_mutate,
+        autarkie_range
+    )
+)]
 pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut base_parsed = syn::parse_macro_input!(input as syn::DeriveInput);
     let root_name = &base_parsed.ident;
@@ -34,26 +42,29 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 #(#serialized_inner)*
             };
 
-            let register_field = parsed.iter().map(|field| {
+            let register_field = parsed.iter().filter_map(|field| {
                 let id = &field.id;
                 let ty = &field.ty;
                 let name = field.get_name(is_named);
-                quote! {
-                    v.register_field(((#id, self.#name.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
-                    self.#name.__autarkie_fields(v, 0);
-                    v.pop_field();
-                }
+                if !field.skip_mutate {
+                    Some(quote! {
+                        v.register_field(((#id, self.#name.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
+                        self.#name.__autarkie_fields(v, 0);
+                        v.pop_field();
+                    })
+                } else {None}
             });
             let register_cmps = parsed.iter().map(|field| {
                 let id = &field.id;
                 let ty = &field.ty;
                 let name = field.get_name(is_named);
-                quote! {
+                if !field.skip_mutate {
+                Some(quote! {
                     v.register_field(((#id, self.#name.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
                     self.#name.__autarkie_cmps(v, 0, val);
                     v.pop_field();
-
-                }
+                    })
+                } else {None}
             });
 
             let register_ty = parsed.iter().map(|field| {
@@ -68,13 +79,16 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 }
             });
 
-            let inner_mutate = parsed.iter().map(|field| {
+            let inner_mutate = parsed.iter().filter_map(|field| {
                 let id = &field.id;
                 let name = field.get_name(is_named);
-                quote! {
+                if !field.skip_mutate {
+                Some(quote! {
                     #id => {
                         self.#name.__autarkie_mutate(autarkie_ty, autarkie_visitor, autarkie_path);
                     },
+                })} else {
+                None
                 }
             });
             trait_bounds::add(root_name, &mut base_parsed.generics, &base_parsed.data);
@@ -466,10 +480,21 @@ fn parse_fields(
                 Some(ident) => ident,
                 None => Ident::new(&format!("_{id}"), field.span()),
             };
+            let mut skip_mutate = false;
+            for attr in field.attrs.iter() {
+                if let Meta::List(ref list) = attr.meta {
+                    let ident = &list.path.segments.first().as_ref().unwrap().ident;
+                    if ident == "autarkie_skip_mutate" {
+                        skip_mutate = true;
+                        break;
+                    }
+                }
+            }
             GrammarField {
                 name,
                 ty: ty.clone(),
                 id,
+                skip_mutate,
                 attrs: field.attrs.clone(),
             }
         })
@@ -617,6 +642,7 @@ fn construct_generate_function_enum(
 struct GrammarField {
     name: Ident,
     id: usize,
+    skip_mutate: bool,
     ty: Type,
     attrs: Vec<Attribute>,
 }

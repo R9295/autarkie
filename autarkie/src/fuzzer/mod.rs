@@ -59,11 +59,13 @@ where
         Opt::parse_from(opt)
     };
 
+    unsafe {std::env::set_var("AUTARKIE_CHILD_ID", "0")};
     #[cfg(not(feature = "fuzzbench"))]
     Launcher::builder()
         .cores(&opt.cores)
         .monitor(monitor)
         .run_client(|s, mgr, core| {
+            assert_eq!(std::env::var("AUTARKIE_CHILD_ID"), Ok("0".to_string()));
             fuzzer::run_client(s, mgr, core, bytes_converter.clone(), &opt, harness)
         })
         .broker_port(opt.broker_port)
