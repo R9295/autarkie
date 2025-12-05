@@ -37,51 +37,18 @@ impl Context {
         TC: ToTargetBytes<I>,
         I: Node,
     {
-        let generated_fields = match &self.input_cause {
-            InputCause::Default => visitor.serialized(),
-            InputCause::Generated => {
-                input.__autarkie_serialized(visitor);
-                visitor.serialized()
-            }
-        };
-        let string_ty = String::__autarkie_id();
-        for field in generated_fields {
-            let (data, ty) = field;
-            if ty == string_ty {
-                visitor.register_string(crate::deserialize(&mut data.as_slice()));
-            }
-            // todo: optimize this
-            let path = self.out_dir.join("chunks").join(ty.to_string());
-            match std::fs::create_dir(&path) {
-                Ok(_) => {}
-                Err(e) => {
-                    if !matches!(e.kind(), ErrorKind::AlreadyExists) {
-                        panic!("{:?}", e)
-                    }
-                }
-            };
-            let hash = twox_hash::XxHash64::oneshot(0, &data);
-            let path = path.join(hash.to_string());
-            if !std::fs::exists(&path).unwrap() {
-                std::fs::write(&path, data).unwrap();
-                if let Some(e) = self.type_input_map.get_mut(&ty) {
-                    e.push(path);
-                } else {
-                    self.type_input_map.insert(ty, vec![path]);
-                }
-            }
-        }
+        self.store_generated_chunks(input, visitor);
         let rendered = converter.to_target_bytes(&input);
-        let path = if is_solution {
+        let render_dir = if is_solution {
             self.out_dir.join("rendered_crashes")
         } else {
             self.out_dir.join("rendered_corpus")
         };
-        let hash = twox_hash::XxHash64::oneshot(0, &rendered);
-        let path = path.join(hash.to_string());
-        if !std::fs::exists(&path).unwrap() {
+        ensure_dir(&render_dir);
+        let render_path = render_dir.join(twox_hash::XxHash64::oneshot(0, &rendered).to_string());
+        if !std::fs::exists(&render_path).unwrap() {
             // warn that the same input gave new coverage == instability!
-            std::fs::write(&path, rendered.as_slice()).unwrap();
+            std::fs::write(&render_path, rendered.as_slice()).unwrap();
         }
         self.input_cause = InputCause::Default;
     }
@@ -136,6 +103,50 @@ impl Context {
         let cloned = self.mutations.clone();
         self.mutations = HashSet::new();
         cloned
+    }
+}
+
+fn ensure_dir(path: &Path) {
+    if let Err(e) = std::fs::create_dir(path) {
+        if !matches!(e.kind(), ErrorKind::AlreadyExists) {
+            panic!("{:?}", e);
+        }
+    }
+}
+
+impl Context {
+    fn store_generated_chunks<I>(&mut self, input: &I, visitor: &mut Visitor)
+    where
+        I: Node,
+    {
+        let generated_fields = match &self.input_cause {
+            InputCause::Default => visitor.serialized(),
+            InputCause::Generated => {
+                input.__autarkie_serialized(visitor);
+                visitor.serialized()
+            }
+        };
+        let string_ty = String::__autarkie_id();
+        for (mut data, ty) in generated_fields {
+            if ty == string_ty {
+                visitor.register_string(crate::deserialize(&mut data.as_slice()));
+            }
+            self.store_chunk_for_type(ty, &data);
+        }
+    }
+
+    fn store_chunk_for_type(&mut self, ty: Id, data: &[u8]) {
+        let chunk_dir = self.out_dir.join("chunks").join(ty.to_string());
+        ensure_dir(&chunk_dir);
+        let chunk_path = chunk_dir.join(twox_hash::XxHash64::oneshot(0, data).to_string());
+        if std::fs::exists(&chunk_path).unwrap() {
+            return;
+        }
+        std::fs::write(&chunk_path, data).unwrap();
+        self.type_input_map
+            .entry(ty)
+            .and_modify(|entries| entries.push(chunk_path.clone()))
+            .or_insert_with(|| vec![chunk_path]);
     }
 }
 

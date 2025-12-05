@@ -43,7 +43,6 @@ where
                 recursive_node = Some(node);
             }
         }
-        println!("{:?}", recursive_node);
         let mut all = Vec::new();
         let mut start = Some(0);
         if let Some(recursive_node) = recursive_node {

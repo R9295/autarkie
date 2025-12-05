@@ -1,9 +1,8 @@
 //! Stage that wraps mutating stages for stats and cleanup
 use crate::fuzzer::context::Context;
 use crate::Visitor;
-use core::{marker::PhantomData, time::Duration};
+use core::marker::PhantomData;
 use libafl::state::HasRand;
-use libafl_bolts::current_time;
 use libafl_bolts::rands::Rand;
 use std::rc::Rc;
 use std::{cell::RefCell, num::NonZero};

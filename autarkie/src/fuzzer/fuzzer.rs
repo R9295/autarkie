@@ -142,9 +142,7 @@ macro_rules! define_run_client {
 ))]
 define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     let is_main_node = opt.cores.position(core.core_id()).unwrap() == 0;
-    if !opt.output_dir.exists() {
-        std::fs::create_dir(&opt.output_dir).unwrap();
-    }
+    ensure_dir(&opt.output_dir);
     #[cfg(feature = "afl")]
     let map_size = {
         let map_size = Command::new(opt.executable.clone())
@@ -162,14 +160,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     };
 
     let fuzzer_dir = opt.output_dir.join(format!("{}", core.core_id().0));
-    match std::fs::create_dir(&fuzzer_dir) {
-        Ok(_) => {}
-        Err(e) => {
-            if !matches!(e.kind(), ErrorKind::AlreadyExists) {
-                panic!("{:?}", e)
-            }
-        }
-    }
+    ensure_dir(&fuzzer_dir);
     #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let cmplog_observer = CmpLogObserver::new("cmplog", true);
     // Create the shared memory map for comms with the forkserver
@@ -219,18 +210,16 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     );
     I::__autarkie_register(&mut visitor, None, 0);
     let recursive_nodes = visitor.calculate_recursion();
-    if is_main_node {
-        std::fs::write(
-            opt.output_dir.join("type_input_map.json"),
-            serde_json::to_string_pretty(visitor.ty_name_map()).expect("invariant"),
-        )?;
-    }
-    if is_main_node {
-        std::fs::write(
-            opt.output_dir.join("type_generate_map.json"),
-            serde_json::to_string_pretty(visitor.ty_generate_map()).expect("invariant"),
-        )?;
-    }
+    write_map_if_main(
+        is_main_node,
+        &opt.output_dir.join("type_input_map.json"),
+        serde_json::to_string_pretty(visitor.ty_name_map()).expect("invariant"),
+    )?;
+    write_map_if_main(
+        is_main_node,
+        &opt.output_dir.join("type_generate_map.json"),
+        serde_json::to_string_pretty(visitor.ty_generate_map()).expect("invariant"),
+    )?;
     let has_recursion = recursive_nodes.len() > 0;
     let visitor = Rc::new(RefCell::new(visitor));
 
@@ -294,18 +283,16 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         .unwrap(),
     );
 
-    if !fuzzer_dir.join("chunks").exists() {
-        std::fs::create_dir(fuzzer_dir.join("chunks")).unwrap();
-    }
-    if !fuzzer_dir.join("rendered_corpus").exists() {
-        std::fs::create_dir(fuzzer_dir.join("rendered_corpus")).unwrap();
-    }
-    if !fuzzer_dir.join("rendered_crashes").exists() {
-        std::fs::create_dir(fuzzer_dir.join("rendered_crashes")).unwrap();
-    }
-    if !fuzzer_dir.join("cmps").exists() {
-        std::fs::create_dir(fuzzer_dir.join("cmps")).unwrap();
-    }
+    let chunks_dir = fuzzer_dir.join("chunks");
+    let rendered_corpus = fuzzer_dir.join("rendered_corpus");
+    let rendered_crashes = fuzzer_dir.join("rendered_crashes");
+    let cmps_dir = fuzzer_dir.join("cmps");
+    ensure_dirs(&[
+        chunks_dir.as_path(),
+        rendered_corpus.as_path(),
+        rendered_crashes.as_path(),
+        cmps_dir.as_path(),
+    ]);
 
     let mut context = Context::new(fuzzer_dir.clone(), opt.render);
     let schedule = match core.core_id().0 % 6 {
@@ -384,16 +371,9 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     }
 
     // Reload corpus chunks if they exist
-    for chunk_dir in std::fs::read_dir(fuzzer_dir.join("chunks"))? {
-        let dir = chunk_dir?.path();
-        for chunk in std::fs::read_dir(dir)? {
-            let path = chunk?.path();
-            context.add_existing_chunk(path);
-        }
-    }
+    reload_chunks(&mut context, &chunks_dir)?;
     state.add_metadata(context);
     state.add_metadata(AutarkieStats::default());
-    let mut gen = vec![];
     // Reload corpus
     if state.must_load_initial_inputs() {
         state.load_initial_inputs(
@@ -409,7 +389,6 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
             while generated.is_none() {
                 generated = generate(&mut visitor.borrow_mut());
             }
-            gen.push(generated.clone().unwrap());
             fuzzer
                 .evaluate_input(
                     &mut state,
@@ -527,3 +506,34 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
 
 #[cfg(feature = "afl")]
 const SHMEM_ENV_VAR: &str = "__AFL_SHM_ID";
+
+fn ensure_dir(path: &Path) {
+    if let Err(e) = std::fs::create_dir(path) {
+        if !matches!(e.kind(), ErrorKind::AlreadyExists) {
+            panic!("{:?}", e);
+        }
+    }
+}
+
+fn ensure_dirs(paths: &[&Path]) {
+    for path in paths {
+        ensure_dir(path);
+    }
+}
+
+fn write_map_if_main(is_main_node: bool, path: &Path, contents: String) -> Result<(), Error> {
+    if is_main_node {
+        std::fs::write(path, contents)?;
+    }
+    Ok(())
+}
+
+fn reload_chunks(context: &mut Context, chunk_dir: &Path) -> Result<(), Error> {
+    for chunk_dir in std::fs::read_dir(chunk_dir)? {
+        let dir = chunk_dir?.path();
+        for chunk in std::fs::read_dir(dir)? {
+            context.add_existing_chunk(chunk?.path());
+        }
+    }
+    Ok(())
+}

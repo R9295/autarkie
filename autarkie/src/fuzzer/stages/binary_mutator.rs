@@ -1,16 +1,10 @@
 //! Stage that wraps mutating stages for stats and cleanup
 use crate::fuzzer::context::MutationMetadata;
-use crate::Visitor;
 use crate::{fuzzer::context::Context, Node};
-use core::{marker::PhantomData, time::Duration};
-use libafl::inputs::BytesInput;
+use core::marker::PhantomData;
 use libafl::mutators::MutatorsTuple;
 use libafl::state::HasRand;
-use libafl_bolts::current_time;
-use libafl_bolts::rands::Rand;
-use std::cell::RefCell;
 use std::num::NonZero;
-use std::rc::Rc;
 
 use libafl::{
     events::EventFirer,
@@ -57,7 +51,6 @@ where
         state: &mut S,
         manager: &mut EM,
     ) -> Result<(), Error> {
-        let mut metadata = state.metadata_mut::<Context>().expect("fxeZamEw____");
         let mut input = crate::serialize(&state.current_input_cloned().expect("9ILr4PEQ____"));
         let mut metadata = state.metadata_mut::<Context>().expect("kW2fTRId____");
         metadata.generated_input();
@@ -70,12 +63,16 @@ where
             let Some(deserialized) = crate::maybe_deserialize(&mut input.as_slice()) else {
                 return Ok(());
             };
-            let mut metadata = state.metadata_mut::<Context>().expect("oBusH4xj____");
-            metadata.add_mutation(self.mutation_ty.clone());
+            state
+                .metadata_mut::<Context>()
+                .expect("oBusH4xj____")
+                .add_mutation(self.mutation_ty.clone());
             fuzzer.evaluate_input(state, executor, manager, &deserialized)?;
         }
-        let mut metadata = state.metadata_mut::<Context>().expect("fxeZamEw____");
-        metadata.default_input();
+        state
+            .metadata_mut::<Context>()
+            .expect("fxeZamEw____")
+            .default_input();
         Ok(())
     }
 }

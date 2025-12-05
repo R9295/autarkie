@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::Visitor;
+use crate::{FieldLocation, Visitor};
 
 pub fn calculate_subslice_bounds(len: usize, max: usize, visitor: &mut Visitor) -> Range<usize> {
     // minus 1 because we zero index and len is always +1
@@ -49,4 +49,11 @@ impl FileCache {
             size: 0,
         }
     }
+}
+
+pub fn is_iterable_field(field: &[FieldLocation]) -> bool {
+    matches!(
+        field.last().map(|location| &location.0 .1),
+        Some(crate::NodeType::Iterable(..))
+    )
 }

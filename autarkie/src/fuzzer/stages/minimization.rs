@@ -3,7 +3,7 @@ use libafl::{
     corpus::Corpus,
     events::EventFirer,
     executors::{Executor, HasObservers},
-    feedbacks::{HasObserverHandle, MapIndexesMetadata, MapNoveltiesMetadata},
+    feedbacks::{HasObserverHandle, MapIndexesMetadata},
     observers::{CanTrack, MapObserver, ObserversTuple},
     stages::{Restartable, Stage},
     state::{HasCorpus, HasCurrentTestcase},
@@ -13,9 +13,9 @@ use libafl_bolts::{tuples::Handle, AsIter, Named};
 use num_traits::Bounded;
 use serde::{Deserialize, Serialize};
 use std::{
-    borrow::{Borrow, Cow},
+    borrow::Cow,
     cell::RefCell,
-    collections::{HashMap, HashSet, VecDeque},
+    collections::VecDeque,
     fmt::Debug,
     marker::PhantomData,
     rc::Rc,
@@ -72,7 +72,6 @@ where
         state: &mut S,
         manager: &mut EM,
     ) -> Result<(), libafl::Error> {
-        let metadata = state.metadata::<Context>().expect("DPY5DSqO____");
         let novelties = state
             .current_testcase()
             .expect("94ebojGT____")
@@ -83,7 +82,6 @@ where
             .clone();
         let mut current = state.current_input_cloned().expect("y4XOxKLh____");
         current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
-        let mut skip = 0;
         let mut fields = self.visitor.borrow_mut().fields();
         shuffle(&mut fields, &mut self.visitor.borrow_mut());
         let mut found = false;

@@ -11,6 +11,7 @@ use libafl_bolts::{AsSlice, Named};
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, marker::PhantomData, rc::Rc};
 
 use crate::fuzzer::context::Context;
+use super::commons::is_iterable_field;
 
 pub const SPLICE_APPEND_STACK: usize = 1000;
 pub struct AutarkieGenerateAppendMutator<I> {
@@ -31,17 +32,14 @@ where
             .borrow_mut()
             .fields()
             .into_iter()
-            .filter(|inner| {
-                let last = inner.last().as_ref().expect("Kf7u2pOx____");
-                matches!(&crate::NodeType::Iterable, last)
-            })
+            .filter(|inner| is_iterable_field(inner))
             .collect::<Vec<_>>();
-        if fields.len() == 0 {
+        if fields.is_empty() {
             return Ok(MutationResult::Skipped);
         }
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
-        let ((id, node_ty), ty) = field.last().expect("jJeuJLG8____");
+        let ((_, node_ty), _) = field.last().expect("jJeuJLG8____");
         if let crate::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
             if *is_fixed_len {
                 return Ok(MutationResult::Skipped);

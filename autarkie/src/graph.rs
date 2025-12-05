@@ -13,7 +13,7 @@ pub fn find_cycles<N: Copy + Eq + std::hash::Hash + Ord + Debug, E>(
     let mut stack = Vec::new();
     let mut done = HashSet::new();
     for node in graph.nodes() {
-        visited.drain();
+        visited.clear();
         if !done.contains(&node) {
             dfs_cycle(graph, node, &mut visited, &mut stack, &mut cycles);
         }

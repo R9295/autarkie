@@ -1,7 +1,4 @@
-use crate::{
-    fuzzer::context::{Context, MutationMetadata},
-    Node, Visitor,
-};
+use crate::{fuzzer::context::MutationMetadata, Node};
 use libafl::{
     corpus::Corpus,
     events::EventFirer,

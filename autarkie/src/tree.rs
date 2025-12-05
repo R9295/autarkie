@@ -149,13 +149,7 @@ where
         cur_depth: usize,
         settings: Option<GenerateSettings>,
     ) -> Option<Self> {
-        let element_count = if let Some(GenerateSettings::Length(len)) = settings {
-            len
-        } else if let Some(GenerateSettings::Range(range)) = settings {
-            visitor.random_range(*range.start(), *range.end() + 1)
-        } else {
-            visitor.random_range(0, visitor.iterate_depth())
-        };
+        let element_count = element_count(settings, visitor);
         if element_count == 0 {
             return Some(vec![].into());
         }
@@ -363,13 +357,7 @@ where
         cur_depth: usize,
         settings: Option<GenerateSettings>,
     ) -> Option<Self> {
-        let element_count = if let Some(GenerateSettings::Length(len)) = settings {
-            len
-        } else if let Some(GenerateSettings::Range(range)) = settings {
-            visitor.random_range(*range.start(), *range.end() + 1)
-        } else {
-            visitor.random_range(0, visitor.iterate_depth())
-        };
+        let element_count = element_count(settings, visitor);
         if element_count == 0 {
             return Some(vec![]);
         }
@@ -1072,6 +1060,14 @@ impl_generate_simple!(i128, 32);
 impl_generate_simple!(isize, 8);
 #[cfg(not(feature = "scale"))]
 impl_generate_simple!(usize, 8);
+
+fn element_count(settings: Option<GenerateSettings>, visitor: &mut Visitor) -> usize {
+    match settings {
+        Some(GenerateSettings::Length(len)) => len,
+        Some(GenerateSettings::Range(range)) => visitor.random_range(*range.start(), *range.end() + 1),
+        None => visitor.random_range(0, visitor.iterate_depth()),
+    }
+}
 
 #[cfg(not(feature = "scale"))]
 pub fn serialize<T>(data: &T) -> Vec<u8>

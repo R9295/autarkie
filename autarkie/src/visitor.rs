@@ -1,17 +1,7 @@
 use crate::Id;
 use libafl_bolts::rands::{Rand, StdRand};
-use num_traits::CheckedSub;
-use petgraph::{
-    data::Build,
-    dot::{Config, Dot},
-    graph::DiGraph,
-    graphmap::DiGraphMap,
-    Directed,
-};
-use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
-    path::PathBuf,
-};
+use petgraph::{graphmap::DiGraphMap, Directed};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// The `Visitor` struct is the primary way to communicate with the Fuzz-ed type during runtime.
 /// Unforuntately procedural macros are rather limiting, so we must delegate effort to the runtime.
@@ -127,25 +117,21 @@ impl Visitor {
 
     /// This function adds a type to the type map
     pub fn register_ty(&mut self, parent: Option<(Id, String)>, id: (Id, String), variant: usize) {
-        self.ty_map_stack.push(id.0.clone());
-        // Let's hope we get no collisions!
+        self.ty_map_stack.push(id.0);
         let parent = parent.unwrap_or((u64::MIN, "AutarkieRootFuzzData".to_string()));
-        if !self.ty_map.get(&parent.0).is_some() {
-            self.ty_map.insert(
-                parent.0.clone(),
-                BTreeMap::from_iter([(variant, BTreeSet::new())]),
-            );
-            self.ty_name_map.insert(parent.0.clone(), parent.1.clone());
-        }
-        self.ty_name_map.insert(id.0.clone(), id.1.clone());
-        self.ty_map
-            .get_mut(&parent.0)
-            .expect("____rwBG5LkVKH")
+        self.ty_name_map.insert(parent.0, parent.1.clone());
+        self.ty_name_map.insert(id.0, id.1.clone());
+
+        let parent_entry = self
+            .ty_map
+            .entry(parent.0)
+            .or_insert_with(|| BTreeMap::from_iter([(variant, BTreeSet::new())]));
+        parent_entry
             .entry(variant)
-            .and_modify(|i| {
-                i.insert(id.0.clone());
+            .and_modify(|variants| {
+                variants.insert(id.0);
             })
-            .or_insert(BTreeSet::from_iter([id.0.clone()]));
+            .or_insert(BTreeSet::from_iter([id.0]));
     }
 
     pub fn pop_ty(&mut self) {
@@ -248,7 +234,8 @@ impl Visitor {
                     nr_variants,
                 )]));
         }
-        return recursive_nodes;
+        self.has_recursive_types = recursive_nodes.values().any(|v| !v.is_empty());
+        recursive_nodes
     }
 
     #[inline]

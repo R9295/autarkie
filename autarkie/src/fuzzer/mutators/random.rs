@@ -30,15 +30,17 @@ where
         let mut metadata = state.metadata_mut::<Context>()?;
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
+        if fields.is_empty() {
+            return Ok(MutationResult::Skipped);
+        }
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &mut fields[field_splice_index];
-        let ((id, node_ty), ty) = field.last().expect("YjBYG4Fr____");
-        let mut bias = self.visitor.borrow().generate_depth();
-        if let crate::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
+        let ((_, node_ty), _) = field.last().expect("YjBYG4Fr____");
+        let bias = self.visitor.borrow().generate_depth();
+        if let crate::NodeType::Iterable(_, field_len, inner_ty) = node_ty {
             if *field_len < 3 {
                 return Ok(MutationResult::Skipped);
             }
-            let mut path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
             let subslice_bounds = calculate_subslice_bounds(
                 *field_len,
                 self.max_subslice_size,

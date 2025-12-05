@@ -3,7 +3,7 @@ use libafl::{
     corpus::Corpus,
     events::EventFirer,
     executors::{Executor, HasObservers},
-    feedbacks::{HasObserverHandle, MapIndexesMetadata, MapNoveltiesMetadata},
+    feedbacks::{HasObserverHandle, MapNoveltiesMetadata},
     observers::{CanTrack, MapObserver, ObserversTuple},
     stages::{Restartable, Stage},
     state::{HasCorpus, HasCurrentTestcase},
@@ -13,9 +13,9 @@ use libafl_bolts::{tuples::Handle, AsIter, Named};
 use num_traits::Bounded;
 use serde::{Deserialize, Serialize};
 use std::{
-    borrow::{Borrow, Cow},
+    borrow::Cow,
     cell::RefCell,
-    collections::{HashMap, HashSet, VecDeque},
+    collections::VecDeque,
     fmt::Debug,
     marker::PhantomData,
     rc::Rc,

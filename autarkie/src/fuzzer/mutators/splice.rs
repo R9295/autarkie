@@ -33,9 +33,12 @@ where
         let mut metadata = state.metadata_mut::<Context>()?;
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
+        if fields.is_empty() {
+            return Ok(MutationResult::Skipped);
+        }
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
-        let ((id, node_ty), ty) = field.last().expect("EfxPNdQ0____");
+        let ((_, node_ty), ty) = field.last().expect("EfxPNdQ0____");
         if let crate::NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
             let subslice = self.visitor.borrow_mut().coinflip_with_prob(0.6);
             if subslice && *field_len > 3 {
