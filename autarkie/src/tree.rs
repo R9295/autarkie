@@ -62,7 +62,7 @@ where
 
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {}
 
-    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {}
+    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, __autarkie_val: (u64, u64)) {}
 
     fn __autarkie_node_ty(&self, visitor: &Visitor) -> NodeType {
         NodeType::NonRecursive
@@ -252,13 +252,13 @@ where
         }
     }
 
-    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
+    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, __autarkie_val: (u64, u64)) {
         for (index, child) in self.iter().enumerate() {
             visitor.register_field_stack((
                 ((index, child.__autarkie_node_ty(visitor))),
                 T::__autarkie_id(),
             ));
-            child.__autarkie_cmps(visitor, index, val);
+            child.__autarkie_cmps(visitor, index, __autarkie_val);
             visitor.pop_field();
         }
     }
@@ -341,13 +341,13 @@ where
         }
     }
 
-    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
+    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, __autarkie_val: (u64, u64)) {
         for (index, child) in self.iter().enumerate() {
             visitor.register_field_stack((
                 ((index, child.__autarkie_node_ty(visitor))),
                 T::__autarkie_id(),
             ));
-            child.__autarkie_cmps(visitor, index, val);
+            child.__autarkie_cmps(visitor, index, __autarkie_val);
             visitor.pop_field();
         }
     }
@@ -454,13 +454,13 @@ where
         }
     }
 
-    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
+    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, __autarkie_val: (u64, u64)) {
         for (index, child) in self.iter().enumerate() {
             visitor.register_field_stack((
                 ((index, child.__autarkie_node_ty(visitor))),
                 T::__autarkie_id(),
             ));
-            child.__autarkie_cmps(visitor, index, val);
+            child.__autarkie_cmps(visitor, index, __autarkie_val);
             visitor.pop_field();
         }
     }
@@ -509,8 +509,8 @@ where
         self.as_ref().__autarkie_node_ty(visitor)
     }
 
-    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
-        self.as_ref().__autarkie_cmps(visitor, index, val);
+    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, __autarkie_val: (u64, u64)) {
+        self.as_ref().__autarkie_cmps(visitor, index, __autarkie_val);
     }
 
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
@@ -631,13 +631,13 @@ where
         }
     }
 
-    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
+    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, __autarkie_val: (u64, u64)) {
         if let Some(inner) = self {
             visitor.register_field_stack((
                 (index, inner.__autarkie_node_ty(visitor)),
                 T::__autarkie_id(),
             ));
-            inner.__autarkie_cmps(visitor, 0, val);
+            inner.__autarkie_cmps(visitor, 0, __autarkie_val);
             visitor.pop_field();
         }
     }
@@ -752,15 +752,15 @@ where
         visitor.pop_field();
     }
 
-    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
+    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, __autarkie_val: (u64, u64)) {
         visitor.register_field_stack((
             (index, self.__autarkie_node_ty(visitor)),
             Self::__autarkie_id(),
         ));
         if let Ok(inner) = self {
-            inner.__autarkie_cmps(visitor, 0, val);
+            inner.__autarkie_cmps(visitor, 0, __autarkie_val);
         } else if let Err(inner) = self {
-            inner.__autarkie_cmps(visitor, 1, val);
+            inner.__autarkie_cmps(visitor, 1, __autarkie_val);
         }
         visitor.pop_field();
     }
@@ -831,12 +831,12 @@ where
         }
     }
 
-    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
+    fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, __autarkie_val: (u64, u64)) {
         for (index, (k, v)) in self.into_iter().enumerate() {
             visitor
                 .register_field_stack(((index, NodeType::NonRecursive), <(K, V)>::__autarkie_id()));
-            k.__autarkie_cmps(visitor, 0, val);
-            v.__autarkie_cmps(visitor, 1, val);
+            k.__autarkie_cmps(visitor, 0, __autarkie_val);
+            v.__autarkie_cmps(visitor, 1, __autarkie_val);
             visitor.pop_field();
         }
     }
@@ -873,10 +873,10 @@ where
                         let Some(key) = K::__autarkie_generate(visitor, bias, 0, None) else {
                             return;
                         };
-                        let Some(val) = V::__autarkie_generate(visitor, bias, 0, None) else {
+                        let Some(__autarkie_val) = V::__autarkie_generate(visitor, bias, 0, None) else {
                             return;
                         };
-                        self.insert(key, val);
+                        self.insert(key, __autarkie_val);
                         self.__autarkie_serialized(visitor);
                         visitor.add_serialized(serialize(self), Self::__autarkie_id());
                     }
@@ -888,9 +888,9 @@ where
                 // key == 0; value == 1
                 debug_assert!(inner_popped == 0 || inner_popped == 1);
                 if inner_popped == 0 {
-                    let val = self.remove(&entry_to_modify).expect("WDZstzcR____");
+                    let __autarkie_val = self.remove(&entry_to_modify).expect("WDZstzcR____");
                     entry_to_modify.__autarkie_mutate(ty, visitor, path);
-                    self.insert(entry_to_modify, val);
+                    self.insert(entry_to_modify, __autarkie_val);
                 } else {
                     self.get_mut(&entry_to_modify)
                         .expect("yMhZ8dor____")
@@ -1013,10 +1013,10 @@ macro_rules! tuple_impls {
                     })*
             }
 
-            fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, val: (u64, u64)) {
+            fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, __autarkie_val: (u64, u64)) {
                 $({
                 visitor.register_field_stack(((($id, crate::NodeType::NonRecursive)), $T::__autarkie_id()));
-                self.$id.__autarkie_cmps(visitor, 0, val);
+                self.$id.__autarkie_cmps(visitor, 0, __autarkie_val);
                 visitor.pop_field();
                 })*
             }
@@ -1056,11 +1056,11 @@ macro_rules! impl_generate_simple {
                 };
                 Some(res)
             }
-            fn __autarkie_cmps(&self, v: &mut Visitor, index: usize, val: (u64, u64)) {
-                if val.0 == *self as u64 {
-                    v.register_cmp(serialize(&(val.1 as Self)));
-                } else if val.1 == *self as u64 {
-                    v.register_cmp(serialize(&(val.0 as Self)));
+            fn __autarkie_cmps(&self, v: &mut Visitor, index: usize, __autarkie_val: (u64, u64)) {
+                if __autarkie_val.0 == *self as u64 {
+                    v.register_cmp(serialize(&(__autarkie_val.1 as Self)));
+                } else if __autarkie_val.1 == *self as u64 {
+                    v.register_cmp(serialize(&(__autarkie_val.0 as Self)));
                 }
             }
         }
