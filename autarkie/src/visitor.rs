@@ -272,63 +272,27 @@ impl Visitor {
     /// generation/mutation fails.
     pub fn generate(&mut self, id: &Id, depth: usize) -> Option<(usize, bool)> {
         let consider_recursive = depth < self.depth.generate;
-        let (variant, is_recursive) = if consider_recursive {
-            let consider_recursive_bias = self.random_range(0, 35) < 35;
-            let variants = self.ty_generate_map.get(id).expect("____VbO3rGYTSf");
+        let variants = self.ty_generate_map.get(&id).expect("pxc9jCnK____");
+        if consider_recursive {
             let nr_variants = variants
                 .get(&GenerateType::NonRecursive)
                 .expect("____lCAftArdHS");
             let r_variants = variants
                 .get(&GenerateType::Recursive)
                 .expect("____q154Wl5zf2");
-            let nr_variants_len = nr_variants.len().saturating_sub(1);
-            let r_variants_len = r_variants.len().saturating_sub(1);
-            let id = self.rng.between(
-                0,
-                nr_variants_len
-                    + if consider_recursive_bias {
-                        r_variants_len
-                    } else {
-                        0
-                    },
-            );
-            if id <= nr_variants_len {
-                if let Some(nr_variant) = nr_variants.iter().nth(id) {
-                    (nr_variant.clone(), false)
-                } else {
-                    (
-                        r_variants.iter().nth(id).expect("nd5oh1G2____").clone(),
-                        true,
-                    )
-                }
-            } else {
-                (
-                    r_variants
-                        .iter()
-                        .nth(id.checked_sub(nr_variants_len).expect("____ibvCjQB5oX"))
-                        .expect("____LaawYczeqc")
-                        .clone(),
-                    true,
-                )
-            }
+            let ret = self.rng.choose(nr_variants.iter().chain(r_variants)).expect("O3pQMbj8____");
+            let is_recursive = r_variants.contains(ret);
+            Some((ret.clone(), is_recursive))
         } else {
-            let variants = self
-                .ty_generate_map
-                .get(id)
-                .expect("____clESlzqUbX")
+            let nr_variants = variants
                 .get(&GenerateType::NonRecursive)
-                .expect("____ffxyyA6Nub");
-            if variants.len() == 0 {
+                .expect("____lCAftArdHS");
+            if nr_variants.len() == 0 {
                 return None;
             }
-            let variants_len = variants.len().saturating_sub(1);
-            let nth = self.rng.between(0, variants_len);
-            (
-                variants.iter().nth(nth).expect("____pvPK973BLH").clone(),
-                false,
-            )
-        };
-        Some((variant, is_recursive))
+            let ret = self.rng.choose(nr_variants.iter()).expect("eCdWPiyf____");
+            Some((ret.clone(), false))
+        }
     }
     pub fn ty_name_map(&self) -> &BTreeMap<Id, String> {
         &self.ty_name_map
