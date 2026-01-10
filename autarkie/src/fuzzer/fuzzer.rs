@@ -9,6 +9,7 @@ use super::mutators::recurse::AutarkieRecurseMutator;
 ))]
 use super::stages::autarkie_cmp::AutarkieCmpLogStage;
 use crate::fuzzer::context::Context;
+use libafl_bolts::HasLen;
 #[cfg(feature = "afl")]
 use crate::fuzzer::stages::cmp::CmpLogStage;
 use crate::fuzzer::stages::generate::generate;
@@ -101,7 +102,7 @@ type AutarkieManager<F, I> = SimpleEventManager<I, SimpleMonitor<F>, AutarkieSta
 macro_rules! define_run_client {
     ($state: ident, $mgr: ident, $core: ident, $bytes_converter: ident, $opt: ident, $harness: ident, $body:block) => {
         #[cfg(not(feature = "fuzzbench"))]
-        pub fn run_client<I: Node + Input, TC: ToTargetBytes<I> + Clone, HF: Fn(&I) -> ExitKind>(
+        pub fn run_client<I: Node + Input + HasLen, TC: ToTargetBytes<I> + Clone, HF: Fn(&I) -> ExitKind>(
             $state: Option<AutarkieState<I>>,
             mut $mgr: AutarkieManager<I>,
             $core: ClientDescription,
@@ -115,7 +116,7 @@ macro_rules! define_run_client {
         pub fn run_client<
             F,
             HF: Fn(&I) -> ExitKind,
-            I: Node + Input,
+            I: Node + Input + HasLen,
             TC: ToTargetBytes<I> + Clone,
         >(
             $state: Option<AutarkieState<I>>,
@@ -317,6 +318,10 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     };
     let scheduler =
         StdWeightedScheduler::with_schedule(&mut state, &edges_observer, Some(schedule));
+     let scheduler = libafl::schedulers::IndexesLenTimeMinimizerScheduler::new(
+        &edges_observer,
+        scheduler,
+    );
     let mut fuzzer = StdFuzzerBuilder::new()
         .target_bytes_converter(bytes_converter.clone())
         .scheduler(scheduler)

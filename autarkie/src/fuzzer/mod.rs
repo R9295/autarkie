@@ -20,6 +20,7 @@ use libafl_bolts::core_affinity::Cores;
 use libafl_bolts::shmem::ShMemProvider;
 use libafl_bolts::shmem::StdShMemProvider;
 use libafl_bolts::tuples::tuple_list;
+use libafl_bolts::HasLen;
 use std::path::{Path, PathBuf};
 #[cfg(feature = "libfuzzer")]
 use std::{io::Write, str::FromStr};
@@ -30,7 +31,7 @@ use std::{io::Write, str::FromStr};
 ))]
 pub fn run_fuzzer<I, TC, F>(bytes_converter: TC, harness: Option<F>)
 where
-    I: Node + Input,
+    I: Node + Input + HasLen,
     TC: ToTargetBytes<I> + Clone,
     F: Fn(&I) -> ExitKind,
 {

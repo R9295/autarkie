@@ -112,5 +112,10 @@ macro_rules! impl_hash {
                 autarkie::serialize(&self).hash(state)
             }
         }
+        impl autarkie::HasLen for $t {
+            fn len(&self) -> usize {
+                autarkie::serialize(&self).len()
+            }
+        }
     };
 }

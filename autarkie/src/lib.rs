@@ -4,6 +4,7 @@
 pub use autarkie_derive::Grammar;
 
 pub use libafl::corpus::CorpusId;
+pub use libafl_bolts::HasLen;
 pub use libafl::executors::ExitKind as LibAFLExitKind;
 pub use libafl::inputs::Input;
 pub use libafl::inputs::ToTargetBytes;
