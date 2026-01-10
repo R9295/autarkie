@@ -45,6 +45,7 @@ where
     S: HasMetadata + HasCurrentTestcase<I> + HasRand,
     M: MutatorsTuple<I, S>,
 {
+    #[cfg(not(feature = "stack"))]
     fn perform(
         &mut self,
         fuzzer: &mut Z,
@@ -61,6 +62,30 @@ where
             if self.inner.get_and_mutate(idx, state, &mut current)? == MutationResult::Mutated {
                 fuzzer.evaluate_input(state, executor, manager, &current)?;
             }
+        }
+        let _ = self.visitor.borrow_mut().serialized();
+        Ok(())
+    }
+
+    #[cfg(feature = "stack")]
+    fn perform(
+        &mut self,
+        fuzzer: &mut Z,
+        executor: &mut E,
+        state: &mut S,
+        manager: &mut EM,
+    ) -> Result<(), Error> {
+        let mut current = state.current_input_cloned().unwrap();
+        let stack_count = state.rand_mut().below(NonZero::new(5).unwrap()).into();
+        for i in 0..self.stack {
+            for i in 0..stack_count {
+                let idx = state
+                    .rand_mut()
+                    .below(unsafe { NonZero::new(self.inner.len()).unwrap_unchecked() })
+                    .into();
+                self.inner.get_and_mutate(idx, state, &mut current)?;
+            }
+            fuzzer.evaluate_input(state, executor, manager, &current)?;
             let _ = self.visitor.borrow_mut().serialized();
         }
         Ok(())

@@ -39,6 +39,7 @@ derive = ["autarkie_derive"]
 introspection = ["libafl/introspection"]
 libfuzzer = ["libafl_targets/pointer_maps", "libafl_targets/sancov_8bit", "libafl_targets/cmplog"]
 afl = []
+stack = []
 llvm-fuzzer-no-link = [
 	"libafl_targets/std",
 	"libafl_targets/sancov_8bit",

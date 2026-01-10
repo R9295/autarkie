@@ -74,6 +74,7 @@ where
         state: &mut S,
         manager: &mut EM,
     ) -> Result<(), libafl::Error> {
+        return Ok(());
         let metadata = state.metadata::<Context>().unwrap();
         let indexes = state
             .current_testcase()
