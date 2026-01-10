@@ -73,14 +73,19 @@ where
         manager: &mut EM,
     ) -> Result<(), libafl::Error> {
         let metadata = state.metadata::<Context>().expect("DPY5DSqO____");
-        let novelties = state
-            .current_testcase()
-            .expect("94ebojGT____")
-            .borrow()
-            .metadata::<MapIndexesMetadata>()
-            .expect("8brpxaUP____")
-            .list
-            .clone();
+        let novelties = {
+            let mut ret = vec![];
+            if let Ok(current_testcase) = state.current_testcase() {
+                if let Ok(metadata) = current_testcase.metadata::<MapIndexesMetadata>() {
+                    ret = metadata.list.clone();
+                } 
+            }
+            ret
+        };
+        if novelties.len() == 0 {
+            return Ok(());
+        }
+
         let mut current = state.current_input_cloned().expect("y4XOxKLh____");
         current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut skip = 0;

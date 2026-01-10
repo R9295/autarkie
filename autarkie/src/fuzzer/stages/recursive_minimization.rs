@@ -74,16 +74,19 @@ where
         state: &mut S,
         manager: &mut EM,
     ) -> Result<(), libafl::Error> {
-        return Ok(());
         let metadata = state.metadata::<Context>().unwrap();
-        let indexes = state
-            .current_testcase()
-            .unwrap()
-            .borrow()
-            .metadata::<MapIndexesMetadata>()
-            .unwrap()
-            .list
-            .clone();
+        let indexes = {
+            let mut ret = vec![];
+            if let Ok(current_testcase) = state.current_testcase() {
+                if let Ok(metadata) = current_testcase.metadata::<MapIndexesMetadata>() {
+                    ret = metadata.list.clone();
+                } 
+            }
+            ret
+        };
+        if indexes.len() == 0 {
+            return Ok(());
+        }
 
         let mut current = state.current_input_cloned().unwrap();
         current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
@@ -114,13 +117,13 @@ where
                     path.clone(),
                 );
                 let run = fuzzer.evaluate_input(state, executor, manager, &inner)?;
-                let map = &executor.observers()[&self.map_observer_handle]
+                let map = executor.observers()[&self.map_observer_handle]
                     .as_ref()
                     .to_vec();
                 let map = map
                     .into_iter()
                     .enumerate()
-                    .filter(|i| i.1 != &O::Entry::default())
+                    .filter(|i| i.1 != O::Entry::default())
                     .map(|i| i.0)
                     .collect::<Vec<_>>();
                 if map == indexes {
