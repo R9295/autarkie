@@ -17,6 +17,7 @@ pub mod tree;
 pub mod visitor;
 pub use tree::*;
 pub use visitor::*;
+pub use fuzzer::context::Context;
 
 mod graph;
 

@@ -99,16 +99,20 @@ type AutarkieManager<I> =
 type AutarkieManager<F, I> = SimpleEventManager<I, SimpleMonitor<F>, AutarkieState<I>>;
 
 macro_rules! define_run_client {
-    ($state: ident, $mgr: ident, $core: ident, $bytes_converter: ident, $opt: ident, $harness: ident, $body:block) => {
+    ($state: ident, $mgr: ident, $core: ident, $bytes_converter: ident, $opt: ident, $harness: ident, $body:block, $__autarkie__loader: ident) => {
         #[cfg(not(feature = "fuzzbench"))]
-        pub fn run_client<I: Node + Input, TC: ToTargetBytes<I> + Clone, HF: Fn(&I) -> ExitKind>(
+        pub fn run_client<I: Node + Input, TC: ToTargetBytes<I> + Clone, HF: Fn(&I) -> ExitKind, L>(
             $state: Option<AutarkieState<I>>,
             mut $mgr: AutarkieManager<I>,
             $core: ClientDescription,
             $bytes_converter: TC,
             $opt: &super::Opt,
             $harness: Option<HF>,
-        ) -> Result<(), Error> {
+            $__autarkie__loader: L,
+        ) -> Result<(), Error> 
+        where
+            L: Fn(&mut crate::Context),
+        {
             $body
         }
         #[cfg(feature = "fuzzbench")]
@@ -117,6 +121,7 @@ macro_rules! define_run_client {
             HF: Fn(&I) -> ExitKind,
             I: Node + Input,
             TC: ToTargetBytes<I> + Clone,
+            L,
         >(
             $state: Option<AutarkieState<I>>,
             mut $mgr: AutarkieManager<F, I>,
@@ -124,8 +129,10 @@ macro_rules! define_run_client {
             $bytes_converter: TC,
             $opt: &super::Opt,
             $harness: Option<HF>,
+            $__autarkie__loader: L,
         ) -> Result<(), Error>
         where
+            L: Fn(&mut crate::Context),
             F: FnMut(&str),
         {
             $body
@@ -385,6 +392,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
             context.add_existing_chunk(path);
         }
     }
+    __autarkie__loader(&mut context);
     state.add_metadata(context);
     state.add_metadata(AutarkieStats::default());
     let mut gen = vec![];
@@ -517,7 +525,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     );
     let res = fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr);
     Err(Error::shutting_down())
-});
+}, __autarkie__loader);
 
 #[cfg(feature = "afl")]
 const SHMEM_ENV_VAR: &str = "__AFL_SHM_ID";

@@ -46,6 +46,7 @@ where
                     path,
                 );
                 metadata.add_mutation(crate::fuzzer::context::MutationMetadata::IterablePop);
+                return Ok(MutationResult::Mutated);
             }
         }
         Ok(MutationResult::Skipped)

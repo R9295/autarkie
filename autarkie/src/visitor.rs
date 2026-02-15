@@ -226,7 +226,9 @@ impl Visitor {
                 .get(ty)
                 .unwrap_or(&BTreeSet::default())
                 .clone();
-            self.has_recursive_types = true;
+            if !r_variants.is_empty() {
+                self.has_recursive_types = true;
+            }
             self.ty_generate_map.insert(
                 ty.clone(),
                 BTreeMap::from_iter([(GenerateType::Recursive, r_variants.clone())]),

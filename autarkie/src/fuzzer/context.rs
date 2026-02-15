@@ -46,30 +46,11 @@ impl Context {
         };
         let string_ty = String::__autarkie_id();
         for field in generated_fields {
-            let (data, ty) = field;
-            if ty == string_ty {
-                visitor.register_string(crate::deserialize(&mut data.as_slice()));
-            }
-            // todo: optimize this
-            let path = self.out_dir.join("chunks").join(ty.to_string());
-            match std::fs::create_dir(&path) {
-                Ok(_) => {}
-                Err(e) => {
-                    if !matches!(e.kind(), ErrorKind::AlreadyExists) {
-                        panic!("{:?}", e)
-                    }
-                }
-            };
-            let hash = twox_hash::XxHash64::oneshot(0, &data);
-            let path = path.join(hash.to_string());
-            if !std::fs::exists(&path).unwrap() {
-                std::fs::write(&path, data).unwrap();
-                if let Some(e) = self.type_input_map.get_mut(&ty) {
-                    e.push(path);
-                } else {
-                    self.type_input_map.insert(ty, vec![path]);
-                }
-            }
+        let (ref data, ty) = field;
+        if ty == string_ty {
+            visitor.register_string(crate::deserialize(&mut data.as_slice()));
+        }
+            self.add_field(field);
         }
         let rendered = converter.to_target_bytes(&input);
         let path = if is_solution {
@@ -86,6 +67,52 @@ impl Context {
         self.input_cause = InputCause::Default;
     }
 
+    pub fn add_field_loader<I: Node>(&mut self, item: I) {
+        let (data, ty) = (crate::serialize(&item), I::__autarkie_id());
+        // todo: optimize this
+        let path = self.out_dir.join("chunks").join(ty.to_string());
+        match std::fs::create_dir(&path) {
+            Ok(_) => {}
+            Err(e) => {
+                if !matches!(e.kind(), ErrorKind::AlreadyExists) {
+                    panic!("{:?}", e)
+                }
+            }
+        };
+        let hash = twox_hash::XxHash64::oneshot(0, &data);
+        let path = path.join(hash.to_string());
+        if !std::fs::exists(&path).unwrap() {
+            std::fs::write(&path, data).unwrap();
+            if let Some(e) = self.type_input_map.get_mut(&ty) {
+                e.push(path);
+            } else {
+                self.type_input_map.insert(ty, vec![path]);
+            }
+        }
+    }
+    pub fn add_field(&mut self, field: (Vec<u8>, Id)) {
+        let (data, ty) = field;
+        // todo: optimize this
+        let path = self.out_dir.join("chunks").join(ty.to_string());
+        match std::fs::create_dir(&path) {
+            Ok(_) => {}
+            Err(e) => {
+                if !matches!(e.kind(), ErrorKind::AlreadyExists) {
+                    panic!("{:?}", e)
+                }
+            }
+        };
+        let hash = twox_hash::XxHash64::oneshot(0, &data);
+        let path = path.join(hash.to_string());
+        if !std::fs::exists(&path).unwrap() {
+            std::fs::write(&path, data).unwrap();
+            if let Some(e) = self.type_input_map.get_mut(&ty) {
+                e.push(path);
+            } else {
+                self.type_input_map.insert(ty, vec![path]);
+            }
+        }
+    }
     pub fn generated_input(&mut self) {
         self.input_cause = InputCause::Generated;
     }

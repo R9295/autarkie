@@ -1,5 +1,6 @@
 #![allow(warnings)]
 pub mod afl;
+pub mod macros;
 pub mod context;
 mod feedback;
 mod fuzzer;
@@ -28,8 +29,9 @@ use std::{io::Write, str::FromStr};
     feature = "afl",
     feature = "llvm-fuzzer-no-link"
 ))]
-pub fn run_fuzzer<I, TC, F>(bytes_converter: TC, harness: Option<F>)
+pub fn run_fuzzer<I, TC, F, L>(bytes_converter: TC, harness: Option<F>, __autarkie__loader: L)
 where
+    L: Fn(&mut crate::Context),
     I: Node + Input,
     TC: ToTargetBytes<I> + Clone,
     F: Fn(&I) -> ExitKind,
@@ -64,7 +66,7 @@ where
         .cores(&opt.cores)
         .monitor(monitor)
         .run_client(|s, mgr, core| {
-            fuzzer::run_client(s, mgr, core, bytes_converter.clone(), &opt, harness)
+            fuzzer::run_client(s, mgr, core, bytes_converter.clone(), &opt, harness, __autarkie__loader)
         })
         .broker_port(opt.broker_port)
         .shmem_provider(shmem_provider)
@@ -82,6 +84,7 @@ where
             bytes_converter.clone(),
             &opt,
             harness,
+            __autarkie__loader,
         );
     }
 }
