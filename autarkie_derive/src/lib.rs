@@ -5,7 +5,10 @@ use quote::quote;
 mod trait_bounds;
 use syn::{spanned::Spanned, token::Comma, *};
 
-#[proc_macro_derive(Grammar, attributes(autarkie_literal, autarkie_length, autarkie_range))]
+#[proc_macro_derive(
+    Grammar,
+    attributes(autarkie_literal, autarkie_length, autarkie_range, autarkie_no_mutate)
+)]
 pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut base_parsed = syn::parse_macro_input!(input as syn::DeriveInput);
     let root_name = &base_parsed.ident;
@@ -27,7 +30,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 #(#serialized_inner)*
             };
 
-            let register_field = parsed.iter().map(|field| {
+            let register_field = parsed.iter().filter(|f| !f.no_mutate).map(|field| {
                 let name = field.get_name(is_named);
                 let access = quote! { self.#name };
                 construct_field_visit_stmt(
@@ -38,7 +41,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     FieldVisitKind::Fields,
                 )
             });
-            let register_cmps = parsed.iter().map(|field| {
+            let register_cmps = parsed.iter().filter(|f| !f.no_mutate).map(|field| {
                 let name = field.get_name(is_named);
                 let access = quote! { self.#name };
                 construct_field_visit_stmt(
@@ -381,7 +384,7 @@ fn construct_enum_fields_like_arm(
     }
 
     let pattern = variant_pattern(root_name, variant_name, fields, is_named);
-    let field_ops = fields.iter().map(|field| {
+    let field_ops = fields.iter().filter(|f| !f.no_mutate).map(|field| {
         let access = {
             let name = &field.name;
             quote! { #name }
@@ -514,11 +517,16 @@ fn parse_fields(
                 Some(ident) => ident,
                 None => Ident::new(&format!("_{id}"), field.span()),
             };
+            let no_mutate = field
+                .attrs
+                .iter()
+                .any(|a| a.path().is_ident("autarkie_no_mutate"));
             GrammarField {
                 name,
                 ty: ty.clone(),
                 id,
                 attrs: field.attrs.clone(),
+                no_mutate,
             }
         })
         .collect::<Vec<_>>();
@@ -662,6 +670,7 @@ struct GrammarField {
     id: usize,
     ty: Type,
     attrs: Vec<Attribute>,
+    no_mutate: bool,
 }
 
 impl GrammarField {
