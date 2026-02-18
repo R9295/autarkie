@@ -3,7 +3,6 @@ extern crate proc_macro2;
 use proc_macro::TokenStream;
 use quote::quote;
 mod trait_bounds;
-mod utils;
 use syn::{spanned::Spanned, token::Comma, *};
 
 #[proc_macro_derive(Grammar, attributes(autarkie_literal, autarkie_length, autarkie_range))]
@@ -19,14 +18,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
             let serialized_inner = parsed.iter().map(|field| {
                 let name = field.get_name(is_named);
-                let ty = &field.ty;
-                quote! {
-                        // todo: check fixed size
-                        if !matches!(self.#name.__autarkie_node_ty(autarkie_visitor), autarkie::visitor::NodeType::Iterable(..)) {
-                            autarkie_visitor.add_serialized(::autarkie::serialize(&self.#name), <#ty>::__autarkie_id());
-                        }
-                        self.#name.__autarkie_serialized(autarkie_visitor);
-                }
+                let access = quote! { self.#name };
+                construct_serialized_field(&field.ty, &access)
             });
 
             let serialized = quote! {
@@ -35,47 +28,36 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             };
 
             let register_field = parsed.iter().map(|field| {
-                let id = &field.id;
-                let ty = &field.ty;
                 let name = field.get_name(is_named);
-                quote! {
-                    v.register_field(((#id, self.#name.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
-                    self.#name.__autarkie_fields(v, 0);
-                    v.pop_field();
-                }
+                let access = quote! { self.#name };
+                construct_field_visit_stmt(
+                    field.id,
+                    &field.ty,
+                    &access,
+                    &quote! { 0 },
+                    FieldVisitKind::Fields,
+                )
             });
             let register_cmps = parsed.iter().map(|field| {
-                let id = &field.id;
-                let ty = &field.ty;
                 let name = field.get_name(is_named);
-                quote! {
-                    v.register_field(((#id, self.#name.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
-                    self.#name.__autarkie_cmps(v, 0, __autarkie_val);
-                    v.pop_field();
-
-                }
+                let access = quote! { self.#name };
+                construct_field_visit_stmt(
+                    field.id,
+                    &field.ty,
+                    &access,
+                    &quote! { 0 },
+                    FieldVisitKind::Cmps,
+                )
             });
 
-            let register_ty = parsed.iter().map(|field| {
-                let ty = &field.ty;
-                quote! {
-                    if !v.is_recursive(<#ty>::__autarkie_id()) {
-                        <#ty>::__autarkie_register(v, Some(Self::__autarkie_id_tuple()), 0);
-                    } else {
-                        v.register_ty(Some(Self::__autarkie_id_tuple()), <#ty>::__autarkie_id_tuple(), 0);
-                        v.pop_ty();
-                    }
-                }
-            });
+            let register_ty = parsed
+                .iter()
+                .map(|field| construct_register_ty_field(&field.ty, &quote! { 0 }));
 
             let inner_mutate = parsed.iter().map(|field| {
-                let id = &field.id;
                 let name = field.get_name(is_named);
-                quote! {
-                    #id => {
-                        self.#name.__autarkie_mutate(autarkie_ty, autarkie_visitor, autarkie_path);
-                    },
-                }
+                let access = quote! { self.#name };
+                construct_mutate_field_arm(field.id, &access)
             });
             trait_bounds::add(root_name, &mut base_parsed.generics, &base_parsed.data);
             let (impl_generics, ty_generics, where_clause) = base_parsed.generics.split_for_impl();
@@ -188,40 +170,14 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     }
                 });
 
-                let field_fn = if !fields.is_empty() {
-                    let variant_fields_register = fields.iter().map(|field| {
-                        let name = &field.name;
-                        let ty = &field.ty;
-                        let id = &field.id;
-                        quote! {
-                            v.register_field(((#id, #name.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
-                            #name.__autarkie_fields(v, #id);
-                            v.pop_field();
-                        }
-                    });
-                    let field_names = fields.iter().map(|field| {
-                        let name = &field.name;
-                        quote! {#name}
-                    });
-                    let match_arm = if is_named {
-                        quote! {if let #root_name::#variant_name{#(#field_names),*} = self}
-                    } else {
-                        quote! {if let #root_name::#variant_name(#(#field_names),*) = self}
-                    };
-                    Some(quote! {
-                            #match_arm {
-                            v.register_field_stack(((#i, self.__autarkie_node_ty(v)), Self::__autarkie_id()));
-                            #(#variant_fields_register)*
-                            v.pop_field();
-                        }
-                    })
-                } else {
-                    Some(quote! {
-                        if let #root_name::#variant_name{} = self {}
-                    })
-                };
-
-                fn_fields.push(field_fn);
+                fn_fields.push(Some(construct_enum_fields_like_arm(
+                    root_name,
+                    variant_name,
+                    i,
+                    &fields,
+                    is_named,
+                    FieldVisitKind::Fields,
+                )));
                 if fields.is_empty() {
                     register_ty.push(quote! {
                     // use something besides bool; bool is just a place holder.
@@ -229,126 +185,34 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     v.pop_ty();
                 });
                 } else {
-                    let field_names = fields.iter().map(|field| {
-                        let ty = &field.ty;
-                        quote! {
-                            if !v.is_recursive(<#ty>::__autarkie_id()) {
-                                <#ty>::__autarkie_register(v, Some(Self::__autarkie_id_tuple()), #i);
-                            } else {
-                                v.register_ty(Some(Self::__autarkie_id_tuple()), <#ty>::__autarkie_id_tuple(), #i);
-                                v.pop_ty();
-                            }
-                        }
-                    });
-                    register_ty.push(quote! {#(#field_names)*});
+                    let register_fields = fields
+                        .iter()
+                        .map(|field| construct_register_ty_field(&field.ty, &quote! { #i }));
+                    register_ty.push(quote! {#(#register_fields)*});
                 }
 
-                let fn_cmp = if !fields.is_empty() {
-                    let variant_fields_cmp = fields.iter().map(|field| {
-                        let name = &field.name;
-                        let ty = &field.ty;
-                        let id = &field.id;
-                        quote! {
-                            v.register_field(((#id, #name.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
-                            #name.__autarkie_cmps(v, #id, __autarkie_val);
-                            v.pop_field();
-                        }
-                    });
-                    let field_names = fields.iter().map(|field| {
-                        let name = &field.name;
-                        quote! {#name}
-                    });
-                    let match_arm = if is_named {
-                        quote! {if let #root_name::#variant_name{#(#field_names),*} = self}
-                    } else {
-                        quote! {if let #root_name::#variant_name(#(#field_names),*) = self}
-                    };
-                    Some(quote! {
-                            #match_arm {
-                            v.register_field_stack(((#i, self.__autarkie_node_ty(v)), Self::__autarkie_id()));
-                            #(#variant_fields_cmp)*
-                            v.pop_field();
-                        }
-                    })
-                } else {
-                    Some(quote! {
-                        if let #root_name::#variant_name{} = self {}
-                    })
-                };
-
-                fn_cmps.push(fn_cmp);
-                let inner_mutate_variant = if !fields.is_empty() {
-                    let field_names = fields.iter().map(|field| {
-                        let name = &field.name;
-                        quote! {#name}
-                    });
-                    let variant_fields_mutate = fields.iter().map(|field| {
-                        let name = &field.name;
-                        let id = &field.id;
-                        quote! {
-                            #id => {
-                                #name.__autarkie_mutate(autarkie_ty, autarkie_visitor, autarkie_path);
-                            },
-                        }
-                    });
-
-                    let match_arm = if is_named {
-                        quote! {if let #root_name::#variant_name{#(#field_names),*} = self }
-                    } else {
-                        quote! {if let #root_name::#variant_name(#(#field_names),*) = self }
-                    };
-
-                    Some(quote! {
-                        #i => {
-                         #match_arm {
-                            if let Some(popped) = autarkie_path.pop_front() {
-                             match popped {
-                                 #(#variant_fields_mutate)*
-                                 _ => {
-                                     unreachable!("____FU1zlV0c")
-                                 }
-                             }
-                            } else {
-                                unreachable!("____kTHVIHpB");
-                            }
-                         } else {unreachable!("iOoUo7jL____")}
-                        },
-                    })
-                } else {
-                    Some(quote! {
-                        #i => unreachable!("____aNHh8Ap8"),
-                    })
-                };
-
-                inner_mutate.push(inner_mutate_variant);
+                fn_cmps.push(Some(construct_enum_fields_like_arm(
+                    root_name,
+                    variant_name,
+                    i,
+                    &fields,
+                    is_named,
+                    FieldVisitKind::Cmps,
+                )));
+                inner_mutate.push(Some(construct_enum_mutate_arm(
+                    root_name,
+                    variant_name,
+                    i,
+                    &fields,
+                    is_named,
+                )));
                 if !fields.is_empty() {
-                    let field_names = fields.iter().map(|field| {
-                        let name = &field.name;
-                        quote! {#name}
-                    });
-                    let serialized_fields = fields.iter().map(|field| {
-                        let name = &field.name;
-                        let ty = &field.ty;
-                        quote! {
-                            // todo: check fixed size
-                            if !matches!(#name.__autarkie_node_ty(autarkie_visitor), autarkie::visitor::NodeType::Iterable(..)) {
-                                autarkie_visitor.add_serialized(::autarkie::serialize(&#name), <#ty>::__autarkie_id());
-                            }
-                            #name.__autarkie_serialized(autarkie_visitor);
-                        }
-
-                    });
-                    let match_arm = if is_named {
-                        quote! {if let #root_name::#variant_name{#(#field_names),*} = self }
-                    } else {
-                        quote! {if let #root_name::#variant_name(#(#field_names),*) = self }
-                    };
-                    let serialized = quote! {
-                        #match_arm {
-                            #(#serialized_fields)*
-                        }
-                    };
-                    serialized_inner.push(serialized);
+                    serialized_inner.push(construct_enum_serialized_arm(
+                        root_name,
+                        variant_name,
+                        &fields,
+                        is_named,
+                    ));
                 }
             }
 
@@ -445,9 +309,193 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 #node_impl
             }
         }
-        Data::Union(..) => todo!(),
+        Data::Union(ref data) => {
+            return syn::Error::new_spanned(
+                &data.union_token,
+                "Grammar derive does not support unions",
+            )
+            .to_compile_error()
+            .into();
+        }
     };
     TokenStream::from(expanded)
+}
+
+#[derive(Clone, Copy)]
+enum FieldVisitKind {
+    Fields,
+    Cmps,
+}
+
+fn variant_pattern(
+    root_name: &Ident,
+    variant_name: &Ident,
+    fields: &[GrammarField],
+    is_named: bool,
+) -> proc_macro2::TokenStream {
+    let field_names = fields.iter().map(|field| {
+        let name = &field.name;
+        quote! { #name }
+    });
+    if is_named {
+        quote! { #root_name::#variant_name { #(#field_names),* } }
+    } else {
+        quote! { #root_name::#variant_name(#(#field_names),*) }
+    }
+}
+
+fn construct_field_visit_stmt(
+    id: usize,
+    ty: &Type,
+    field_access: &proc_macro2::TokenStream,
+    idx: &proc_macro2::TokenStream,
+    kind: FieldVisitKind,
+) -> proc_macro2::TokenStream {
+    let call = match kind {
+        FieldVisitKind::Fields => quote! {
+            #field_access.__autarkie_fields(v, #idx);
+        },
+        FieldVisitKind::Cmps => quote! {
+            #field_access.__autarkie_cmps(v, #idx, __autarkie_val);
+        },
+    };
+    quote! {
+        v.register_field(((#id, #field_access.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
+        #call
+        v.pop_field();
+    }
+}
+
+fn construct_enum_fields_like_arm(
+    root_name: &Ident,
+    variant_name: &Ident,
+    variant_idx: usize,
+    fields: &[GrammarField],
+    is_named: bool,
+    kind: FieldVisitKind,
+) -> proc_macro2::TokenStream {
+    if fields.is_empty() {
+        return quote! {
+            if let #root_name::#variant_name{} = self {}
+        };
+    }
+
+    let pattern = variant_pattern(root_name, variant_name, fields, is_named);
+    let field_ops = fields.iter().map(|field| {
+        let access = {
+            let name = &field.name;
+            quote! { #name }
+        };
+        let idx = field.id;
+        construct_field_visit_stmt(field.id, &field.ty, &access, &quote! { #idx }, kind)
+    });
+
+    quote! {
+        if let #pattern = self {
+            v.register_field_stack(((#variant_idx, self.__autarkie_node_ty(v)), Self::__autarkie_id()));
+            #(#field_ops)*
+            v.pop_field();
+        }
+    }
+}
+
+fn construct_serialized_field(
+    ty: &Type,
+    field_access: &proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
+    quote! {
+        // todo: check fixed size
+        if !matches!(#field_access.__autarkie_node_ty(autarkie_visitor), autarkie::visitor::NodeType::Iterable(..)) {
+            autarkie_visitor.add_serialized(::autarkie::serialize(&#field_access), <#ty>::__autarkie_id());
+        }
+        #field_access.__autarkie_serialized(autarkie_visitor);
+    }
+}
+
+fn construct_enum_serialized_arm(
+    root_name: &Ident,
+    variant_name: &Ident,
+    fields: &[GrammarField],
+    is_named: bool,
+) -> proc_macro2::TokenStream {
+    let pattern = variant_pattern(root_name, variant_name, fields, is_named);
+    let serialized_fields = fields.iter().map(|field| {
+        let access = {
+            let name = &field.name;
+            quote! { #name }
+        };
+        construct_serialized_field(&field.ty, &access)
+    });
+    quote! {
+        if let #pattern = self {
+            #(#serialized_fields)*
+        }
+    }
+}
+
+fn construct_mutate_field_arm(
+    id: usize,
+    field_access: &proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
+    quote! {
+        #id => {
+            #field_access.__autarkie_mutate(autarkie_ty, autarkie_visitor, autarkie_path);
+        },
+    }
+}
+
+fn construct_enum_mutate_arm(
+    root_name: &Ident,
+    variant_name: &Ident,
+    variant_idx: usize,
+    fields: &[GrammarField],
+    is_named: bool,
+) -> proc_macro2::TokenStream {
+    if fields.is_empty() {
+        return quote! {
+            #variant_idx => unreachable!("____aNHh8Ap8"),
+        };
+    }
+
+    let pattern = variant_pattern(root_name, variant_name, fields, is_named);
+    let field_mutations = fields.iter().map(|field| {
+        let access = {
+            let name = &field.name;
+            quote! { #name }
+        };
+        construct_mutate_field_arm(field.id, &access)
+    });
+
+    quote! {
+        #variant_idx => {
+            if let #pattern = self {
+                if let Some(popped) = autarkie_path.pop_front() {
+                    match popped {
+                        #(#field_mutations)*
+                        _ => {
+                            unreachable!("____FU1zlV0c")
+                        }
+                    }
+                } else {
+                    unreachable!("____kTHVIHpB");
+                }
+            } else {unreachable!("iOoUo7jL____")}
+        },
+    }
+}
+
+fn construct_register_ty_field(
+    ty: &Type,
+    variant_idx: &proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
+    quote! {
+        if !v.is_recursive(<#ty>::__autarkie_id()) {
+            <#ty>::__autarkie_register(v, Some(Self::__autarkie_id_tuple()), #variant_idx);
+        } else {
+            v.register_ty(Some(Self::__autarkie_id_tuple()), <#ty>::__autarkie_id_tuple(), #variant_idx);
+            v.pop_ty();
+        }
+    }
 }
 
 fn parse_fields(
@@ -481,73 +529,68 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
     fields
         .iter()
         .map(|field| {
-            let attr_iterator = field.attrs.iter();
             let name = &field.name;
             let ty = &field.ty;
             let mut generator = None;
             // The generator is a closure that is run immediately.
             // This allows us to sepcify literals for a field.
             // TODO: maybe do some sanitization of literals
-            for attr in attr_iterator {
-                if let Meta::List(ref list) = attr.meta {
-                    let ident = &list.path.segments.first().as_ref().unwrap().ident;
-                    if  ident == "autarkie_literal" {
-                        let literals = list
-                            .tokens
-                            .clone()
-                            .into_iter()
-                            .filter(|i| {
-                                matches!(i, proc_macro2::TokenTree::Literal(_))
-                                    || matches!(i, proc_macro2::TokenTree::Group(_))
-                                    || matches!(i, proc_macro2::TokenTree::Ident(_))
-                            })
-                            .collect::<Vec<_>>();
-                        let literals_len = literals.len() - 1;
-                        // if we only have one literal
-                        if literals_len == 0 {
-                            let item = literals.first().unwrap();
-                            generator = Some(quote! {
-                                let #name = #item as #ty;
-                            });
-                        } else {
-                            // if we have multiple literals -> pick one randomly
-                            generator = Some(quote! {
-                                let #name = || -> #ty {
-                                    let item = v.random_range(0, #literals_len);
-                                    let literals = [#(#literals),*];
-                                    literals[item] as #ty
-                                }();
-                            });
-                        }
-                    } else if ident == "autarkie_min_length" {
-                        let literals = list
-                            .tokens
-                            .clone()
-                            .into_iter()
-                            .filter(|i| {
-                                matches!(i, proc_macro2::TokenTree::Literal(_))
-                                    || matches!(i, proc_macro2::TokenTree::Group(_))
-                                    || matches!(i, proc_macro2::TokenTree::Ident(_))
-                            })
-                            .collect::<Vec<_>>();
-                        if literals.len() != 1 {
-                            panic!("autarkie_min_size(..) needs an unsigned integer literal value!");
-                        }
-                            let item = literals.first().unwrap();
-                            generator = Some(quote! {
-                                let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth},
-                                Some(autarkie::GenerateSettings::Length(#item))
-                            )?;
-                            });
+            for attr in &field.attrs {
+                if attr.path().is_ident("autarkie_literal") {
+                    let literals = attr
+                        .parse_args_with(
+                            syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
+                        )
+                        .unwrap()
+                        .into_iter()
+                        .map(|expr| match expr {
+                            syn::Expr::Lit(_) => expr,
+                            syn::Expr::Path(ref path) if path.path.get_ident().is_some() => expr,
+                            _ => {
+                                panic!("autarkie_literal(..) needs literal or ident values");
+                            }
+                        })
+                        .collect::<Vec<_>>();
+                    if literals.is_empty() {
+                        panic!("autarkie_literal(..) needs literal or ident values");
                     }
-                    else if ident == "autarkie_range" {
-                        let range: syn::ExprRange = syn::parse(list.tokens.clone().into()).unwrap();
-                            generator = Some(quote! {
-                                let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth},
-                                Some(autarkie::GenerateSettings::Range(#range))
-                            )?;
-                            });
-                }
+                    let literals_len = literals.len() - 1;
+                    if literals_len == 0 {
+                        let item = literals.first().unwrap();
+                        generator = Some(quote! {
+                            let #name = #item as #ty;
+                        });
+                    } else {
+                        generator = Some(quote! {
+                            let #name = || -> #ty {
+                                let item = v.random_range(0, #literals_len);
+                                let literals = [#(#literals),*];
+                                literals[item] as #ty
+                            }();
+                        });
+                    }
+                } else if attr.path().is_ident("autarkie_length") {
+                    let values = attr
+                        .parse_args_with(
+                            syn::punctuated::Punctuated::<syn::LitInt, syn::Token![,]>::parse_terminated,
+                        )
+                        .unwrap();
+                    if values.len() != 1 {
+                        panic!("autarkie_min_size(..) needs an unsigned integer literal value!");
+                    }
+                    let item = values.first().unwrap();
+                    generator = Some(quote! {
+                        let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth},
+                        Some(autarkie::GenerateSettings::Length(#item))
+                    )?;
+                    });
+                } else if attr.path().is_ident("autarkie_range") {
+                    let range: syn::ExprRange = attr.parse_args().unwrap();
+                    generator = Some(quote! {
+                        let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth},
+                        Some(autarkie::GenerateSettings::Range(#range))
+                    )?;
+                    });
                 }
             }
             // If we do not have a literal attribute, we use the inner generate function of the type.

@@ -6,3 +6,6 @@ edition = "2021"
 [dependencies]
 autarkie = {path = "../autarkie", features = ["derive"]}
 serde = { version = "1.0.217", features = ["derive"] }
+
+[dev-dependencies]
+trybuild = "1"

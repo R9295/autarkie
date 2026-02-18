@@ -1,0 +1,24 @@
+error: proc-macro derive panicked
+ --> tests/ui/fail/union_type.rs:3:17
+  |
+3 | #[derive(Clone, Grammar)]
+  |                 ^^^^^^^
+  |
+  = help: message: not yet implemented
+
+error[E0277]: the trait bound `BadUnion: Copy` is not satisfied
+ --> tests/ui/fail/union_type.rs:3:10
+  |
+3 | #[derive(Clone, Grammar)]
+  |          ^^^^^ the trait `Copy` is not implemented for `BadUnion`
+  |
+note: required by a bound in `AssertParamIsCopy`
+ --> $RUST/core/src/clone.rs
+  |
+  | pub struct AssertParamIsCopy<T: Copy + PointeeSized> {
+  |                                 ^^^^ required by this bound in `AssertParamIsCopy`
+help: consider annotating `BadUnion` with `#[derive(Copy)]`
+  |
+4 + #[derive(Copy)]
+5 | pub union BadUnion {
+  |
