@@ -68,27 +68,8 @@ impl Context {
     }
 
     pub fn add_field_loader<I: Node>(&mut self, item: I) {
-        let (data, ty) = (crate::serialize(&item), I::__autarkie_id());
-        // todo: optimize this
-        let path = self.out_dir.join("chunks").join(ty.to_string());
-        match std::fs::create_dir(&path) {
-            Ok(_) => {}
-            Err(e) => {
-                if !matches!(e.kind(), ErrorKind::AlreadyExists) {
-                    panic!("{:?}", e)
-                }
-            }
-        };
-        let hash = twox_hash::XxHash64::oneshot(0, &data);
-        let path = path.join(hash.to_string());
-        if !std::fs::exists(&path).unwrap() {
-            std::fs::write(&path, data).unwrap();
-            if let Some(e) = self.type_input_map.get_mut(&ty) {
-                e.push(path);
-            } else {
-                self.type_input_map.insert(ty, vec![path]);
-            }
-        }
+        let field = (crate::serialize(&item), I::__autarkie_id());
+        self.add_field(field);
     }
     pub fn add_field(&mut self, field: (Vec<u8>, Id)) {
         let (data, ty) = field;
