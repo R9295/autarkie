@@ -1,11 +1,11 @@
 #![allow(warnings)]
 pub mod afl;
-pub mod macros;
 pub mod context;
 mod feedback;
 mod fuzzer;
 mod hooks;
 pub mod libfuzzer;
+pub mod macros;
 pub mod mutators;
 mod stages;
 
@@ -66,7 +66,15 @@ where
         .cores(&opt.cores)
         .monitor(monitor)
         .run_client(|s, mgr, core| {
-            fuzzer::run_client(s, mgr, core, bytes_converter.clone(), &opt, harness, __autarkie__loader)
+            fuzzer::run_client(
+                s,
+                mgr,
+                core,
+                bytes_converter.clone(),
+                &opt,
+                harness,
+                __autarkie__loader,
+            )
         })
         .broker_port(opt.broker_port)
         .shmem_provider(shmem_provider)

@@ -15,9 +15,9 @@ pub use libafl_targets::{libfuzzer_initialize, libfuzzer_test_one_input};
 
 pub mod tree;
 pub mod visitor;
+pub use fuzzer::context::Context;
 pub use tree::*;
 pub use visitor::*;
-pub use fuzzer::context::Context;
 
 mod graph;
 

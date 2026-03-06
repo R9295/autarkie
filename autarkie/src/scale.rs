@@ -34,7 +34,12 @@ macro_rules! impl_generate_compact {
                 };
                 Some(Self(compacted.0))
             }
-            fn __autarkie_cmps(&self, v: &mut crate::Visitor, index: usize, __autarkie_val: (u64, u64)) {
+            fn __autarkie_cmps(
+                &self,
+                v: &mut crate::Visitor,
+                index: usize,
+                __autarkie_val: (u64, u64),
+            ) {
                 if __autarkie_val.0 == self.0 as u64 {
                     v.register_cmp(crate::serialize(&(__autarkie_val.1 as $inner)));
                 };

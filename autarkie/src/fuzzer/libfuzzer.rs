@@ -55,7 +55,11 @@ macro_rules! fuzz_libfuzzer_link_inner {
                 }
                 $crate::LibAFLExitKind::Ok
             };
-            $crate::fuzzer::run_fuzzer(FuzzDataTargetBytesConverter::new(), Some(harness), __autarkie_loader);
+            $crate::fuzzer::run_fuzzer(
+                FuzzDataTargetBytesConverter::new(),
+                Some(harness),
+                __autarkie_loader,
+            );
         }
     };
 }

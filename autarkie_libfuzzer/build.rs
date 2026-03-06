@@ -83,83 +83,85 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed={}", grammar_source);
 
     // detect if we are a version or path/git dep, or testing version-based behavior
-    if fs::exists("../autarkie_libfuzzer_runtime")? && !cfg!(feature = "libafl-libfuzzer-use-version")
+    if fs::exists("../autarkie_libfuzzer_runtime")?
+        && !cfg!(feature = "libafl-libfuzzer-use-version")
     {
         command.current_dir("../autarkie_libfuzzer_runtime");
 
-    let grammar_source = PathBuf::from_str(&grammar_source)?;
-    assert!(
-        grammar_source.is_absolute(),
-        "grammar source must be an absolute path."
-    );
-    let mut grammar_source_toml =
-        toml::from_str(&std::fs::read_to_string(grammar_source.join("Cargo.toml"))?)?;
-    let toml::Value::Table(grammar_source_toml) = &mut grammar_source_toml else {
-        unreachable!("Invalid Cargo.toml");
-    };
-    let Some(toml::Value::Table(name)) = grammar_source_toml.get("package") else {
-        unreachable!("Invalid Cargo.toml");
-    };
-    let Some(toml::Value::Table(grammar_deps)) = grammar_source_toml.get("dependencies") else {
-        unreachable!("Invalid Cargo.toml");
-    };
-    let name = name.get("name").unwrap().to_string();
-    let mut template = toml::from_str(&std::fs::read_to_string(
-        "../autarkie_libfuzzer_runtime/Cargo.toml",
-    )?)?;
-    let toml::Value::Table(root) = &mut template else {
-        unreachable!("Invalid Cargo.toml");
-    };
-    let Some(toml::Value::Table(deps)) = root.get_mut("dependencies") else {
-        unreachable!("Invalid Cargo.toml");
-    };
-    // TODO: remove old grammar
-    if deps.contains_key("grammar_source") {
-        deps.remove("grammar_source");
-    }
-    // remove old autarkie dependency
-    // We need to re-add it because serialization primives may change
-    if deps.contains_key("autarkie") {
-        deps.remove("autarkie");
-    }
-    let mut grammar_autarkie = grammar_deps
-        .get("autarkie")
-        .expect("Grammar source must have autarkie as a dependency")
-        .clone();
-    if let Some(autarkie_path) = grammar_autarkie.get("path") {
+        let grammar_source = PathBuf::from_str(&grammar_source)?;
         assert!(
-            PathBuf::from(autarkie_path.to_string().replace("\"", "")).is_absolute(),
-            "Autarkie's path in the grammar source must either be absolute or a git repository"
+            grammar_source.is_absolute(),
+            "grammar source must be an absolute path."
         );
-    }
-    let Some(toml::Value::Array(autarkie_features)) = grammar_autarkie.get_mut("features") else {
-        unreachable!("Invalid autarkie declaration");
-    };
-    if !autarkie_features.contains(&toml::Value::String("libfuzzer".to_string())) {
-        autarkie_features.push("libfuzzer".into());
-    }
+        let mut grammar_source_toml =
+            toml::from_str(&std::fs::read_to_string(grammar_source.join("Cargo.toml"))?)?;
+        let toml::Value::Table(grammar_source_toml) = &mut grammar_source_toml else {
+            unreachable!("Invalid Cargo.toml");
+        };
+        let Some(toml::Value::Table(name)) = grammar_source_toml.get("package") else {
+            unreachable!("Invalid Cargo.toml");
+        };
+        let Some(toml::Value::Table(grammar_deps)) = grammar_source_toml.get("dependencies") else {
+            unreachable!("Invalid Cargo.toml");
+        };
+        let name = name.get("name").unwrap().to_string();
+        let mut template = toml::from_str(&std::fs::read_to_string(
+            "../autarkie_libfuzzer_runtime/Cargo.toml",
+        )?)?;
+        let toml::Value::Table(root) = &mut template else {
+            unreachable!("Invalid Cargo.toml");
+        };
+        let Some(toml::Value::Table(deps)) = root.get_mut("dependencies") else {
+            unreachable!("Invalid Cargo.toml");
+        };
+        // TODO: remove old grammar
+        if deps.contains_key("grammar_source") {
+            deps.remove("grammar_source");
+        }
+        // remove old autarkie dependency
+        // We need to re-add it because serialization primives may change
+        if deps.contains_key("autarkie") {
+            deps.remove("autarkie");
+        }
+        let mut grammar_autarkie = grammar_deps
+            .get("autarkie")
+            .expect("Grammar source must have autarkie as a dependency")
+            .clone();
+        if let Some(autarkie_path) = grammar_autarkie.get("path") {
+            assert!(
+                PathBuf::from(autarkie_path.to_string().replace("\"", "")).is_absolute(),
+                "Autarkie's path in the grammar source must either be absolute or a git repository"
+            );
+        }
+        let Some(toml::Value::Array(autarkie_features)) = grammar_autarkie.get_mut("features")
+        else {
+            unreachable!("Invalid autarkie declaration");
+        };
+        if !autarkie_features.contains(&toml::Value::String("libfuzzer".to_string())) {
+            autarkie_features.push("libfuzzer".into());
+        }
 
-    let mut dep = toml::map::Map::from_iter([
-        (
-            "path".to_string(),
-            toml::Value::String(grammar_source.to_str().unwrap().to_string()),
-        ),
-        (
-            "package".to_string(),
-            toml::Value::String(name.replace("\"", "")),
-        ),
-    ]);
-    if let Ok(features) = std::env::var("AUTARKIE_GRAMMAR_SRC_FEATURES") {
-        let features = features.replace(" ", "");
-        dep.insert(
-            "features".to_string(),
-            toml::Value::Array(
-                features
-                    .split(",")
-                    .map(|i| toml::Value::String(i.to_string()))
-                    .collect::<Vec<_>>(),
+        let mut dep = toml::map::Map::from_iter([
+            (
+                "path".to_string(),
+                toml::Value::String(grammar_source.to_str().unwrap().to_string()),
             ),
-        );
+            (
+                "package".to_string(),
+                toml::Value::String(name.replace("\"", "")),
+            ),
+        ]);
+        if let Ok(features) = std::env::var("AUTARKIE_GRAMMAR_SRC_FEATURES") {
+            let features = features.replace(" ", "");
+            dep.insert(
+                "features".to_string(),
+                toml::Value::Array(
+                    features
+                        .split(",")
+                        .map(|i| toml::Value::String(i.to_string()))
+                        .collect::<Vec<_>>(),
+                ),
+            );
         }
         deps.insert("grammar_source".to_string(), toml::Value::Table(dep));
         deps.insert("autarkie".to_string(), grammar_autarkie);
@@ -196,7 +198,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             let grammar_source = if grammar_source.is_absolute() {
                 grammar_source
             } else {
-                std::env::current_dir()?.join(&grammar_source).canonicalize()?
+                std::env::current_dir()?
+                    .join(&grammar_source)
+                    .canonicalize()?
             };
 
             let mut grammar_source_toml =
@@ -207,7 +211,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             let Some(toml::Value::Table(name)) = grammar_source_toml.get("package") else {
                 unreachable!("Invalid Cargo.toml");
             };
-            let Some(toml::Value::Table(grammar_deps)) = grammar_source_toml.get("dependencies") else {
+            let Some(toml::Value::Table(grammar_deps)) = grammar_source_toml.get("dependencies")
+            else {
                 unreachable!("Invalid Cargo.toml");
             };
             let name = name.get("name").unwrap().to_string();
@@ -262,7 +267,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            let Some(toml::Value::Array(autarkie_features)) = grammar_autarkie.get_mut("features") else {
+            let Some(toml::Value::Array(autarkie_features)) = grammar_autarkie.get_mut("features")
+            else {
                 unreachable!("Invalid autarkie declaration");
             };
             if !autarkie_features.contains(&toml::Value::String("libfuzzer".to_string())) {

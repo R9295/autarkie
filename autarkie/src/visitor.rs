@@ -282,7 +282,10 @@ impl Visitor {
             let r_variants = variants
                 .get(&GenerateType::Recursive)
                 .expect("____q154Wl5zf2");
-            let ret = self.rng.choose(nr_variants.iter().chain(r_variants)).expect("O3pQMbj8____");
+            let ret = self
+                .rng
+                .choose(nr_variants.iter().chain(r_variants))
+                .expect("O3pQMbj8____");
             let is_recursive = r_variants.contains(ret);
             Some((ret.clone(), is_recursive))
         } else {
@@ -312,7 +315,10 @@ impl Visitor {
             ty_name_map: BTreeMap::default(),
             ty_done: BTreeSet::default(),
             ty_map_stack: vec![],
-            depth: DepthInfo { generate: 0, iterate: 0 },
+            depth: DepthInfo {
+                generate: 0,
+                iterate: 0,
+            },
             fields: vec![],
             field_stack: vec![],
             matching_cmps: vec![],
@@ -321,7 +327,7 @@ impl Visitor {
             ty_map: BTreeMap::new(),
             rng: StdRand::with_seed(0),
         }
-    } 
+    }
     pub fn new(seed: u64, depth: DepthInfo, string_num: usize) -> Self {
         let mut visitor = Self {
             has_recursive_types: false,

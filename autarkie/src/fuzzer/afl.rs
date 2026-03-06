@@ -3,7 +3,11 @@ macro_rules! fuzz_afl_inner {
     ($t: ty) => {
         fn main() {
             let harness: Option<fn(&$t) -> autarkie::LibAFLExitKind> = None;
-            $crate::fuzzer::run_fuzzer(FuzzDataTargetBytesConverter::new(), harness, __autarkie_loader);
+            $crate::fuzzer::run_fuzzer(
+                FuzzDataTargetBytesConverter::new(),
+                harness,
+                __autarkie_loader,
+            );
         }
     };
 }

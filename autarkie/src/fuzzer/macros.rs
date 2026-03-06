@@ -97,9 +97,6 @@ macro_rules! impl_loader {
         }
     };
     () => {
-        fn __autarkie_loader(loader: &mut autarkie::Context) {
-            
-        }
+        fn __autarkie_loader(loader: &mut autarkie::Context) {}
     };
 }
-

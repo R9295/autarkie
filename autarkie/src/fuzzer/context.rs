@@ -46,10 +46,10 @@ impl Context {
         };
         let string_ty = String::__autarkie_id();
         for field in generated_fields {
-        let (ref data, ty) = field;
-        if ty == string_ty {
-            visitor.register_string(crate::deserialize(&mut data.as_slice()));
-        }
+            let (ref data, ty) = field;
+            if ty == string_ty {
+                visitor.register_string(crate::deserialize(&mut data.as_slice()));
+            }
             self.add_field(field);
         }
         let rendered = converter.to_target_bytes(&input);
