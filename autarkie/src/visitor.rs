@@ -305,7 +305,23 @@ impl Visitor {
     pub fn has_recursive_types(&self) -> bool {
         return self.has_recursive_types;
     }
-
+    pub fn default() -> Self {
+        Self {
+            has_recursive_types: false,
+            ty_generate_map: BTreeMap::default(),
+            ty_name_map: BTreeMap::default(),
+            ty_done: BTreeSet::default(),
+            ty_map_stack: vec![],
+            depth: DepthInfo { generate: 0, iterate: 0 },
+            fields: vec![],
+            field_stack: vec![],
+            matching_cmps: vec![],
+            serialized: vec![],
+            strings: StringPool::new(),
+            ty_map: BTreeMap::new(),
+            rng: StdRand::with_seed(0),
+        }
+    } 
     pub fn new(seed: u64, depth: DepthInfo, string_num: usize) -> Self {
         let mut visitor = Self {
             has_recursive_types: false,

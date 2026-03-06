@@ -4,13 +4,13 @@ macro_rules! fuzz_libfuzzer {
         $crate::impl_input!($t);
         $crate::impl_converter!($t);
         $crate::impl_hash!($t);
-        $crate::impl_loader();
+        $crate::impl_loader!();
     };
     ($t:ty, $closure:expr) => {
         $crate::impl_input!($t);
         $crate::impl_converter!($t, $closure);
         $crate::impl_hash!($t);
-        $crate::impl_loader();
+        $crate::impl_loader!();
     };
 }
 
@@ -21,14 +21,21 @@ macro_rules! fuzz_libfuzzer_link {
         $crate::impl_converter!($t);
         $crate::fuzz_libfuzzer_link_inner!($t);
         $crate::impl_hash!($t);
-        $crate::impl_loader();
+        $crate::impl_loader!();
     };
     ($t:ty, $closure:expr) => {
         $crate::impl_input!($t);
         $crate::impl_converter!($t, $closure);
         $crate::fuzz_libfuzzer_link_inner!($t);
         $crate::impl_hash!($t);
-        $crate::impl_loader();
+        $crate::impl_loader!();
+    };
+    ($t:ty, $closure:expr, $loader: expr) => {
+        $crate::impl_input!($t);
+        $crate::impl_converter!($t, $closure);
+        $crate::fuzz_libfuzzer_link_inner!($t);
+        $crate::impl_hash!($t);
+        $crate::impl_loader!($loader);
     };
 }
 
@@ -48,7 +55,7 @@ macro_rules! fuzz_libfuzzer_link_inner {
                 }
                 $crate::LibAFLExitKind::Ok
             };
-            $crate::fuzzer::run_fuzzer(FuzzDataTargetBytesConverter::new(), Some(harness));
+            $crate::fuzzer::run_fuzzer(FuzzDataTargetBytesConverter::new(), Some(harness), __autarkie_loader);
         }
     };
 }

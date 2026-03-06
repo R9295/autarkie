@@ -67,23 +67,23 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             // Generate the Node trait implementation for the Struct
             let node_impl = quote! {
                 impl #impl_generics ::autarkie::Node for #root_name #ty_generics #where_clause {
-                    fn __autarkie_generate(v: &mut autarkie::Visitor, depth: &mut usize, cur_depth : usize, settings: Option<autarkie::GenerateSettings>) -> Option<Self> {
-                        let (_, is_recursive) = v.generate(&Self::__autarkie_id(), cur_depth)?;
+                    fn __autarkie_generate(autarkie_visitor: &mut autarkie::Visitor, depth: &mut usize, cur_depth : usize, settings: Option<autarkie::GenerateSettings>) -> Option<Self> {
+                        let (_, is_recursive) = autarkie_visitor.generate(&Self::__autarkie_id(), cur_depth)?;
                         #generate
                     }
 
-                    fn __autarkie_register(v: &mut ::autarkie::Visitor, parent: Option<(::autarkie::tree::Id, String)>, variant: usize) {
-                        v.register_ty(parent, Self::__autarkie_id_tuple(), variant);
+                    fn __autarkie_register(autarkie_visitor: &mut ::autarkie::Visitor, parent: Option<(::autarkie::tree::Id, String)>, variant: usize) {
+                        autarkie_visitor.register_ty(parent, Self::__autarkie_id_tuple(), variant);
                         #(#register_ty)*;
-                        v.pop_ty();
+                        autarkie_visitor.pop_ty();
                     }
 
-                    fn __autarkie_fields(&self, v: &mut ::autarkie::Visitor, __autarkie_index: usize) {
+                    fn __autarkie_fields(&self, autarkie_visitor: &mut ::autarkie::Visitor, __autarkie_index: usize) {
                         #(#register_field)*;
                     }
 
 
-                    fn __autarkie_cmps(&self, v: &mut ::autarkie::Visitor, __autarkie_index: usize, __autarkie_val: (u64, u64)) {
+                    fn __autarkie_cmps(&self, autarkie_visitor: &mut ::autarkie::Visitor, __autarkie_index: usize, __autarkie_val: (u64, u64)) {
                         #(#register_cmps)*
                     }
 
@@ -184,8 +184,8 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 if fields.is_empty() {
                     register_ty.push(quote! {
                     // use something besides bool; bool is just a place holder.
-                    v.register_ty(Some(Self::__autarkie_id_tuple()), <std::marker::PhantomData<bool>>::__autarkie_id_tuple(), #i);
-                    v.pop_ty();
+                    autarkie_visitor.register_ty(Some(Self::__autarkie_id_tuple()), <std::marker::PhantomData<bool>>::__autarkie_id_tuple(), #i);
+                    autarkie_visitor.pop_ty();
                 });
                 } else {
                     let register_fields = fields
@@ -226,7 +226,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             } else {
                 let variant_id_calculation = {
                     quote! {
-                        let (variant_id, is_recursive) = v.generate(&Self::__autarkie_id(), cur_depth)?;
+                        let (variant_id, is_recursive) = autarkie_visitor.generate(&Self::__autarkie_id(), cur_depth)?;
                     }
                 };
                 quote! {
@@ -243,21 +243,21 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             // TODO: can optimize this if the enum has only two variants like (Result)
             let node_impl = quote! {
                 impl #impl_generics ::autarkie::Node for #root_name #ty_generics #where_clause {
-                    fn __autarkie_generate(v: &mut ::autarkie::Visitor, depth: &mut usize, cur_depth : usize, settings: Option<autarkie::GenerateSettings>) -> Option<Self> {
+                    fn __autarkie_generate(autarkie_visitor: &mut ::autarkie::Visitor, depth: &mut usize, cur_depth : usize, settings: Option<autarkie::GenerateSettings>) -> Option<Self> {
                         #generate_func
                     }
 
-                    fn __autarkie_fields(&self, v: &mut ::autarkie::Visitor, __autarkie_index: usize) {
+                    fn __autarkie_fields(&self, autarkie_visitor: &mut ::autarkie::Visitor, __autarkie_index: usize) {
                         #(#fn_fields)*;
                     }
 
-                    fn __autarkie_register(v: &mut ::autarkie::Visitor, parent: Option<(::autarkie::tree::Id, String)>, variant: usize) {
-                        v.register_ty(parent, Self::__autarkie_id_tuple(), variant);
+                    fn __autarkie_register(autarkie_visitor: &mut ::autarkie::Visitor, parent: Option<(::autarkie::tree::Id, String)>, variant: usize) {
+                        autarkie_visitor.register_ty(parent, Self::__autarkie_id_tuple(), variant);
                         #(#register_ty)*;
-                        v.pop_ty();
+                        autarkie_visitor.pop_ty();
                     }
 
-                    fn __autarkie_cmps(&self, v: &mut ::autarkie::Visitor, __autarkie_index: usize, __autarkie_val: (u64, u64)) {
+                    fn __autarkie_cmps(&self, autarkie_visitor: &mut ::autarkie::Visitor, __autarkie_index: usize, __autarkie_val: (u64, u64)) {
                         #(#fn_cmps)*;
                     }
 
@@ -356,16 +356,16 @@ fn construct_field_visit_stmt(
 ) -> proc_macro2::TokenStream {
     let call = match kind {
         FieldVisitKind::Fields => quote! {
-            #field_access.__autarkie_fields(v, #idx);
+            #field_access.__autarkie_fields(autarkie_visitor, #idx);
         },
         FieldVisitKind::Cmps => quote! {
-            #field_access.__autarkie_cmps(v, #idx, __autarkie_val);
+            #field_access.__autarkie_cmps(autarkie_visitor, #idx, __autarkie_val);
         },
     };
     quote! {
-        v.register_field(((#id, #field_access.__autarkie_node_ty(v)), <#ty>::__autarkie_id()));
+        autarkie_visitor.register_field(((#id, #field_access.__autarkie_node_ty(autarkie_visitor)), <#ty>::__autarkie_id()));
         #call
-        v.pop_field();
+        autarkie_visitor.pop_field();
     }
 }
 
@@ -395,9 +395,9 @@ fn construct_enum_fields_like_arm(
 
     quote! {
         if let #pattern = self {
-            v.register_field_stack(((#variant_idx, self.__autarkie_node_ty(v)), Self::__autarkie_id()));
+            autarkie_visitor.register_field_stack(((#variant_idx, self.__autarkie_node_ty(autarkie_visitor)), Self::__autarkie_id()));
             #(#field_ops)*
-            v.pop_field();
+            autarkie_visitor.pop_field();
         }
     }
 }
@@ -492,11 +492,11 @@ fn construct_register_ty_field(
     variant_idx: &proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
     quote! {
-        if !v.is_recursive(<#ty>::__autarkie_id()) {
-            <#ty>::__autarkie_register(v, Some(Self::__autarkie_id_tuple()), #variant_idx);
+        if !autarkie_visitor.is_recursive(<#ty>::__autarkie_id()) {
+            <#ty>::__autarkie_register(autarkie_visitor, Some(Self::__autarkie_id_tuple()), #variant_idx);
         } else {
-            v.register_ty(Some(Self::__autarkie_id_tuple()), <#ty>::__autarkie_id_tuple(), #variant_idx);
-            v.pop_ty();
+            autarkie_visitor.register_ty(Some(Self::__autarkie_id_tuple()), <#ty>::__autarkie_id_tuple(), #variant_idx);
+            autarkie_visitor.pop_ty();
         }
     }
 }
@@ -571,12 +571,13 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
                     } else {
                         generator = Some(quote! {
                             let #name = || -> #ty {
-                                let item = v.random_range(0, #literals_len);
+                                let item = autarkie_visitor.random_range(0, #literals_len);
                                 let literals = [#(#literals),*];
                                 literals[item] as #ty
                             }();
                         });
                     }
+                // NOTE: autarkie_length is only enforced during generation, not during splicing.
                 } else if attr.path().is_ident("autarkie_length") {
                     let values = attr
                         .parse_args_with(
@@ -588,14 +589,14 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
                     }
                     let item = values.first().unwrap();
                     generator = Some(quote! {
-                        let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth},
+                        let #name = <#ty>::__autarkie_generate(autarkie_visitor, depth, if is_recursive {cur_depth + 1} else {cur_depth},
                         Some(autarkie::GenerateSettings::Length(#item))
                     )?;
                     });
                 } else if attr.path().is_ident("autarkie_range") {
                     let range: syn::ExprRange = attr.parse_args().unwrap();
                     generator = Some(quote! {
-                        let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth},
+                        let #name = <#ty>::__autarkie_generate(autarkie_visitor, depth, if is_recursive {cur_depth + 1} else {cur_depth},
                         Some(autarkie::GenerateSettings::Range(#range))
                     )?;
                     });
@@ -604,7 +605,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
             // If we do not have a literal attribute, we use the inner generate function of the type.
             if generator.is_none() {
                 generator = Some(quote! {
-                    let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth}, None)?;
+                    let #name = <#ty>::__autarkie_generate(autarkie_visitor, depth, if is_recursive {cur_depth + 1} else {cur_depth}, None)?;
                 });
             }
             // this should never happen, cause we either have a literal attribute or not.
