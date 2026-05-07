@@ -190,7 +190,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
                 let field_fn = if !fields.is_empty() {
                     let variant_fields_register = fields.iter().map(|field| {
-                        let name = &field.name;
+                        let name = &field.binding;
                         let ty = &field.ty;
                         let id = &field.id;
                         quote! {
@@ -200,8 +200,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         }
                     });
                     let field_names = fields.iter().map(|field| {
-                        let name = &field.name;
-                        quote! {#name}
+                        field.binding_pair(is_named)
                     });
                     let match_arm = if is_named {
                         quote! {if let #root_name::#variant_name{#(#field_names),*} = self}
@@ -245,7 +244,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
                 let fn_cmp = if !fields.is_empty() {
                     let variant_fields_cmp = fields.iter().map(|field| {
-                        let name = &field.name;
+                        let name = &field.binding;
                         let ty = &field.ty;
                         let id = &field.id;
                         quote! {
@@ -255,8 +254,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         }
                     });
                     let field_names = fields.iter().map(|field| {
-                        let name = &field.name;
-                        quote! {#name}
+                        field.binding_pair(is_named)
                     });
                     let match_arm = if is_named {
                         quote! {if let #root_name::#variant_name{#(#field_names),*} = self}
@@ -279,11 +277,10 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 fn_cmps.push(fn_cmp);
                 let inner_mutate_variant = if !fields.is_empty() {
                     let field_names = fields.iter().map(|field| {
-                        let name = &field.name;
-                        quote! {#name}
+                        field.binding_pair(is_named)
                     });
                     let variant_fields_mutate = fields.iter().map(|field| {
-                        let name = &field.name;
+                        let name = &field.binding;
                         let id = &field.id;
                         quote! {
                             #id => {
@@ -323,11 +320,10 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 inner_mutate.push(inner_mutate_variant);
                 if !fields.is_empty() {
                     let field_names = fields.iter().map(|field| {
-                        let name = &field.name;
-                        quote! {#name}
+                        field.binding_pair(is_named)
                     });
                     let serialized_fields = fields.iter().map(|field| {
-                        let name = &field.name;
+                        let name = &field.binding;
                         let ty = &field.ty;
                         quote! {
                             // todo: check fixed size
@@ -466,8 +462,10 @@ fn parse_fields(
                 Some(ident) => ident,
                 None => Ident::new(&format!("_{id}"), field.span()),
             };
+            let binding = Ident::new(&format!("__autarkie_field_{id}"), field.span());
             GrammarField {
                 name,
+                binding,
                 ty: ty.clone(),
                 id,
                 attrs: field.attrs.clone(),
@@ -483,6 +481,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
         .map(|field| {
             let attr_iterator = field.attrs.iter();
             let name = &field.name;
+            let binding = &field.binding;
             let ty = &field.ty;
             let mut generator = None;
             // The generator is a closure that is run immediately.
@@ -507,12 +506,12 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
                         if literals_len == 0 {
                             let item = literals.first().unwrap();
                             generator = Some(quote! {
-                                let #name = #item as #ty;
+                                let #binding = #item as #ty;
                             });
                         } else {
                             // if we have multiple literals -> pick one randomly
                             generator = Some(quote! {
-                                let #name = || -> #ty {
+                                let #binding = || -> #ty {
                                     let item = v.random_range(0, #literals_len);
                                     let literals = [#(#literals),*];
                                     literals[item] as #ty
@@ -535,7 +534,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
                         }
                             let item = literals.first().unwrap();
                             generator = Some(quote! {
-                                let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth},
+                                let #binding = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth},
                                 Some(autarkie::GenerateSettings::Length(#item))
                             )?;
                             });
@@ -543,7 +542,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
                     else if ident == "autarkie_range" {
                         let range: syn::ExprRange = syn::parse(list.tokens.clone().into()).unwrap();
                             generator = Some(quote! {
-                                let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth},
+                                let #binding = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth},
                                 Some(autarkie::GenerateSettings::Range(#range))
                             )?;
                             });
@@ -553,7 +552,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
             // If we do not have a literal attribute, we use the inner generate function of the type.
             if generator.is_none() {
                 generator = Some(quote! {
-                    let #name = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth}, None)?;
+                    let #binding = <#ty>::__autarkie_generate(v, depth, if is_recursive {cur_depth + 1} else {cur_depth}, None)?;
                 });
             }
             // this should never happen, cause we either have a literal attribute or not.
@@ -568,19 +567,19 @@ fn construct_generate_function_struct(
     is_named: bool,
 ) -> proc_macro2::TokenStream {
     let field_defs = get_field_defs(fields);
-    let names = fields.iter().map(|field| &field.name);
+    let fields = fields.iter().map(|field| field.binding_pair(is_named));
     // if the struct is
     // non named -> Struct(x, y, z)
     // named -> Struct{x: usize, b: usize}
     if is_named {
         quote! {
             #(#field_defs)*
-            Some(Self {#(#names),*})
+            Some(Self {#(#fields),*})
         }
     } else {
         quote! {
             #(#field_defs)*
-            Some(Self(#(#names),*))
+            Some(Self(#(#fields),*))
         }
     }
 }
@@ -593,19 +592,19 @@ fn construct_generate_function_enum(
 ) -> proc_macro2::TokenStream {
     if !fields.is_empty() {
         let field_defs = get_field_defs(fields);
-        let names = fields.iter().map(|field| &field.name);
+        let fields = fields.iter().map(|field| field.binding_pair(is_named));
         // if the enum variant is
         // non named -> Enum::Variant(x, y, z)
         // named -> Enum::Variant{x: usize, b: usize}
         if is_named {
             quote! {
                 #(#field_defs)*
-                Some(#root_name::#variant_name {#(#names),*})
+                Some(#root_name::#variant_name {#(#fields),*})
             }
         } else {
             quote! {
                 #(#field_defs)*
-                Some(#root_name::#variant_name (#(#names),*))
+                Some(#root_name::#variant_name (#(#fields),*))
             }
         }
     } else {
@@ -616,6 +615,7 @@ fn construct_generate_function_enum(
 
 struct GrammarField {
     name: Ident,
+    binding: Ident,
     id: usize,
     ty: Type,
     attrs: Vec<Attribute>,
@@ -634,6 +634,16 @@ impl GrammarField {
         } else {
             let name = Index::from(self.id);
             quote! {#name}
+        }
+    }
+
+    fn binding_pair(&self, is_named: bool) -> proc_macro2::TokenStream {
+        let binding = &self.binding;
+        if is_named {
+            let name = &self.name;
+            quote! {#name: #binding}
+        } else {
+            quote! {#binding}
         }
     }
 }
