@@ -510,7 +510,8 @@ where
     }
 
     fn __autarkie_cmps(&self, visitor: &mut Visitor, index: usize, __autarkie_val: (u64, u64)) {
-        self.as_ref().__autarkie_cmps(visitor, index, __autarkie_val);
+        self.as_ref()
+            .__autarkie_cmps(visitor, index, __autarkie_val);
     }
 
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
@@ -873,7 +874,8 @@ where
                         let Some(key) = K::__autarkie_generate(visitor, bias, 0, None) else {
                             return;
                         };
-                        let Some(__autarkie_val) = V::__autarkie_generate(visitor, bias, 0, None) else {
+                        let Some(__autarkie_val) = V::__autarkie_generate(visitor, bias, 0, None)
+                        else {
                             return;
                         };
                         self.insert(key, __autarkie_val);

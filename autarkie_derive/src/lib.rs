@@ -199,9 +199,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                             v.pop_field();
                         }
                     });
-                    let field_names = fields.iter().map(|field| {
-                        field.binding_pair(is_named)
-                    });
+                    let field_names = fields.iter().map(|field| field.binding_pair(is_named));
                     let match_arm = if is_named {
                         quote! {if let #root_name::#variant_name{#(#field_names),*} = self}
                     } else {
@@ -253,9 +251,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                             v.pop_field();
                         }
                     });
-                    let field_names = fields.iter().map(|field| {
-                        field.binding_pair(is_named)
-                    });
+                    let field_names = fields.iter().map(|field| field.binding_pair(is_named));
                     let match_arm = if is_named {
                         quote! {if let #root_name::#variant_name{#(#field_names),*} = self}
                     } else {
@@ -276,9 +272,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
                 fn_cmps.push(fn_cmp);
                 let inner_mutate_variant = if !fields.is_empty() {
-                    let field_names = fields.iter().map(|field| {
-                        field.binding_pair(is_named)
-                    });
+                    let field_names = fields.iter().map(|field| field.binding_pair(is_named));
                     let variant_fields_mutate = fields.iter().map(|field| {
                         let name = &field.binding;
                         let id = &field.id;
@@ -319,9 +313,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
                 inner_mutate.push(inner_mutate_variant);
                 if !fields.is_empty() {
-                    let field_names = fields.iter().map(|field| {
-                        field.binding_pair(is_named)
-                    });
+                    let field_names = fields.iter().map(|field| field.binding_pair(is_named));
                     let serialized_fields = fields.iter().map(|field| {
                         let name = &field.binding;
                         let ty = &field.ty;

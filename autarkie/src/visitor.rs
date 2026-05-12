@@ -280,7 +280,10 @@ impl Visitor {
             let r_variants = variants
                 .get(&GenerateType::Recursive)
                 .expect("____q154Wl5zf2");
-            let ret = self.rng.choose(nr_variants.iter().chain(r_variants)).expect("O3pQMbj8____");
+            let ret = self
+                .rng
+                .choose(nr_variants.iter().chain(r_variants))
+                .expect("O3pQMbj8____");
             let is_recursive = r_variants.contains(ret);
             Some((ret.clone(), is_recursive))
         } else {
