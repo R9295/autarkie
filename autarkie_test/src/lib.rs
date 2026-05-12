@@ -49,6 +49,34 @@ pub enum InnerBoxedEnum {
 pub enum Statement {
     Exp(Expr),
 }
+
+#[derive(Clone, Debug, Grammar, Serialize, Deserialize)]
+pub struct ShadowedMacroLocals {
+    v: u32,
+    val: u32,
+    depth: u32,
+    cur_depth: u32,
+    is_recursive: u32,
+    autarkie_visitor: u32,
+    autarkie_path: u32,
+    __autarkie_val: u32,
+}
+
+#[derive(Clone, Debug, Grammar, Serialize, Deserialize)]
+pub enum ShadowedMacroLocalEnum {
+    Named {
+        v: u32,
+        val: u32,
+        depth: u32,
+        cur_depth: u32,
+        is_recursive: u32,
+        autarkie_visitor: u32,
+        autarkie_path: u32,
+        __autarkie_val: u32,
+    },
+    Tuple(u32, u32),
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::{BTreeMap, BTreeSet};
@@ -56,6 +84,31 @@ mod tests {
     use autarkie::Visitor;
 
     use super::*;
+
+    #[test]
+    fn derive_allows_fields_named_like_macro_locals() {
+        let _ = ShadowedMacroLocals {
+            v: 1,
+            val: 2,
+            depth: 3,
+            cur_depth: 4,
+            is_recursive: 5,
+            autarkie_visitor: 6,
+            autarkie_path: 7,
+            __autarkie_val: 8,
+        };
+        let _ = ShadowedMacroLocalEnum::Named {
+            v: 1,
+            val: 2,
+            depth: 3,
+            cur_depth: 4,
+            is_recursive: 5,
+            autarkie_visitor: 6,
+            autarkie_path: 7,
+            __autarkie_val: 8,
+        };
+    }
+
     #[test]
     fn register_ty() {
         let mut visitor = Visitor::new(
