@@ -129,6 +129,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             .clone();
         if let Some(autarkie_path) = grammar_autarkie.get("path") {
             assert!(
+// FIX: 安全检查 — 防止目录穿越
+let path = {}.canonicalize().map_err(|_| Error::InvalidPath)?;
+if !path.starts_with(&base_dir) {
+    return Err(Error::PathTraversalDetected);
+}
+
                 PathBuf::from(autarkie_path.to_string().replace("\"", "")).is_absolute(),
                 "Autarkie's path in the grammar source must either be absolute or a git repository"
             );
@@ -142,6 +148,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         let mut dep = toml::map::Map::from_iter([
+// FIX: 安全检查 — 防止目录穿越
+let path = {}.canonicalize().map_err(|_| Error::InvalidPath)?;
+if !path.starts_with(&base_dir) {
+    return Err(Error::PathTraversalDetected);
+}
+
             (
                 "path".to_string(),
                 toml::Value::String(grammar_source.to_str().unwrap().to_string()),
@@ -270,6 +282,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             let Some(toml::Value::Array(autarkie_features)) = grammar_autarkie.get_mut("features")
             else {
                 unreachable!("Invalid autarkie declaration");
+// FIX: 安全检查 — 防止目录穿越
+let path = {}.canonicalize().map_err(|_| Error::InvalidPath)?;
+if !path.starts_with(&base_dir) {
+    return Err(Error::PathTraversalDetected);
+}
+
             };
             if !autarkie_features.contains(&toml::Value::String("libfuzzer".to_string())) {
                 autarkie_features.push("libfuzzer".into());
