@@ -1,4 +1,9 @@
 use super::context::{self, MutationMetadata};
+#[cfg(feature = "afl")]
+use super::feedback::ijon::{
+    IjonMaxMinFeedback, IjonMaxMinScheduler, IJON_DEFAULT_SCHEDULE_PERCENT, IJON_MAP_SIZE,
+    IJON_MAX_BYTES,
+};
 use super::feedback::register::RegisterFeedback;
 use super::mutators::iterable_pop::AutarkieIterablePopMutator;
 use super::mutators::recurse::AutarkieRecurseMutator;
@@ -158,6 +163,18 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         }
         map_size
     };
+    #[cfg(feature = "afl")]
+    let observed_map_size = if opt.ijon {
+        if map_size <= IJON_MAP_SIZE + IJON_MAX_BYTES {
+            panic!(
+                "IJON target map too small: got {map_size}, need more than {} bytes",
+                IJON_MAP_SIZE + IJON_MAX_BYTES
+            );
+        }
+        map_size - IJON_MAX_BYTES
+    } else {
+        map_size
+    };
 
     let fuzzer_dir = opt.output_dir.join(format!("{}", core.core_id().0));
     match std::fs::create_dir(&fuzzer_dir) {
@@ -181,14 +198,18 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     }
     #[cfg(feature = "afl")]
     let shmem_buf = shmem.as_slice_mut();
+    #[cfg(feature = "afl")]
+    let (feedback_shmem_buf, ijon_shmem_buf) = shmem_buf.split_at_mut(observed_map_size);
 
     // Create an observation channel to keep track of edges hit.
     #[cfg(feature = "afl")]
     let edges_observer = unsafe {
-        HitcountsMapObserver::new(StdMapObserver::new("edges", shmem_buf))
+        HitcountsMapObserver::new(StdMapObserver::new("edges", feedback_shmem_buf))
             .track_indices()
             .track_novelties()
     };
+    #[cfg(feature = "afl")]
+    let ijon_observer = unsafe { StdMapObserver::new("ijon_max_min", ijon_shmem_buf) };
     #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let counters_map_len = unsafe { COUNTERS_MAPS.len() };
     #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
@@ -262,6 +283,19 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
             RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
         ),
     );
+    #[cfg(feature = "afl")]
+    let mut feedback = feedback_or!(
+        map_feedback,
+        TimeFeedback::new(&time_observer),
+        IjonMaxMinFeedback::new(
+            opt.ijon,
+            &ijon_observer,
+            bytes_converter.clone(),
+            fuzzer_dir.join("ijon"),
+        ),
+        RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone(), false),
+    );
+    #[cfg(not(feature = "afl"))]
     let mut feedback = feedback_or!(
         map_feedback,
         TimeFeedback::new(&time_observer),
@@ -304,6 +338,12 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     if !fuzzer_dir.join("cmps").exists() {
         std::fs::create_dir(fuzzer_dir.join("cmps")).unwrap();
     }
+    #[cfg(feature = "afl")]
+    if opt.ijon {
+        std::fs::create_dir_all(fuzzer_dir.join("ijon").join("structured")).unwrap();
+        std::fs::create_dir_all(fuzzer_dir.join("ijon").join("rendered")).unwrap();
+        std::fs::create_dir_all(fuzzer_dir.join("ijon").join("history")).unwrap();
+    }
 
     let mut context = Context::new(fuzzer_dir.clone(), opt.render);
     let schedule = match core.core_id().0 % 6 {
@@ -317,6 +357,8 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     };
     let scheduler =
         StdWeightedScheduler::with_schedule(&mut state, &edges_observer, Some(schedule));
+    #[cfg(feature = "afl")]
+    let scheduler = IjonMaxMinScheduler::new(scheduler, opt.ijon, IJON_DEFAULT_SCHEDULE_PERCENT);
     let mut fuzzer = StdFuzzerBuilder::new()
         .target_bytes_converter(bytes_converter.clone())
         .scheduler(scheduler)
@@ -334,7 +376,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         .is_deferred_frksrv(true)
         .timeout(Duration::from_millis(opt.hang_timeout * 1000))
         .shmem_provider(&mut shmem_provider)
-        .build_dynamic_map(edges_observer, tuple_list!(time_observer))
+        .build_dynamic_map(edges_observer, tuple_list!(ijon_observer, time_observer))
         .unwrap();
 
     #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
@@ -433,6 +475,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         let cmplog_ref = cmplog_observer.handle();
         let mut cmplog_executor = ForkserverExecutor::builder()
             .program(opt.executable.clone())
+            .env("AFL_NO_IJON", "1")
             .coverage_map_size(map_size)
             .is_persistent(true)
             .timeout(Duration::from_millis(opt.hang_timeout * 1000) * 2)

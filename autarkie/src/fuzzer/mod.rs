@@ -169,6 +169,11 @@ pub(crate) struct Opt {
     #[arg(short = 'e')]
     cmplog: bool,
 
+    /// Enable AFL++ IJON shared-memory feedback handling
+    #[cfg(feature = "afl")]
+    #[arg(long)]
+    ijon: bool,
+
     /// capture strings from the binary (only useful if you have a lot of String nodes)
     #[arg(short = 'S')]
     get_strings: bool,
