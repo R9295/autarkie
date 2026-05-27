@@ -10,6 +10,7 @@ use petgraph::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
+    num::NonZeroUsize,
     path::PathBuf,
 };
 
@@ -42,6 +43,7 @@ pub struct Visitor {
     /// Fields which are serialized by the Fuzz-ed type's instance. Used to save to corpora for splicing
     serialized: Vec<(Vec<u8>, Id)>,
     ty_generate_map: BTreeMap<Id, BTreeMap<GenerateType, BTreeSet<usize>>>,
+    generation_weights: BTreeMap<Id, BTreeMap<usize, usize>>,
     /// State of randomnes
     rng: StdRand,
     has_recursive_types: bool,
@@ -146,6 +148,13 @@ impl Visitor {
                 i.insert(id.0.clone());
             })
             .or_insert(BTreeSet::from_iter([id.0.clone()]));
+    }
+
+    pub fn register_generation_weight(&mut self, id: Id, variant: usize, weight: usize) {
+        self.generation_weights
+            .entry(id)
+            .or_default()
+            .insert(variant, weight);
     }
 
     pub fn pop_ty(&mut self) {
@@ -280,12 +289,13 @@ impl Visitor {
             let r_variants = variants
                 .get(&GenerateType::Recursive)
                 .expect("____q154Wl5zf2");
-            let ret = self
-                .rng
-                .choose(nr_variants.iter().chain(r_variants))
-                .expect("O3pQMbj8____");
-            let is_recursive = r_variants.contains(ret);
-            Some((ret.clone(), is_recursive))
+            let ret = weighted_variant(
+                &mut self.rng,
+                self.generation_weights.get(id),
+                nr_variants.iter().chain(r_variants),
+            )?;
+            let is_recursive = r_variants.contains(&ret);
+            Some((ret, is_recursive))
         } else {
             let nr_variants = variants
                 .get(&GenerateType::NonRecursive)
@@ -293,8 +303,12 @@ impl Visitor {
             if nr_variants.len() == 0 {
                 return None;
             }
-            let ret = self.rng.choose(nr_variants.iter()).expect("eCdWPiyf____");
-            Some((ret.clone(), false))
+            let ret = weighted_variant(
+                &mut self.rng,
+                self.generation_weights.get(id),
+                nr_variants.iter(),
+            )?;
+            Some((ret, false))
         }
     }
     pub fn ty_name_map(&self) -> &BTreeMap<Id, String> {
@@ -321,6 +335,7 @@ impl Visitor {
             serialized: vec![],
             strings: StringPool::new(),
             ty_map: BTreeMap::new(),
+            generation_weights: BTreeMap::new(),
             rng: StdRand::with_seed(seed),
         };
         visitor
@@ -328,6 +343,37 @@ impl Visitor {
             .add_strings(&mut visitor.rng, string_num, 10);
         return visitor;
     }
+}
+
+fn variant_weight(weights: Option<&BTreeMap<usize, usize>>, variant: usize) -> usize {
+    weights
+        .and_then(|weights| weights.get(&variant).copied())
+        .unwrap_or(1)
+}
+
+fn weighted_variant<'a, I>(
+    rng: &mut StdRand,
+    weights: Option<&BTreeMap<usize, usize>>,
+    variants: I,
+) -> Option<usize>
+where
+    I: Iterator<Item = &'a usize> + Clone,
+{
+    let total_weight = variants
+        .clone()
+        .map(|variant| variant_weight(weights, *variant))
+        .fold(0usize, usize::saturating_add);
+
+    let mut pick = rng.below(NonZeroUsize::new(total_weight)?);
+    for variant in variants {
+        let weight = variant_weight(weights, *variant);
+        if pick < weight {
+            return Some(*variant);
+        }
+        pick -= weight;
+    }
+
+    None
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
