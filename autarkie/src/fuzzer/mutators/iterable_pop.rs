@@ -31,6 +31,9 @@ where
         let mut metadata = state.metadata_mut::<Context>()?;
         input.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);
         let mut fields = self.visitor.borrow_mut().fields();
+        if fields.is_empty() {
+            return Ok(MutationResult::Skipped);
+        }
         let field_splice_index = self.visitor.borrow_mut().random_range(0, fields.len() - 1);
         let field = &fields[field_splice_index];
         let ((id, node_ty), ty) = field.last().expect("EfxPNdQ0____");
@@ -46,6 +49,7 @@ where
                     path,
                 );
                 metadata.add_mutation(crate::fuzzer::context::MutationMetadata::IterablePop);
+                return Ok(MutationResult::Mutated);
             }
         }
         Ok(MutationResult::Skipped)

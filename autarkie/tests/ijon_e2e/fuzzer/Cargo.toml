@@ -1,0 +1,20 @@
+# Standalone Autarkie AFL++ fuzzer used by the IJON end-to-end test.
+#
+# It is intentionally a DETACHED workspace (note the empty [workspace] table
+# below) so that building it never pulls in `autarkie_libfuzzer`, whose
+# build.rs panics unless AUTARKIE_GRAMMAR_SRC is set.
+[package]
+name = "autarkie_ijon_e2e"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "autarkie_ijon_e2e"
+path = "src/main.rs"
+
+[dependencies]
+autarkie = { path = "../../..", features = ["derive", "afl"] }
+serde = { version = "1.0", features = ["derive"] }
+
+[workspace]

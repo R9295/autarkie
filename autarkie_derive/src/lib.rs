@@ -6,7 +6,15 @@ mod trait_bounds;
 mod utils;
 use syn::{spanned::Spanned, token::Comma, *};
 
-#[proc_macro_derive(Grammar, attributes(autarkie_literal, autarkie_length, autarkie_range))]
+#[proc_macro_derive(
+    Grammar,
+    attributes(
+        autarkie_literal,
+        autarkie_length,
+        autarkie_range,
+        autarkie_weight
+    )
+)]
 pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut base_parsed = syn::parse_macro_input!(input as syn::DeriveInput);
     let root_name = &base_parsed.ident;
@@ -150,10 +158,16 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let mut fn_cmps = vec![];
             let mut are_we_recursive = vec![];
             let mut register_ty = vec![];
+            let mut register_generation_weights = vec![];
             let mut serialized_inner = vec![];
 
             for (i, variant) in data.variants.iter().enumerate() {
                 let variant_name = &variant.ident;
+                if let Some(weight) = get_variant_weight(&variant.attrs) {
+                    register_generation_weights.push(quote! {
+                        v.register_generation_weight(Self::__autarkie_id(), #i, #weight);
+                    });
+                }
                 let fields = parse_fields(get_fields(&variant.fields));
                 let is_named = matches!(variant.fields, syn::Fields::Named(_));
                 are_we_recursive.push(if !fields.is_empty() {
@@ -374,6 +388,7 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
                     fn __autarkie_register(v: &mut ::autarkie::Visitor, parent: Option<(::autarkie::tree::Id, String)>, variant: usize) {
                         v.register_ty(parent, Self::__autarkie_id_tuple(), variant);
+                        #(#register_generation_weights)*;
                         #(#register_ty)*;
                         v.pop_ty();
                     }
@@ -413,12 +428,11 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                                 }
                                 autarkie::MutationType::RecursiveReplace => {
                                     if self.__autarkie_node_ty(autarkie_visitor).is_recursive() {
-                                        // 0 depth == always non-recursive
-                                    if let Some(generated) = Self::__autarkie_generate(autarkie_visitor, &mut 0, 0, None) {
-                                        *self = generated;
-                                        autarkie_visitor.add_serialized(autarkie::serialize(&self), Self::__autarkie_id());
-                                        self.__autarkie_serialized(autarkie_visitor);
-                                    }
+                                        if let Some(generated) = autarkie_visitor.with_non_recursive(|v| Self::__autarkie_generate(v, &mut 0, 0, None)) {
+                                            *self = generated;
+                                            autarkie_visitor.add_serialized(autarkie::serialize(&self), Self::__autarkie_id());
+                                            self.__autarkie_serialized(autarkie_visitor);
+                                        }
                                     }
                                 }
                                 _  => {
@@ -467,6 +481,30 @@ fn parse_fields(
     fields
 }
 
+fn get_variant_weight(attrs: &[Attribute]) -> Option<usize> {
+    let mut weight = None;
+    for attr in attrs {
+        if let Meta::List(ref list) = attr.meta {
+            let Some(segment) = list.path.segments.first() else {
+                continue;
+            };
+            if segment.ident != "autarkie_weight" {
+                continue;
+            }
+            if weight.is_some() {
+                panic!("autarkie_weight(..) can only be specified once per variant");
+            }
+            let literal = list.parse_args::<LitInt>().unwrap_or_else(|_| {
+                panic!("autarkie_weight(..) needs an unsigned integer literal value")
+            });
+            weight = Some(literal.base10_parse::<usize>().unwrap_or_else(|_| {
+                panic!("autarkie_weight(..) needs an unsigned integer literal value")
+            }));
+        }
+    }
+    weight
+}
+
 fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
     fields
         .iter()
@@ -510,7 +548,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
                                 }();
                             });
                         }
-                    } else if ident == "autarkie_min_length" {
+                    } else if ident == "autarkie_length" {
                         let literals = list
                             .tokens
                             .clone()
@@ -522,7 +560,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
                             })
                             .collect::<Vec<_>>();
                         if literals.len() != 1 {
-                            panic!("autarkie_min_size(..) needs an unsigned integer literal value!");
+                            panic!("autarkie_length(..) needs an unsigned integer literal value!");
                         }
                             let item = literals.first().unwrap();
                             generator = Some(quote! {

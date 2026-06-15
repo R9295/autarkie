@@ -43,7 +43,6 @@ where
                 recursive_node = Some(node);
             }
         }
-        println!("{:?}", recursive_node);
         let mut all = Vec::new();
         let mut start = Some(0);
         if let Some(recursive_node) = recursive_node {
@@ -88,7 +87,15 @@ fn find_subsequence<T: PartialEq>(
     needle: &[T],
     start: Option<usize>,
 ) -> Option<usize> {
-    haystack[start.unwrap_or(0)..]
+    if needle.is_empty() {
+        return None;
+    }
+    let start = start.unwrap_or(0);
+    if start > haystack.len() {
+        return None;
+    }
+    haystack[start..]
         .windows(needle.len())
         .position(|window| window == needle)
+        .map(|relative| start + relative)
 }

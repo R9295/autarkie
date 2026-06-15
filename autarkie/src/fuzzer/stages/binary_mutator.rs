@@ -57,17 +57,19 @@ where
         state: &mut S,
         manager: &mut EM,
     ) -> Result<(), Error> {
+        let Some(len) = NonZero::new(self.inner.len()) else {
+            return Ok(());
+        };
         let mut metadata = state.metadata_mut::<Context>().expect("fxeZamEw____");
         let mut input = crate::serialize(&state.current_input_cloned().expect("9ILr4PEQ____"));
         let mut metadata = state.metadata_mut::<Context>().expect("kW2fTRId____");
         metadata.generated_input();
         for _ in 0..self.stack {
-            let mutation = state
-                .rand_mut()
-                .below(unsafe { NonZero::new(self.inner.len()).unwrap_unchecked() })
-                .into();
+            let mutation = state.rand_mut().below(len).into();
             self.inner.get_and_mutate(mutation, state, &mut input);
             let Some(deserialized) = crate::maybe_deserialize(&mut input.as_slice()) else {
+                let mut metadata = state.metadata_mut::<Context>().expect("____rEsEtBm01");
+                metadata.default_input();
                 return Ok(());
             };
             let mut metadata = state.metadata_mut::<Context>().expect("oBusH4xj____");

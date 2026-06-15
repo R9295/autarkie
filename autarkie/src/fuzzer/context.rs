@@ -71,17 +71,18 @@ impl Context {
                 }
             }
         }
-        let rendered = converter.to_target_bytes(&input);
-        let path = if is_solution {
-            self.out_dir.join("rendered_crashes")
-        } else {
-            self.out_dir.join("rendered_corpus")
-        };
-        let hash = twox_hash::XxHash64::oneshot(0, &rendered);
-        let path = path.join(hash.to_string());
-        if !std::fs::exists(&path).unwrap() {
-            // warn that the same input gave new coverage == instability!
-            std::fs::write(&path, rendered.as_slice()).unwrap();
+        if self.render {
+            let rendered = converter.to_target_bytes(&input);
+            let path = if is_solution {
+                self.out_dir.join("rendered_crashes")
+            } else {
+                self.out_dir.join("rendered_corpus")
+            };
+            let hash = twox_hash::XxHash64::oneshot(0, &rendered);
+            let path = path.join(hash.to_string());
+            if !std::fs::exists(&path).unwrap() {
+                std::fs::write(&path, rendered.as_slice()).unwrap();
+            }
         }
         self.input_cause = InputCause::Default;
     }
@@ -185,5 +186,7 @@ pub enum MutationMetadata {
     CmplogBytes,
     /// I2S
     I2S,
+    /// IJON max feedback
+    Ijon,
     Random,
 }

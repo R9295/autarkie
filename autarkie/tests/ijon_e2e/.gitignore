@@ -1,0 +1,8 @@
+# Build / run artifacts produced by run.sh
+ijon_target
+slot_of
+output*/
+run.log
+.cur_input*
+fuzzer/target/
+fuzzer/Cargo.lock
