@@ -284,6 +284,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         spec.remove("workspace");
                         spec.insert(
                             "version".to_string(),
+                            // AARNAV MAKE SURE TO UPDATE LIBAFL VERSION WHEN UPDATING
                             toml::Value::String(LIBAFL_VERSION.to_string()),
                         );
                     }
