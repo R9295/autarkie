@@ -41,6 +41,8 @@ where
     // TODO: -close_fd_mask from libfuzzer
     #[cfg(feature = "libfuzzer")]
     let monitor = MultiMonitor::new(create_monitor_closure());
+    #[cfg(all(feature = "libfuzzer", target_vendor = "apple"))]
+    register_libfuzzer_shmem_cleanup();
     let shmem_provider = StdShMemProvider::new().expect("Failed to init shared memory");
     #[cfg(any(feature = "afl", feature = "llvm-fuzzer-no-link"))]
     let opt = Opt::parse();
@@ -177,7 +179,7 @@ pub(crate) struct Opt {
     #[arg(long, default_value_t = 500)]
     mutation_stack_size: usize,
 
-    #[cfg(feature = "llvm-fuzzer-no-link")]
+    #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     #[arg(long)]
     run: Option<PathBuf>,
 }
@@ -231,6 +233,25 @@ fn create_monitor_closure() -> impl Fn(&str) + Clone {
 #[cfg(feature = "libfuzzer")]
 /// Communicate the stderr duplicated fd to subprocesses
 pub const STDERR_FD_VAR: &str = "_LIBAFL_LIBFUZZER_STDERR_FD";
+
+#[cfg(all(feature = "libfuzzer", target_vendor = "apple"))]
+fn register_libfuzzer_shmem_cleanup() {
+    use std::sync::Once;
+
+    static REGISTER: Once = Once::new();
+
+    unsafe extern "C" {
+        fn atexit(callback: extern "C" fn()) -> i32;
+    }
+
+    extern "C" fn cleanup() {
+        let _ = std::fs::remove_file("./libafl_unix_shmem_server");
+    }
+
+    REGISTER.call_once(|| unsafe {
+        let _ = atexit(cleanup);
+    });
+}
 
 #[cfg(feature = "llvm-fuzzer-no-link")]
 fn run_file_libfuzzer(input: PathBuf) {
