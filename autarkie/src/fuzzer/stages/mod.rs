@@ -13,4 +13,5 @@ pub mod mutating;
 pub mod mutational;
 pub mod novelty_minimization;
 pub mod recursive_minimization;
+pub mod stability;
 pub mod stats;

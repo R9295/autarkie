@@ -127,6 +127,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             panic!("Autarkie: grammar source Cargo.toml has no [dependencies] table");
         };
         let name = name.get("name").unwrap().to_string();
+        let grammar_patch = grammar_source_toml.get("patch").cloned();
         let mut template: toml::Value = toml::from_str(&std::fs::read_to_string(
             "../autarkie_libfuzzer_runtime/Cargo.toml",
         )?)?;
@@ -209,6 +210,27 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         deps.insert("grammar_source".to_string(), toml::Value::Table(dep));
         deps.insert("autarkie".to_string(), grammar_autarkie);
+        if let Some(toml::Value::Table(mut patch)) = grammar_patch {
+            for (_registry, crates) in patch.iter_mut() {
+                if let toml::Value::Table(crates) = crates {
+                    for (_crate_name, spec) in crates.iter_mut() {
+                        if let toml::Value::Table(spec) = spec {
+                            if let Some(toml::Value::String(p)) = spec.get("path").cloned() {
+                                let p = PathBuf::from(p);
+                                if p.is_relative() {
+                                    let abs = grammar_source.join(p);
+                                    spec.insert(
+                                        "path".to_string(),
+                                        toml::Value::String(abs.to_str().unwrap().to_string()),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            root.insert("patch".to_string(), toml::Value::Table(patch));
+        }
         let serialized = toml::to_string(&template)?;
         fs::write(custom_lib_dir.join("Cargo.toml"), serialized)?;
         command.current_dir(&custom_lib_dir);

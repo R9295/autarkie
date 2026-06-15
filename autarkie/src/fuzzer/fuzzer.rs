@@ -42,6 +42,7 @@ use crate::fuzzer::stages::{
     mutational::AutarkieMutationalStage,
     novelty_minimization::NoveltyMinimizationStage,
     recursive_minimization::RecursiveMinimizationStage,
+    stability::StabilityStage,
     stats::{AutarkieStats, StatsStage},
 };
 use libafl::{
@@ -283,6 +284,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
             RecursiveMinimizationStage::new(Rc::clone(&visitor), &map_feedback),
         ),
     );
+    let stability_stage = StabilityStage::new(&map_feedback);
     #[cfg(feature = "afl")]
     let mut feedback = feedback_or!(
         map_feedback,
@@ -537,6 +539,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     // TODO: I2S for AFL
     #[cfg(feature = "afl")]
     let mut stages = tuple_list!(
+        stability_stage,
         minimization_stage,
         MutatingStageWrapper::new(cmplog, Rc::clone(&visitor)),
         AutarkieCmpLogStage::new(Rc::clone(&visitor)),
@@ -557,6 +560,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     );
     #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let mut stages = tuple_list!(
+        stability_stage,
         minimization_stage,
         tracing,
         AutarkieCmpLogStage::new(Rc::clone(&visitor)),
