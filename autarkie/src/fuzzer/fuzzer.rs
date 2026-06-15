@@ -483,7 +483,14 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
             .build(tuple_list!(cmplog_observer))
             .unwrap();
         let tracing = CmpLogStage::new(Rc::clone(&visitor), cmplog_executor, cmplog_ref);
-        let cmplog = IfStage::new(cb, tuple_list!(tracing));
+        let cmplog_cb = |_fuzzer: &mut _,
+                         _executor: &mut _,
+                         state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
+                         _event_manager: &mut _|
+         -> Result<bool, Error> {
+            Ok(opt.cmplog && state.current_testcase_mut()?.scheduled_count() == 0)
+        };
+        let cmplog = IfStage::new(cmplog_cb, tuple_list!(tracing));
         cmplog
     };
 
@@ -514,6 +521,13 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     let splice_mutator = AutarkieSpliceMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let random_mutator = AutarkieRandomMutator::new(Rc::clone(&visitor), opt.max_subslice_size);
     let splice_append_mutator = AutarkieSpliceAppendMutator::new(Rc::clone(&visitor));
+    let generate_append_mutator = AutarkieGenerateAppendMutator::new(Rc::clone(&visitor));
+    let cb = |_fuzzer: &mut _,
+              _executor: &mut _,
+              state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
+              _event_manager: &mut _|
+     -> Result<bool, Error> { Ok(opt.generate_stage) };
+    let generate_stage = IfStage::new(cb, tuple_list!(GenerateStage::new(Rc::clone(&visitor))));
     #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let i2s = AutarkieBinaryMutatorStage::new(
         tuple_list!(I2SRandReplace::new()),
@@ -529,6 +543,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         AutarkieMutationalStage::new(
             tuple_list!(
                 splice_append_mutator,
+                generate_append_mutator,
                 random_mutator,
                 splice_mutator,
                 AutarkieIterablePopMutator::new(Rc::clone(&visitor))
@@ -536,6 +551,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
             opt.mutation_stack_size,
             Rc::clone(&visitor)
         ),
+        generate_stage,
         StatsStage::new(fuzzer_dir),
         sync_stage,
     );
@@ -547,6 +563,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
         AutarkieMutationalStage::new(
             tuple_list!(
                 splice_append_mutator,
+                generate_append_mutator,
                 random_mutator,
                 splice_mutator,
                 AutarkieIterablePopMutator::new(Rc::clone(&visitor))
@@ -555,6 +572,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
             Rc::clone(&visitor)
         ),
         MutatingStageWrapper::new(i2s, Rc::clone(&visitor)),
+        generate_stage,
         StatsStage::new(fuzzer_dir),
         sync_stage,
     );

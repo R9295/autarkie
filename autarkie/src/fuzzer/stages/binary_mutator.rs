@@ -68,6 +68,8 @@ where
                 .into();
             self.inner.get_and_mutate(mutation, state, &mut input);
             let Some(deserialized) = crate::maybe_deserialize(&mut input.as_slice()) else {
+                let mut metadata = state.metadata_mut::<Context>().expect("____rEsEtBm01");
+                metadata.default_input();
                 return Ok(());
             };
             let mut metadata = state.metadata_mut::<Context>().expect("oBusH4xj____");

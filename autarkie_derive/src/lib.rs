@@ -11,7 +11,6 @@ use syn::{spanned::Spanned, token::Comma, *};
     attributes(
         autarkie_literal,
         autarkie_length,
-        autarkie_min_length,
         autarkie_range,
         autarkie_weight
     )
@@ -429,12 +428,11 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                                 }
                                 autarkie::MutationType::RecursiveReplace => {
                                     if self.__autarkie_node_ty(autarkie_visitor).is_recursive() {
-                                        // 0 depth == always non-recursive
-                                    if let Some(generated) = Self::__autarkie_generate(autarkie_visitor, &mut 0, 0, None) {
-                                        *self = generated;
-                                        autarkie_visitor.add_serialized(autarkie::serialize(&self), Self::__autarkie_id());
-                                        self.__autarkie_serialized(autarkie_visitor);
-                                    }
+                                        if let Some(generated) = autarkie_visitor.with_non_recursive(|v| Self::__autarkie_generate(v, &mut 0, 0, None)) {
+                                            *self = generated;
+                                            autarkie_visitor.add_serialized(autarkie::serialize(&self), Self::__autarkie_id());
+                                            self.__autarkie_serialized(autarkie_visitor);
+                                        }
                                     }
                                 }
                                 _  => {
@@ -550,7 +548,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
                                 }();
                             });
                         }
-                    } else if ident == "autarkie_min_length" {
+                    } else if ident == "autarkie_length" {
                         let literals = list
                             .tokens
                             .clone()
@@ -562,7 +560,7 @@ fn get_field_defs(fields: &[GrammarField]) -> Vec<proc_macro2::TokenStream> {
                             })
                             .collect::<Vec<_>>();
                         if literals.len() != 1 {
-                            panic!("autarkie_min_size(..) needs an unsigned integer literal value!");
+                            panic!("autarkie_length(..) needs an unsigned integer literal value!");
                         }
                             let item = literals.first().unwrap();
                             generator = Some(quote! {

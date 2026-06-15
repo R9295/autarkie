@@ -112,7 +112,11 @@ where
                     &mut self.visitor.borrow_mut(),
                     path.clone(),
                 );
-                let run = fuzzer.evaluate_input(state, executor, manager, &inner)?;
+                executor.observers_mut().pre_exec_all(state, &inner)?;
+                let exit_kind = executor.run_target(fuzzer, state, manager, &inner)?;
+                executor
+                    .observers_mut()
+                    .post_exec_all(state, &inner, &exit_kind)?;
                 let map = &executor.observers()[&self.map_observer_handle]
                     .as_ref()
                     .to_vec();

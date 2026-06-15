@@ -35,8 +35,10 @@ where
             .fields()
             .into_iter()
             .filter(|inner| {
-                let last = inner.last().as_ref().expect("Kf7u2pOx____");
-                matches!(&crate::NodeType::Iterable, last)
+                matches!(
+                    inner.last().map(|l| &l.0 .1),
+                    Some(crate::NodeType::Iterable(..))
+                )
             })
             .collect::<Vec<_>>();
         if fields.len() == 0 {

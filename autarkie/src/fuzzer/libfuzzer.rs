@@ -33,10 +33,10 @@ macro_rules! fuzz_libfuzzer_link_inner {
     ($t: ty) => {
         fn main() {
             let args: Vec<String> = std::env::args().collect();
-            if unsafe { autarkie::libfuzzer_initialize(&args) } == -1 {
+            if unsafe { $crate::libfuzzer_initialize(&args) } == -1 {
                 println!("Warning: LLVMFuzzerInitialize failed with -1");
             }
-            use autarkie::ToTargetBytes;
+            use $crate::ToTargetBytes;
             let mut harness = |input: &$t| {
                 let target = FuzzDataTargetBytesConverter::new().to_target_bytes(&input);
                 unsafe {

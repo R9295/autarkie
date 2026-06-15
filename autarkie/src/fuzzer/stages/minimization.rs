@@ -96,8 +96,7 @@ where
             let ((id, node_ty), ty) = field.last().expect("Wg7NIEGf____");
             if let NodeType::Iterable(is_fixed_len, field_len, inner_ty) = node_ty {
                 let path = VecDeque::from_iter(field.iter().map(|(i, ty)| i.0));
-                // NOTE: -1 because we zero index
-                let mut len = field_len.saturating_sub(1);
+                let mut len = *field_len;
                 let mut counter = 0;
                 if *is_fixed_len {
                     continue;
@@ -112,11 +111,15 @@ where
                         &mut self.visitor.borrow_mut(),
                         path.clone(),
                     );
-                    let run = fuzzer.evaluate_input(state, executor, manager, &inner)?;
-                    let map = &executor.observers()[&self.map_observer_handle]
+                    executor.observers_mut().pre_exec_all(state, &inner)?;
+                    let exit_kind = executor.run_target(fuzzer, state, manager, &inner)?;
+                    executor
+                        .observers_mut()
+                        .post_exec_all(state, &inner, &exit_kind)?;
+                    let map = executor.observers()[&self.map_observer_handle]
                         .as_ref()
                         .how_many_set(&novelties);
-                    if *map == novelties.len() {
+                    if map == novelties.len() {
                         found = true;
                         current = inner;
                         current.__autarkie_fields(&mut self.visitor.borrow_mut(), 0);

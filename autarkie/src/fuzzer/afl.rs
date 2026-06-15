@@ -71,8 +71,12 @@ macro_rules! impl_input {
                 P: AsRef<std::path::Path>,
             {
                 let data = std::fs::read(path)?;
-                let res = autarkie::deserialize::<$t>(&mut data.as_slice());
-                Ok(res)
+                match autarkie::maybe_deserialize::<$t>(&mut data.as_slice()) {
+                    Some(res) => Ok(res),
+                    None => Err(autarkie::LibAFLError::invalid_input(
+                        "____X9pQ2mLt corrupt or foreign testcase; cannot deserialize",
+                    )),
+                }
             }
         }
     };

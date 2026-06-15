@@ -152,7 +152,7 @@ where
         let element_count = if let Some(GenerateSettings::Length(len)) = settings {
             len
         } else if let Some(GenerateSettings::Range(range)) = settings {
-            visitor.random_range(*range.start(), *range.end() + 1)
+            visitor.random_range(*range.start(), *range.end())
         } else {
             visitor.random_range(0, visitor.iterate_depth())
         };
@@ -235,7 +235,12 @@ where
                     *self = cloned.into();
                 }
                 MutationType::RecursiveReplace => {
-                    // TODO
+                    if let Some(generated) =
+                        visitor.with_non_recursive(|v| Self::__autarkie_generate(v, &mut 0, 0, None))
+                    {
+                        *self = generated;
+                        self.__autarkie_serialized(visitor);
+                    }
                 }
             }
         }
@@ -366,7 +371,7 @@ where
         let element_count = if let Some(GenerateSettings::Length(len)) = settings {
             len
         } else if let Some(GenerateSettings::Range(range)) = settings {
-            visitor.random_range(*range.start(), *range.end() + 1)
+            visitor.random_range(*range.start(), *range.end())
         } else {
             visitor.random_range(0, visitor.iterate_depth())
         };
@@ -437,7 +442,12 @@ where
                     self.remove(*bias);
                 }
                 MutationType::RecursiveReplace => {
-                    // TODO
+                    if let Some(generated) =
+                        visitor.with_non_recursive(|v| Self::__autarkie_generate(v, &mut 0, 0, None))
+                    {
+                        *self = generated;
+                        self.__autarkie_serialized(visitor);
+                    }
                 }
             }
         }
@@ -778,6 +788,7 @@ impl Node for std::string::String {
     }
 }
 
+#[cfg(not(feature = "scale"))]
 impl Node for Box<str> {
     fn __autarkie_generate(
         visitor: &mut Visitor,
@@ -798,12 +809,15 @@ impl Node for char {
         cur_depth: usize,
         settings: Option<GenerateSettings>,
     ) -> Option<Self> {
-        Some(
-            char::from_u32(
-                u32::__autarkie_generate(visitor, depth, cur_depth, None).expect("bHh7B75Y____"),
-            )
-            .unwrap_or_default(),
-        )
+        const SURROGATE_START: u32 = 0xD800;
+        const SURROGATE_COUNT: u32 = 0x800;
+        const VALID_SCALARS: u32 = 0x110000 - SURROGATE_COUNT;
+        let raw = u32::__autarkie_generate(visitor, depth, cur_depth, None).expect("bHh7B75Y____");
+        let mut scalar = raw % VALID_SCALARS;
+        if scalar >= SURROGATE_START {
+            scalar += SURROGATE_COUNT;
+        }
+        Some(char::from_u32(scalar).unwrap_or('\0'))
     }
 }
 
@@ -818,7 +832,32 @@ where
         cur_depth: usize,
         settings: Option<GenerateSettings>,
     ) -> Option<Self> {
-        Some(BTreeMap::new())
+        let element_count = if let Some(GenerateSettings::Length(len)) = settings {
+            len
+        } else if let Some(GenerateSettings::Range(range)) = settings {
+            visitor.random_range(*range.start(), *range.end())
+        } else {
+            visitor.random_range(0, visitor.iterate_depth())
+        };
+        let mut map = BTreeMap::new();
+        let max_attempts = element_count.saturating_mul(4).saturating_add(8);
+        let mut attempts = 0;
+        while map.len() < element_count && attempts < max_attempts {
+            attempts += 1;
+            let k = K::__autarkie_generate(visitor, &mut 0, cur_depth, None)?;
+            let v = V::__autarkie_generate(visitor, &mut 0, cur_depth, None)?;
+            map.insert(k, v);
+        }
+        Some(map)
+    }
+
+    fn __autarkie_register(v: &mut Visitor, parent: Option<(Id, String)>, variant: usize) {
+        if !v.is_recursive(<(K, V)>::__autarkie_id()) {
+            <(K, V)>::__autarkie_register(v, parent, variant);
+        } else {
+            v.register_ty(parent, <(K, V)>::__autarkie_id_tuple(), variant);
+            v.pop_ty();
+        }
     }
 
     fn __autarkie_fields(&self, visitor: &mut Visitor, index: usize) {
@@ -843,7 +882,7 @@ where
     }
 
     fn __autarkie_node_ty(&self, visitor: &Visitor) -> NodeType {
-        NodeType::Iterable(false, self.len(), Self::__autarkie_id())
+        NodeType::Iterable(false, self.len(), <(K, V)>::__autarkie_id())
     }
 
     fn __autarkie_mutate(
@@ -881,6 +920,17 @@ where
                         self.insert(key, __autarkie_val);
                         self.__autarkie_serialized(visitor);
                         visitor.add_serialized(serialize(self), Self::__autarkie_id());
+                    }
+                    MutationType::RecursiveReplace => {
+                        let key = visitor
+                            .with_non_recursive(|v| K::__autarkie_generate(v, &mut 0, 0, None));
+                        let val = visitor
+                            .with_non_recursive(|v| V::__autarkie_generate(v, &mut 0, 0, None));
+                        if let (Some(key), Some(val)) = (key, val) {
+                            self.insert(key, val);
+                            self.__autarkie_serialized(visitor);
+                            visitor.add_serialized(serialize(self), Self::__autarkie_id());
+                        }
                     }
                     _ => unreachable!(),
                 }
@@ -934,7 +984,13 @@ where
                         .expect("WDZstzcR____");
                 }
                 MutationType::RecursiveReplace => {
-                    // TODO
+                    if let Some(generated) =
+                        visitor.with_non_recursive(|v| Self::__autarkie_generate(v, &mut 0, 0, None))
+                    {
+                        *self = generated;
+                        self.__autarkie_serialized(visitor);
+                        visitor.add_serialized(serialize(self), Self::__autarkie_id());
+                    }
                 }
             }
         }
@@ -942,6 +998,10 @@ where
 
     fn __autarkie_serialized(&self, visitor: &mut Visitor) {
         for (k, v) in self {
+            visitor.add_serialized(
+                serialize(&(k.clone(), v.clone())),
+                <(K, V)>::__autarkie_id(),
+            );
             visitor.add_serialized(serialize(&k), K::__autarkie_id());
             k.__autarkie_serialized(visitor);
             visitor.add_serialized(serialize(&v), V::__autarkie_id());
@@ -1049,13 +1109,15 @@ macro_rules! impl_generate_simple {
                 cur_depth: usize,
                 settings: Option<GenerateSettings>,
             ) -> Option<Self> {
-                let mut res = deserialize::<Self>(&mut v.generate_bytes($num_bytes).as_slice());
                 if let Some(GenerateSettings::Range(range)) = settings {
-                    res = res % (*range.end() as Self);
-                    if res < *range.start() as Self {
-                        res = (*range.start() as Self);
+                    let start = *range.start();
+                    let end = *range.end();
+                    if end < start {
+                        return None;
                     }
-                };
+                    return Some(v.random_range(start, end) as Self);
+                }
+                let res = deserialize::<Self>(&mut v.generate_bytes($num_bytes).as_slice());
                 Some(res)
             }
             fn __autarkie_cmps(&self, v: &mut Visitor, index: usize, __autarkie_val: (u64, u64)) {
@@ -1076,12 +1138,12 @@ impl_generate_simple!(u8, 1);
 impl_generate_simple!(u16, 2);
 impl_generate_simple!(u32, 4);
 impl_generate_simple!(u64, 8);
-impl_generate_simple!(u128, 32);
+impl_generate_simple!(u128, 16);
 impl_generate_simple!(i8, 1);
 impl_generate_simple!(i16, 2);
 impl_generate_simple!(i32, 4);
 impl_generate_simple!(i64, 8);
-impl_generate_simple!(i128, 32);
+impl_generate_simple!(i128, 16);
 #[cfg(not(feature = "scale"))]
 impl_generate_simple!(isize, 8);
 #[cfg(not(feature = "scale"))]

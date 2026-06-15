@@ -47,6 +47,7 @@ pub struct Visitor {
     /// State of randomnes
     rng: StdRand,
     has_recursive_types: bool,
+    force_non_recursive: bool,
 }
 
 impl Visitor {
@@ -182,7 +183,7 @@ impl Visitor {
             }
         }
         let cycles = crate::graph::find_cycles(&g);
-        for cycle in cycles {
+        for cycle in &cycles {
             let (root_ty, root_variant) = cycle.first().unwrap();
             let root = self.ty_map.get(cycle.first().unwrap().0).unwrap();
             let (last_ty, last_variant) = cycle.last().unwrap();
@@ -230,12 +231,38 @@ impl Visitor {
                 }
             }
         }
+        let mut sorted_cycles = cycles.iter().collect::<Vec<_>>();
+        sorted_cycles.sort();
+        for cycle in sorted_cycles {
+            let already_broken = cycle.iter().any(|(ty, variant)| {
+                *variant >= 0
+                    && recursive_nodes
+                        .get(*ty)
+                        .map_or(false, |variants| variants.contains(&(*variant as usize)))
+            });
+            if already_broken {
+                continue;
+            }
+            let endpoint = cycle
+                .iter()
+                .filter(|(_, variant)| *variant >= 0)
+                .max_by_key(|(ty, variant)| {
+                    (self.ty_map.get(*ty).map(|m| m.len()).unwrap_or(0), **ty, *variant)
+                });
+            if let Some((ty, variant)) = endpoint {
+                recursive_nodes
+                    .entry(**ty)
+                    .and_modify(|inner: &mut BTreeSet<usize>| {
+                        inner.insert(*variant as usize);
+                    })
+                    .or_insert(BTreeSet::from_iter([*variant as usize]));
+            }
+        }
         for (ty, map) in &self.ty_map {
             let r_variants = recursive_nodes
                 .get(ty)
                 .unwrap_or(&BTreeSet::default())
                 .clone();
-            self.has_recursive_types = true;
             self.ty_generate_map.insert(
                 ty.clone(),
                 BTreeMap::from_iter([(GenerateType::Recursive, r_variants.clone())]),
@@ -257,6 +284,7 @@ impl Visitor {
                     nr_variants,
                 )]));
         }
+        self.has_recursive_types = !recursive_nodes.is_empty();
         return recursive_nodes;
     }
 
@@ -280,7 +308,7 @@ impl Visitor {
     /// If we do not have any non-recursive variants we return None and the Input
     /// generation/mutation fails.
     pub fn generate(&mut self, id: &Id, depth: usize) -> Option<(usize, bool)> {
-        let consider_recursive = depth < self.depth.generate;
+        let consider_recursive = depth < self.depth.generate && !self.force_non_recursive;
         let variants = self.ty_generate_map.get(&id).expect("pxc9jCnK____");
         if consider_recursive {
             let nr_variants = variants
@@ -311,6 +339,14 @@ impl Visitor {
             Some((ret, false))
         }
     }
+    pub fn with_non_recursive<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
+        let prev = self.force_non_recursive;
+        self.force_non_recursive = true;
+        let res = f(self);
+        self.force_non_recursive = prev;
+        res
+    }
+
     pub fn ty_name_map(&self) -> &BTreeMap<Id, String> {
         &self.ty_name_map
     }
@@ -324,6 +360,7 @@ impl Visitor {
     pub fn new(seed: u64, depth: DepthInfo, string_num: usize) -> Self {
         let mut visitor = Self {
             has_recursive_types: false,
+            force_non_recursive: false,
             ty_generate_map: BTreeMap::default(),
             ty_name_map: BTreeMap::default(),
             ty_done: BTreeSet::default(),
@@ -431,6 +468,9 @@ pub struct StringPool {
 impl StringPool {
     /// Fetch a random string from the string pool
     pub fn get_string(&mut self, r: &mut StdRand) -> String {
+        if self.strings.is_empty() {
+            return String::new();
+        }
         let string_count = self.strings.len() - 1;
         let index = r.between(0, string_count);
         self.strings.get(index).expect("5hxil4dq____").clone()

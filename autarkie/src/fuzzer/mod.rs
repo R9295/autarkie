@@ -54,8 +54,12 @@ where
     #[cfg(feature = "libfuzzer")]
     let opt = {
         let mut opt = std::env::args().collect::<Vec<_>>();
-        opt.remove(1);
-        opt.remove(opt.len() - 1);
+        if opt.len() > 1 {
+            opt.remove(1);
+        }
+        if opt.len() > 1 {
+            opt.remove(opt.len() - 1);
+        }
         Opt::parse_from(opt)
     };
 
@@ -192,8 +196,12 @@ macro_rules! debug_grammar {
     ($t:ty) => {
         fn main() {
             use autarkie::{Node, Visitor};
+            let seed = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos() as u64)
+                .unwrap_or(0);
             let mut visitor = Visitor::new(
-                $crate::fuzzer::current_nanos(),
+                seed,
                 $crate::DepthInfo {
                     generate: 2,
                     iterate: 5,
@@ -206,10 +214,10 @@ macro_rules! debug_grammar {
             loop {
                 println!(
                     "{:?}",
-                    <$t>::__autarkie_generate(&mut visitor, &mut gen_depth.clone(), &mut 0)
+                    <$t>::__autarkie_generate(&mut visitor, &mut gen_depth.clone(), 0, None)
                 );
                 println!("--------------------------------");
-                std::thread::sleep(Duration::from_millis(500))
+                std::thread::sleep(std::time::Duration::from_millis(500))
             }
         }
     };

@@ -74,8 +74,8 @@ where
                         reduced.insert((left, right));
                     } else {
                         if let CmpValues::Bytes((left, right)) = i {
-                            reduced_bytes.insert(left.as_slice().to_vec());
-                            reduced_bytes.insert(right.as_slice().to_vec());
+                            reduced_bytes
+                                .insert((left.as_slice().to_vec(), right.as_slice().to_vec()));
                         }
                     }
                 }
@@ -91,35 +91,38 @@ where
                     reduced.insert((left, right));
                 } else {
                     if let CmpValues::Bytes((left, right)) = i {
-                        reduced_bytes.insert(left.as_slice().to_vec());
-                        reduced_bytes.insert(right.as_slice().to_vec());
+                        reduced_bytes.insert((left.as_slice().to_vec(), right.as_slice().to_vec()));
                     }
                 }
             }
         };
-        let mut unmutated_input_bytes = crate::serialize(&unmutated_input);
-        for cmp_chunk in reduced_bytes {
-            let mut start = None;
-            while let Some(index) = find_subsequence(&unmutated_input_bytes, &cmp_chunk, start) {
-                let mut cloned = unmutated_input_bytes.clone();
-                cloned.splice(index..index + cmp_chunk.len(), cmp_chunk.to_vec());
-                start = Some(index + cmp_chunk.len());
-                #[cfg(feature = "bincode")]
-                let Some(deserialized) = crate::maybe_deserialize(&cloned) else {
+        let original_bytes = crate::serialize(&unmutated_input);
+        for (left, right) in reduced_bytes {
+            for (needle, replacement) in [(&left, &right), (&right, &left)] {
+                if needle.is_empty() {
                     continue;
-                };
-                #[cfg(not(feature = "bincode"))]
-                let Some(deserialized) = crate::maybe_deserialize(&mut cloned.as_slice()) else {
-                    continue;
-                };
-                unmutated_input_bytes = cloned;
-                state.metadata_mut::<Context>().unwrap().generated_input();
-                state
-                    .metadata_mut::<Context>()
-                    .unwrap()
-                    .add_mutation(MutationMetadata::CmplogBytes);
-                let res = fuzzer.evaluate_input(state, executor, manager, &deserialized)?;
-                state.metadata_mut::<Context>().unwrap().default_input();
+                }
+                let mut start = None;
+                while let Some(index) = find_subsequence(&original_bytes, needle, start) {
+                    start = Some(index + needle.len());
+                    let mut cloned = original_bytes.clone();
+                    cloned.splice(index..index + needle.len(), replacement.iter().copied());
+                    #[cfg(feature = "bincode")]
+                    let Some(deserialized) = crate::maybe_deserialize(&cloned) else {
+                        continue;
+                    };
+                    #[cfg(not(feature = "bincode"))]
+                    let Some(deserialized) = crate::maybe_deserialize(&mut cloned.as_slice()) else {
+                        continue;
+                    };
+                    state.metadata_mut::<Context>().unwrap().generated_input();
+                    state
+                        .metadata_mut::<Context>()
+                        .unwrap()
+                        .add_mutation(MutationMetadata::CmplogBytes);
+                    let res = fuzzer.evaluate_input(state, executor, manager, &deserialized)?;
+                    state.metadata_mut::<Context>().unwrap().default_input();
+                }
             }
         }
 
@@ -135,12 +138,13 @@ where
                     .add_mutation(MutationMetadata::Cmplog);
                 #[cfg(debug_assertions)]
                 println!("cmplog_splice | one | {:?}", path.0);
-                unmutated_input.__autarkie_mutate(
+                let mut candidate = unmutated_input.clone();
+                candidate.__autarkie_mutate(
                     &mut MutationType::Splice(&mut serialized_alternative),
                     &mut self.visitor.borrow_mut(),
                     cmp_path,
                 );
-                fuzzer.evaluate_input(state, executor, manager, &unmutated_input)?;
+                fuzzer.evaluate_input(state, executor, manager, &candidate)?;
             }
         }
 
@@ -159,7 +163,48 @@ impl<I, S> Restartable<S> for AutarkieCmpLogStage<I> {
 }
 
 fn find_subsequence(haystack: &[u8], needle: &[u8], start: Option<usize>) -> Option<usize> {
-    haystack[start.unwrap_or(0)..]
+    if needle.is_empty() {
+        return None;
+    }
+    let start = start.unwrap_or(0);
+    if start > haystack.len() {
+        return None;
+    }
+    haystack[start..]
         .windows(needle.len())
         .position(|window| window == needle)
+        .map(|relative| start + relative)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::find_subsequence;
+
+    #[test]
+    fn returns_absolute_offsets_for_repeated_needle() {
+        let haystack = b"abXYabXYab";
+        let needle = b"ab";
+        let first = find_subsequence(haystack, needle, None).expect("first");
+        assert_eq!(first, 0);
+        let second =
+            find_subsequence(haystack, needle, Some(first + needle.len())).expect("second");
+        assert_eq!(second, 4);
+        let third =
+            find_subsequence(haystack, needle, Some(second + needle.len())).expect("third");
+        assert_eq!(third, 8);
+        assert_eq!(
+            find_subsequence(haystack, needle, Some(third + needle.len())),
+            None
+        );
+    }
+
+    #[test]
+    fn empty_needle_is_none_not_panic() {
+        assert_eq!(find_subsequence(b"anything", b"", None), None);
+    }
+
+    #[test]
+    fn start_past_end_is_none() {
+        assert_eq!(find_subsequence(b"ab", b"ab", Some(99)), None);
+    }
 }

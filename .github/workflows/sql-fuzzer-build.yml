@@ -7,6 +7,40 @@ on:
     branches: [ master ]
 
 jobs:
+  version-drift-check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout autarkie repository
+      uses: actions/checkout@v4
+
+    - name: Check autarkie_derive path-dep version is in sync
+      run: |
+        REQ=$(grep -oP 'autarkie_derive\s*=\s*\{[^}]*version\s*=\s*"\K[^"]+' autarkie/Cargo.toml)
+        ACTUAL=$(grep -oP '^version\s*=\s*"\K[^"]+' autarkie_derive/Cargo.toml | head -1)
+        echo "autarkie requires autarkie_derive = \"$REQ\"; autarkie_derive is \"$ACTUAL\""
+        if [ "$REQ" != "$ACTUAL" ]; then
+          echo "::error::autarkie_derive version drift: autarkie/Cargo.toml requires $REQ but autarkie_derive/Cargo.toml is $ACTUAL"
+          exit 1
+        fi
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout autarkie repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@nightly
+
+    - name: Run derive fixture tests
+      run: cargo test -p autarkie_test
+
+    - name: Run core tests (afl feature)
+      run: cargo test -p autarkie --features derive,afl
+
+    - name: Build benches (catch API drift)
+      run: cargo build -p autarkie --benches --features derive
+
   build-sql-fuzzer:
     runs-on: ubuntu-latest
 

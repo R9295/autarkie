@@ -1,5 +1,5 @@
 use autarkie::fuzzer::context::Context;
-use autarkie::fuzzer::mutators::recurse_mutate::AutarkieRecurseMutator;
+use autarkie::fuzzer::mutators::random::AutarkieRandomMutator;
 use autarkie::fuzzer::mutators::splice::AutarkieSpliceMutator;
 use autarkie::fuzzer::mutators::splice_append::AutarkieSpliceAppendMutator;
 use autarkie::{impl_converter, impl_hash, impl_input, DepthInfo};
@@ -43,14 +43,14 @@ fn benchmark_mutators(c: &mut Criterion) {
         generate: 2,
         iterate: 5,
     };
-    let mut visitor = Visitor::new(0, generate_depth);
+    let mut visitor = Visitor::new(0, generate_depth, 50);
     Data::__autarkie_register(&mut visitor, None, 0);
     visitor.calculate_recursion();
     let visitor = Rc::new(RefCell::new(visitor));
     let mut splice_mutator =
         AutarkieSpliceMutator::<Data>::new(Rc::clone(&visitor), visitor.borrow().iterate_depth());
     let mut random_mutator =
-        AutarkieRecurseMutator::<Data>::new(Rc::clone(&visitor), visitor.borrow().iterate_depth());
+        AutarkieRandomMutator::<Data>::new(Rc::clone(&visitor), visitor.borrow().iterate_depth());
     let mut append_mutator = AutarkieSpliceAppendMutator::<Data>::new(Rc::clone(&visitor));
     let temp = TempDir::new("autarkie").unwrap();
     let fuzzer_dir = temp.path().to_path_buf();
@@ -89,12 +89,7 @@ fn benchmark_mutators(c: &mut Criterion) {
             .metadata_mut::<Context>()
             .expect("we must have context!");
         metadata.generated_input();
-        metadata.register_input(
-            &input,
-            &mut visitor.borrow_mut(),
-            &mut bytes_converter,
-            None,
-        );
+        metadata.register_input(&input, &mut visitor.borrow_mut(), &mut bytes_converter, false);
         metadata.default_input();
     }
     c.bench_function("splice_mutator", |b| {
