@@ -1,8 +1,5 @@
 # FUTURE.md — Enhancements, rated and sorted
 
-Merged and de-duplicated from `BESSER.md` (B1–B9) and `ENHANCEMENTS.md` (E1–E16).
-The two lists overlap heavily; each entry below cites its source(s).
-
 **Scales**
 - **Ease (1–5):** 5 = trivial, localized (hours); 4 = small & contained (~a day);
   3 = moderate, some design (a few days); 2 = a new subsystem; 1 = large/architectural.
