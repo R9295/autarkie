@@ -53,11 +53,11 @@ where
         manager: &mut EM,
     ) -> Result<(), Error> {
         let mut current = state.current_input_cloned().unwrap();
+        let Some(len) = NonZero::new(self.inner.len()) else {
+            return Ok(());
+        };
         for i in 0..self.stack {
-            let idx = state
-                .rand_mut()
-                .below(unsafe { NonZero::new(self.inner.len()).unwrap_unchecked() })
-                .into();
+            let idx = state.rand_mut().below(len).into();
             if self.inner.get_and_mutate(idx, state, &mut current)? == MutationResult::Mutated {
                 fuzzer.evaluate_input(state, executor, manager, &current)?;
             }
