@@ -4,6 +4,7 @@ use super::feedback::ijon::{
     IjonMaxMinFeedback, IjonMaxMinScheduler, IJON_DEFAULT_SCHEDULE_PERCENT, IJON_MAP_SIZE,
     IJON_MAX_BYTES,
 };
+use super::feedback::crash_info::CrashInfoFeedback;
 use super::feedback::register::RegisterFeedback;
 use super::mutators::iterable_pop::AutarkieIterablePopMutator;
 use super::mutators::recurse::AutarkieRecurseMutator;
@@ -61,7 +62,7 @@ use libafl::{
     mutators::{
         havoc_mutations, havoc_mutations_no_crossover, tokens_mutations, HavocScheduledMutator,
     },
-    observers::{CanTrack, HitcountsMapObserver, StdMapObserver, TimeObserver},
+    observers::{CanTrack, HitcountsMapObserver, StdErrObserver, StdMapObserver, TimeObserver},
     schedulers::{powersched::PowerSchedule, QueueScheduler, StdWeightedScheduler},
     stages::{IfStage, StdMutationalStage, StdPowerMutationalStage},
     state::{HasCorpus, HasCurrentTestcase, StdState},
@@ -257,6 +258,14 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
     // Create a MapFeedback for coverage guided fuzzin'
     let map_feedback = MaxMapFeedback::new(&edges_observer);
     let time_observer = TimeObserver::new("time");
+    let mut stderr_observer = if opt.crash_info {
+        StdErrObserver::new("autarkie_stderr".into())?
+    } else {
+        StdErrObserver::new_piped("autarkie_stderr".into())?
+    };
+    let stderr_handle = stderr_observer.handle();
+    #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
+    let stderr_raw_fd = stderr_observer.as_raw_fd();
     let cb = |_fuzzer: &mut _,
               _executor: &mut _,
               state: &mut StdState<CachedOnDiskCorpus<I>, I, StdRand, OnDiskCorpus<I>>,
@@ -313,6 +322,7 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
             )
         ),
         RegisterFeedback::new(Rc::clone(&visitor), bytes_converter.clone(), true),
+        CrashInfoFeedback::new(opt.crash_info, stderr_handle.clone(), fuzzer_dir.join("crash")),
     );
 
     // Initialize our State if necessary
@@ -370,28 +380,49 @@ define_run_client!(state, mgr, core, bytes_converter, opt, harness, {
 
     // Create our Executor
     #[cfg(feature = "afl")]
-    let mut executor = ForkserverExecutor::builder()
-        .program(opt.executable.clone())
-        .coverage_map_size(map_size)
-        .debug_child(opt.debug_child)
-        .is_persistent(true)
-        .is_deferred_frksrv(true)
-        .timeout(Duration::from_millis(opt.hang_timeout * 1000))
-        .shmem_provider(&mut shmem_provider)
-        .build_dynamic_map(edges_observer, tuple_list!(ijon_observer, time_observer))
-        .unwrap();
+    if opt.crash_info && opt.debug_child {
+        println!("____crashInfoDebugChild -C ignores -d (debug_child); stderr is captured instead");
+    }
+    #[cfg(feature = "afl")]
+    let mut executor = {
+        let mut builder = ForkserverExecutor::builder()
+            .program(opt.executable.clone())
+            .coverage_map_size(map_size)
+            .debug_child(opt.debug_child && !opt.crash_info)
+            .is_persistent(true)
+            .is_deferred_frksrv(true)
+            .timeout(Duration::from_millis(opt.hang_timeout * 1000))
+            .shmem_provider(&mut shmem_provider);
+        if opt.crash_info {
+            builder = builder.stderr_observer(stderr_handle.clone());
+        }
+        builder
+            .build_dynamic_map(
+                edges_observer,
+                tuple_list!(ijon_observer, time_observer, stderr_observer),
+            )
+            .unwrap()
+    };
 
     #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let mut harness = harness.unwrap();
     #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let mut executor = InProcessExecutor::with_timeout(
         &mut harness,
-        tuple_list!(edges_observer, time_observer),
+        tuple_list!(edges_observer, time_observer, stderr_observer),
         &mut fuzzer,
         &mut state,
         &mut mgr,
         Duration::from_millis(opt.hang_timeout * 1000),
     )?;
+    #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
+    if opt.crash_info {
+        if let Some(fd) = stderr_raw_fd {
+            unsafe {
+                libc::dup2(fd, libc::STDERR_FILENO);
+            }
+        }
+    }
     #[cfg(any(feature = "libfuzzer", feature = "llvm-fuzzer-no-link"))]
     let mut executor = ShadowExecutor::new(executor, tuple_list!(cmplog_observer));
     // Setup a tracing stage in which we log comparisons

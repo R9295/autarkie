@@ -20,6 +20,7 @@ petgraph = "0.7.1"
 clap = { version = "4.5.20", features = ["derive"] }
 
 regex = "1.11.1"
+libc = "0.2"
 num-traits = "0.2.19"
 serde_json = "1.0.140"
 twox-hash = "2.1.1"

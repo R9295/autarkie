@@ -133,6 +133,10 @@ pub(crate) struct Opt {
     #[arg(short = 'r')]
     render: bool,
 
+    /// Write target crash output (stack trace / ASAN report) to <crash>.txt
+    #[arg(short = 'C', long = "crash-info")]
+    crash_info: bool,
+
     /// broker port
     #[arg(short = 'p', default_value_t = 4000)]
     broker_port: u16,

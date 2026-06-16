@@ -146,6 +146,7 @@ dependencies = [
  "libafl",
  "libafl_bolts",
  "libafl_targets",
+ "libc",
  "num-traits",
  "parity-scale-codec",
  "petgraph",
